@@ -21,7 +21,9 @@ defmodule GtBridge.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:msgpax, "~> 2.4"}
+      {:msgpax, "~> 2.4"},
+      {:typed_struct, "~> 0.3.0"},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
