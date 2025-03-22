@@ -7,7 +7,7 @@ defmodule GtBridge.Supervisor do
 
   @impl true
   def init(_args) do
-    children = [{EvaluationSupervisor, []}]
+    children = [{EvaluationSupervisor, []}, {Tcp.Supervisor, []}]
     Supervisor.init(children, strategy: :one_for_one)
   end
 end
