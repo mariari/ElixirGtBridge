@@ -1,13 +1,18 @@
 defmodule Eval do
   use GenServer
+  use TypedStruct
+
+  typedstruct do
+    field(:bindings, Code.binding())
+  end
 
   def start_link(init_args) do
     GenServer.start_link(__MODULE__, init_args)
   end
 
   @impl true
-  def init(init_arg) do
-    {:ok, init_arg}
+  def init(_init_arg) do
+    {:ok, %__MODULE__{bindings: []}}
   end
 
   ############################################################
@@ -23,9 +28,10 @@ defmodule Eval do
   #                    Genserver Behavior                    #
   ############################################################
 
-  # TODO Handle bindings
+  # TODO garbage collect old values in the environment after a while
   @impl true
-  def handle_call({:eval, string}, _from, state) do
-    {:reply, Code.eval_string(string), state}
+  def handle_call({:eval, string}, _from, state = %__MODULE__{}) do
+    {term, new_bindings} = Code.eval_string(string, state.bindings)
+    {:reply, term, %__MODULE__{state | bindings: new_bindings ++ state.bindings}}
   end
 end
