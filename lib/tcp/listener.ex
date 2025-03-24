@@ -287,6 +287,6 @@ defmodule Tcp.Listener do
   defp create_new_connection(socket) do
     args = [socket: socket]
 
-    DynamicSupervisor.start_child(Tcp.Supervisor, {TCP.Connection, args})
+    DynamicSupervisor.start_child(Tcp.Supervisor, {Tcp.Connection, args})
   end
 end
