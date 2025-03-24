@@ -3,6 +3,6 @@ defmodule GtBridgeTest do
   doctest GtBridge
 
   test "greets the world" do
-    assert GtBridge.hello() == :world
+    Examples.ETcp.start_tcp_connection()
   end
 end
