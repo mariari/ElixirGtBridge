@@ -1,4 +1,9 @@
 defmodule Tcp.Connection do
+  @moduledoc """
+  I am the TCP Connection for MsgPack messages
+
+  If you are looking for HTTP messages please use someone else.
+  """
   require Logger
 
   use GenServer

@@ -1,9 +1,11 @@
 defmodule Tcp.Supervisor do
   @moduledoc """
-  I am a TCP Supervisor, I supervise TCP Listeners and Connections
+  I am a TCP Supervisor, I supervise TCP Listeners and Connections.
+
+  I am useful when trying to talk to the bridge over `msgpack`.
 
   There are no default TCP Listeners by default, instead I expect you
-  to instruct me to spawn up listeners
+  to instruct me to spawn up listeners.
   """
   use DynamicSupervisor
 
