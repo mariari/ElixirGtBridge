@@ -3,10 +3,7 @@ defmodule Examples.ETcp do
 
   @spec start_listener() :: :ignore | {:error, any()} | {:ok, pid()} | {:ok, pid(), any()}
   def start_listener(port \\ 0) do
-    DynamicSupervisor.start_child(
-      Tcp.Supervisor,
-      {Tcp.Listener, [host: {0, 0, 0, 0}, port: port]}
-    )
+    GtBridge.start_listener(port)
   end
 
   @spec start_tcp_connection(integer()) :: {:ok, port()}
