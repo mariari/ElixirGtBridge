@@ -4,7 +4,6 @@ defmodule GtBridge.Http.Router do
   def call(conn, config) do
     conn
     |> assign(:pharo_client, config[:pharo_client])
-    |> assign(:eval, config[:eval])
     |> put_resp_content_type("application/json")
     |> super(config)
   end
@@ -12,6 +11,9 @@ defmodule GtBridge.Http.Router do
   def init(opts), do: opts
 
   plug(:match)
+  plug Plug.Parsers, parsers: [:json],
+                     pass: ["application/json", "text/json"],
+                     json_decoder: Jason
   plug(:dispatch)
 
   get "/" do
@@ -29,13 +31,11 @@ defmodule GtBridge.Http.Router do
 
   # We get a notify to begin with, we should forward it properly
   post "/ENQUEUE" do
-    {:ok, body, conn} = Plug.Conn.read_body(conn)
-    IO.puts(body)
+    {:ok, _, conn} = Plug.Conn.read_body(conn)
+    body = conn.body_params
 
     if body["statements"] != "" do
-      eval = conn.assigns.eval
-      result = GenServer.call(eval, {:eval, body["statements"]})
-      IO.puts(result)
+        Eval.eval(:eval, body["statements"], body["commandId"])
     end
 
     conn

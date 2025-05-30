@@ -7,13 +7,13 @@ defmodule GtBridge.Http.Supervisor do
   end
 
   def start_listener(port_server, port_client) do
-    eval = Process.whereis(:eval)
+    DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, [name: :eval, port: port_client]})
 
     DynamicSupervisor.start_child(
       __MODULE__,
       {Plug.Cowboy,
        scheme: :http,
-       plug: {GtBridge.Http.Router, %{pharo_client: port_client, eval: eval}},
+       plug: {GtBridge.Http.Router, %{pharo_client: port_client}},
        port: port_server}
     )
   end
