@@ -39,10 +39,11 @@ defmodule Eval do
   end
 
   def notify(obj, id, port) do
+    {:ok, val} = Jexon.to_json(obj)
     data = %{
       type: "EVAL",
       id: id,
-      value: Jason.encode!(obj),
+      value: val,
       __sync: "_"
     }
     Req.post!("http://localhost:" <> to_string(port) <> "/EVAL", json: data)
