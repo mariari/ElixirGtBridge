@@ -7,7 +7,8 @@ defmodule Eval do
   end
 
   def start_link(init_args) do
-    GenServer.start_link(__MODULE__, init_args)
+    name = Keyword.get(init_args, :name, nil)
+    GenServer.start_link(__MODULE__, init_args, name: name)
   end
 
   @impl true
