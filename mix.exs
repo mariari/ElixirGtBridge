@@ -28,9 +28,10 @@ defmodule GtBridge.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
-      {:jexon, "~> 0.9.5"}
+      {:jexon, "~> 0.9.5"},
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:req, "~> 0.5.0"}
     ]
   end
 end
