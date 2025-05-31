@@ -7,6 +7,8 @@ defmodule GtBridge.Http.Supervisor do
   end
 
   def start_listener(port_server, port_client) do
+    DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, [name: :eval]})
+
     DynamicSupervisor.start_child(
       __MODULE__,
       {Plug.Cowboy,
