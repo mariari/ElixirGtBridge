@@ -89,8 +89,9 @@ defmodule Tcp.Connection do
   end
 
   @impl true
-  def handle_info({:tcp, _port, msg}, _state) do
+  def handle_info({:tcp, _port, msg}, state) do
     IO.puts("#{Msgpax.unpack(msg)}")
+    {:noreply, state}
   end
 
   ############################################################
