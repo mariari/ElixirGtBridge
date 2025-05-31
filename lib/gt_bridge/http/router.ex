@@ -32,6 +32,6 @@ defmodule GtBridge.Http.Router do
     IO.puts(body)
 
     conn
-    |> send_resp(200, "")
+    |> send_resp(200, "{}")
   end
 end
