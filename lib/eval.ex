@@ -43,7 +43,7 @@ defmodule Eval do
   end
 
   def notify(obj, id, port) do
-    {:ok, val} = Jexon.to_json(obj)
+    {:ok, val} = GtBridge.Serializer.to_json(obj)
 
     data = %{
       type: "EVAL",
