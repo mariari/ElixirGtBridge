@@ -8,5 +8,6 @@ defmodule GtBridgeTest do
 
   test "Testing Serialization" do
     Examples.ESerialization.self_json()
+    Examples.ESerialization.binary_json()
   end
 end
