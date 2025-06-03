@@ -37,7 +37,7 @@ defmodule Eval do
     {term, new_bindings} =
       string
       |> String.replace("\r", "\n")
-      |> Code.eval_string([command_id: command_id, port: state.port] ++ state.bindings)
+      |> Code.eval_string(state.bindings ++ [command_id: command_id, port: state.port])
 
     {:reply, term, %__MODULE__{state | bindings: new_bindings ++ state.bindings}}
   end
