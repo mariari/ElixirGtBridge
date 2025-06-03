@@ -15,7 +15,8 @@ defmodule Eval do
   @impl true
   def init(init_args) do
     port = Keyword.get(init_args, :port, nil)
-    {:ok, %__MODULE__{bindings: [], port: port}}
+    default_bindings = if port, do: [port: port], else: []
+    {:ok, %__MODULE__{bindings: default_bindings, port: port}}
   end
 
   ############################################################
@@ -37,7 +38,7 @@ defmodule Eval do
     {term, new_bindings} =
       string
       |> String.replace("\r", "\n")
-      |> Code.eval_string(state.bindings ++ [command_id: command_id, port: state.port])
+      |> Code.eval_string(state.bindings ++ [command_id: command_id])
 
     {:reply, term, %__MODULE__{state | bindings: new_bindings ++ state.bindings}}
   end
