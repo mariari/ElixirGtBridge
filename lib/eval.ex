@@ -23,7 +23,7 @@ defmodule Eval do
   #                      Public RPC API                      #
   ############################################################
 
-  @spec eval(GenServer.name(), String.t(), String.t()) :: {:ok, any()}
+  @spec eval(GenServer.server(), String.t(), String.t() | nil) :: any()
   def eval(pid, code, command_id) do
     GenServer.call(pid, {:eval, code, command_id})
   end
@@ -40,7 +40,10 @@ defmodule Eval do
       |> String.replace("\r", "\n")
       |> Code.eval_string(state.bindings ++ [command_id: command_id])
 
-    {:reply, term, %__MODULE__{state | bindings: new_bindings ++ state.bindings}}
+    # Remove duplicated keys and ports
+    unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
+
+    {:reply, term, %__MODULE__{state | bindings: unique_keys}}
   end
 
   def notify(obj, id, port) do

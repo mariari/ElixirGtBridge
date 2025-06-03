@@ -10,4 +10,12 @@ defmodule GtBridgeTest do
     Examples.ESerialization.self_json()
     Examples.ESerialization.binary_json()
   end
+
+  test "eval" do
+    Examples.EEval.new_eval()
+    Examples.EEval.new_eval_with_port()
+    Examples.EEval.port_is_always_bound()
+    Examples.EEval.bind_a_to_30()
+    Examples.EEval.rebind_a_to_a()
+  end
 end
