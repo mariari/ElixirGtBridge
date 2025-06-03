@@ -40,7 +40,10 @@ defmodule Eval do
       |> String.replace("\r", "\n")
       |> Code.eval_string(state.bindings ++ [command_id: command_id])
 
-    {:reply, term, %__MODULE__{state | bindings: new_bindings ++ state.bindings}}
+    # Remove duplicated keys and ports
+    unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
+
+    {:reply, term, %__MODULE__{state | bindings: unique_keys}}
   end
 
   def notify(obj, id, port) do
