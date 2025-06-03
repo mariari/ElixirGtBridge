@@ -23,7 +23,7 @@ defmodule Eval do
   #                      Public RPC API                      #
   ############################################################
 
-  @spec eval(GenServer.name(), String.t(), String.t()) :: {:ok, any()}
+  @spec eval(GenServer.server(), String.t(), String.t() | nil) :: any()
   def eval(pid, code, command_id) do
     GenServer.call(pid, {:eval, code, command_id})
   end
