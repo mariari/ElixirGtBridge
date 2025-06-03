@@ -4,7 +4,7 @@ defmodule GtBridge.MixProject do
   def project do
     [
       app: :gt_bridge,
-      version: "0.1.1",
+      version: "0.1.2",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       plt_add_apps: [:mix, :ex_unit],
