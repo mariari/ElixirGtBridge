@@ -10,4 +10,9 @@ defmodule GtBridgeTest do
     Examples.ESerialization.self_json()
     Examples.ESerialization.binary_json()
   end
+
+  test "Testing Views" do
+    Examples.EViews.empty_view()
+    Examples.EViews.add_some_view()
+  end
 end
