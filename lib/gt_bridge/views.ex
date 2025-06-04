@@ -32,9 +32,19 @@ defmodule GtBridge.Views do
     GenServer.cast(server, {:add, module, code})
   end
 
+  @spec lookup(GenServer.server(), atom()) :: MapSet.t(code())
+  def lookup(server, module) do
+    GenServer.call(server, {:lookup, module})
+  end
+
   ############################################################
   #                    Genserver Behavior                    #
   ############################################################
+
+  @impl true
+  def handle_call({:lookup, module}, _from, state) do
+    {:reply, handle_lookup(module, state), state}
+  end
 
   @impl true
   def handle_cast({:add, module, code}, state) do
@@ -51,5 +61,10 @@ defmodule GtBridge.Views do
       Map.update(state.mapping, module, MapSet.new([code]), &MapSet.put(&1, code))
 
     %__MODULE__{state | mapping: new_mapping}
+  end
+
+  @spec handle_lookup(atom(), t()) :: MapSet.t(code())
+  def handle_lookup(module, %__MODULE__{mapping: m}) do
+    Map.get(m, module, MapSet.new())
   end
 end
