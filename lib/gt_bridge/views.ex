@@ -27,6 +27,11 @@ defmodule GtBridge.Views do
   #                      Public RPC API                      #
   ############################################################
 
+  @spec delete(GenServer.server(), atom(), code()) :: :ok
+  def delete(server, module, code) do
+    GenServer.cast(server, {:delete, module, code})
+  end
+
   @spec add(GenServer.server(), atom(), code()) :: :ok
   def add(server, module, code) do
     GenServer.cast(server, {:add, module, code})
@@ -51,6 +56,10 @@ defmodule GtBridge.Views do
     {:noreply, handle_add_view(module, code, state)}
   end
 
+  def handle_cast({:delete, module, code}, state) do
+    {:noreply, handle_delete_view(module, code, state)}
+  end
+
   ############################################################
   #                 Genserver Implementation                 #
   ############################################################
@@ -59,6 +68,14 @@ defmodule GtBridge.Views do
   def handle_add_view(module, code, state = %__MODULE__{}) do
     new_mapping =
       Map.update(state.mapping, module, MapSet.new([code]), &MapSet.put(&1, code))
+
+    %__MODULE__{state | mapping: new_mapping}
+  end
+
+  @spec handle_delete_view(atom(), code(), t()) :: t()
+  def handle_delete_view(module, code, state = %__MODULE__{}) do
+    new_mapping =
+      Map.update(state.mapping, module, MapSet.new([]), &MapSet.delete(&1, code))
 
     %__MODULE__{state | mapping: new_mapping}
   end
