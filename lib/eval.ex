@@ -46,6 +46,7 @@ defmodule Eval do
     {:reply, term, %__MODULE__{state | bindings: unique_keys}}
   end
 
+  @spec notify(term(), String.t(), pos_integer()) :: term()
   def notify(obj, id, port) do
     {:ok, val} = GtBridge.Serializer.to_json(obj)
 
