@@ -2,6 +2,7 @@ defmodule Examples.EViews do
   import ExUnit.Assertions
 
   use TypedStruct
+  use GtBridge.View
 
   typedstruct do
     field(:int, integer(), default: 0)
@@ -17,7 +18,7 @@ defmodule Examples.EViews do
   ############################################################
 
   @spec some_view(t()) :: any()
-  def some_view(self = %__MODULE__{}) do
+  defview some_view(self = %__MODULE__{}) do
     self.int
   end
 
