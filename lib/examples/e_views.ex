@@ -4,8 +4,12 @@ defmodule Examples.EViews do
   use TypedStruct
   use GtBridge.View
 
+  alias GtBridge.Phlow.List
+  alias GtBridge.Phlow.Text
+
   typedstruct do
     field(:int, integer(), default: 0)
+    field(:name, String.t(), default: "Example")
   end
 
   @spec empty() :: t()
@@ -13,22 +17,43 @@ defmodule Examples.EViews do
     %__MODULE__{}
   end
 
+  @spec with_values(integer(), String.t()) :: t()
+  def with_values(int_value, name_value) do
+    %__MODULE__{int: int_value, name: name_value}
+  end
+
   ############################################################
   #                           Views                          #
   ############################################################
 
-  @spec some_view(t()) :: any()
-  defview some_view(self = %__MODULE__{}) do
-    self.int
+  @spec int_list_view(t(), module()) :: List.t()
+  defview int_list_view(self = %__MODULE__{}, builder) do
+    builder.list()
+    |> List.priority(1)
+    |> List.title("Int listed")
+    |> List.items(fn -> [self.int, self.int * 2, self.int * 3] end)
+  end
+
+  @spec name_text_view(t(), module()) :: Text.t()
+  defview name_text_view(self = %__MODULE__{}, builder) do
+    builder.text()
+    |> Text.priority(2)
+    |> Text.title("Name")
+    |> Text.string(fn -> "Name: #{self.name}" end)
   end
 
   ############################################################
   #                          Examples                        #
   ############################################################
 
-  @spec some_view_ref() :: {Examples.EViews, :some_view}
-  def some_view_ref() do
-    {__MODULE__, :some_view}
+  @spec int_list_view_ref() :: {Examples.EViews, :int_list_view}
+  def int_list_view_ref() do
+    {__MODULE__, :int_list_view}
+  end
+
+  @spec name_text_view_ref() :: {Examples.EViews, :name_text_view}
+  def name_text_view_ref() do
+    {__MODULE__, :name_text_view}
   end
 
   @spec empty_view() :: pid()
@@ -37,33 +62,40 @@ defmodule Examples.EViews do
     pid
   end
 
-  @spec add_some_view() :: pid()
-  def add_some_view() do
+  @spec register_views() :: pid()
+  def register_views() do
     ret = empty_view()
 
-    GtBridge.Views.add(ret, __MODULE__, some_view_ref())
+    # Register all views from this module
+    GtBridge.View.register(__MODULE__, ret)
 
     views = GtBridge.Views.lookup(ret, __MODULE__)
 
-    assert views == MapSet.new([some_view_ref()])
-
-    all_views_valid(empty(), views)
-
-    ret
-  end
-
-  @spec delete_some_view() :: pid()
-  def delete_some_view() do
-    ret = add_some_view()
-
-    GtBridge.Views.delete(ret, __MODULE__, some_view_ref())
-    assert GtBridge.Views.lookup(ret, __MODULE__) == MapSet.new()
+    # Should have both views registered
+    assert MapSet.size(views) == 2
+    assert MapSet.member?(views, int_list_view_ref())
+    assert MapSet.member?(views, name_text_view_ref())
 
     ret
   end
 
-  @spec all_views_valid(any(), MapSet.t((any() -> any()))) :: boolean()
-  def all_views_valid(data, views) do
-    assert Enum.all?(views, fn {mod, name} -> apply(mod, name, [data]) end)
+  @spec test_get_view_specs() :: :ok
+  def test_get_view_specs() do
+    server = register_views()
+    obj = with_values(42, "Test")
+
+    specs = GtBridge.View.get_view_specs(obj, server)
+
+    # Should have 2 view specs
+    assert length(specs) == 2
+
+    # Check that they're properly formatted
+    Enum.each(specs, fn spec ->
+      assert Map.has_key?(spec, :title)
+      assert Map.has_key?(spec, :priority)
+      assert Map.has_key?(spec, :viewName)
+    end)
+
+    :ok
   end
 end

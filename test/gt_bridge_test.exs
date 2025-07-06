@@ -20,9 +20,10 @@ defmodule GtBridgeTest do
   end
 
   test "Testing Views" do
-    Examples.EViews.some_view_ref()
+    Examples.EViews.int_list_view_ref()
+    Examples.EViews.name_text_view_ref()
     Examples.EViews.empty_view()
-    Examples.EViews.add_some_view()
-    Examples.EViews.delete_some_view()
+    Examples.EViews.register_views()
+    Examples.EViews.test_get_view_specs()
   end
 end

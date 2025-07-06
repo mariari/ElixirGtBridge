@@ -5,6 +5,24 @@ defmodule GtBridge.View do
   Use `use GtBridge.View` in your struct module and define views
   using `defview/2`. The collected views can later be registered
   in a `GtBridge.Views` GenServer with `register/2`.
+
+  ## Example
+
+      defmodule MyStruct do
+        use TypedStruct
+        use GtBridge.View
+
+        typedstruct do
+          field(:items, list(), default: [])
+        end
+
+        defview list_view(self, builder) do
+          builder.list()
+          |> GtBridge.Phlow.List.title("Items")
+          |> GtBridge.Phlow.List.priority(1)
+          |> GtBridge.Phlow.List.items(fn -> self.items end)
+        end
+      end
   """
 
   defmacro __using__(_opts) do
@@ -46,5 +64,22 @@ defmodule GtBridge.View do
     end
 
     :ok
+  end
+
+  @doc """
+  Get all view specifications for a given object by calling its registered views.
+  Returns a list of dictionaries ready for serialization to GT.
+  """
+  @spec get_view_specs(any(), GenServer.server()) :: list(map())
+  def get_view_specs(object, server \\ GtBridge.Views) do
+    module = object.__struct__
+    views = GtBridge.Views.lookup(server, module)
+    builder = GtBridge.Phlow.Builder
+
+    Enum.map(views, fn {mod, fun} ->
+      view_result = apply(mod, fun, [object, builder])
+      view_module = view_result.__struct__
+      apply(view_module, :as_dict, [view_result])
+    end)
   end
 end
