@@ -45,11 +45,25 @@ defmodule GtBridge.View do
 
   defmacro __before_compile__(env) do
     views = Module.get_attribute(env.module, :gt_views) |> Enum.reverse()
+    module = env.module
 
     quote do
       @doc false
       def __views__ do
         unquote(Macro.escape(views))
+      end
+
+      # Auto-register views when the module is loaded
+      @after_compile __MODULE__
+
+      def __after_compile__(_env, _bytecode) do
+        # Register this module's views automatically
+        try do
+          GtBridge.View.register(unquote(module))
+        rescue
+          # Ignore errors during compilation (e.g., if Views server not started yet)
+          _ -> :ok
+        end
       end
     end
   end
