@@ -9,7 +9,7 @@ defmodule GtBridge.Phlow.List do
   typedstruct do
     field(:view_title, String.t(), default: "Unknown")
     field(:view_priority, integer(), default: 1)
-    field(:items_callback, (() -> list()) | nil, default: nil)
+    field(:items_callback, (-> list()) | nil, default: nil)
     field(:item_format, (any() -> String.t()) | nil, default: nil)
   end
 
@@ -32,7 +32,7 @@ defmodule GtBridge.Phlow.List do
   @doc """
   Set the items to display. Can be a list or a function that returns a list.
   """
-  @spec items(t(), list() | (() -> list())) :: t()
+  @spec items(t(), list() | (-> list())) :: t()
   def items(self, items_list) when is_list(items_list) do
     %__MODULE__{self | items_callback: fn -> items_list end}
   end

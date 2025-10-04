@@ -28,7 +28,7 @@ defmodule GtBridge.Phlow.Text do
   @doc """
   Set the text content to display.
   """
-  @spec string(t(), String.t() | (() -> String.t())) :: t()
+  @spec string(t(), String.t() | (-> String.t())) :: t()
   def string(self, text) when is_binary(text) do
     %__MODULE__{self | text_string: text}
   end
