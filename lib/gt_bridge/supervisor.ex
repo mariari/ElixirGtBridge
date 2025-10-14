@@ -11,7 +11,8 @@ defmodule GtBridge.Supervisor do
       {EvaluationSupervisor, []},
       {Tcp.Supervisor, []},
       {GtBridge.Http.Supervisor, []},
-      {GtBridge.Views, [name: GtBridge.Views]}
+      {GtBridge.Views, [name: GtBridge.Views]},
+      {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
