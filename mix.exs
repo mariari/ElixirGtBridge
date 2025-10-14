@@ -16,7 +16,7 @@ defmodule GtBridge.MixProject do
   def application do
     [
       mod: {GtBridge, []},
-      extra_applications: [:logger, :observer, :wx, :ex_unit]
+      extra_applications: [:logger, :observer, :wx, :ex_unit, :iex]
     ]
   end
 
