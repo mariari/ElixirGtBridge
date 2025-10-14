@@ -38,7 +38,7 @@ defmodule Eval do
     {term, new_bindings} =
       string
       |> String.replace("\r", "\n")
-      |> Code.eval_string(state.bindings ++ [command_id: command_id])
+      |> Code.eval_string(state.bindings ++ [command_id: command_id, self: self()])
 
     # Remove duplicated keys and ports
     unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
