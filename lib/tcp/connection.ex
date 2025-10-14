@@ -94,6 +94,10 @@ defmodule Tcp.Connection do
     {:noreply, state}
   end
 
+  def handle_info({:tcp_closed, _port}, state) do
+    {:stop, :normal, state}
+  end
+
   ############################################################
   #                           Helpers                        #
   ############################################################
