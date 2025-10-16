@@ -26,7 +26,7 @@ defmodule Examples.EViews do
   #                           Views                          #
   ############################################################
 
-  @spec int_list_view(t(), module()) :: List.t()
+  @spec int_list_view(t(), GtBridge.Phlow.Builder) :: List.t()
   defview int_list_view(self = %__MODULE__{}, builder) do
     builder.list()
     |> List.priority(1)
@@ -34,7 +34,7 @@ defmodule Examples.EViews do
     |> List.items(fn -> [self.int, self.int * 2, self.int * 3] end)
   end
 
-  @spec name_text_view(t(), module()) :: Text.t()
+  @spec name_text_view(t(), GtBridge.Phlow.Builder) :: Text.t()
   defview name_text_view(self = %__MODULE__{}, builder) do
     builder.text()
     |> Text.priority(2)
