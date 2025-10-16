@@ -84,7 +84,7 @@ defmodule Examples.EViews do
     server = register_views()
     obj = with_values(42, "Test")
 
-    specs = GtBridge.View.get_view_specs(obj, server)
+    specs = GtBridge.View.get_view_object(obj, server)
 
     # Should have 2 view specs
     assert length(specs) == 2

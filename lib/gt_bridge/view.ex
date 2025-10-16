@@ -84,9 +84,14 @@ defmodule GtBridge.View do
   Get all view specifications for a given object by calling its registered views.
   Returns a list of dictionaries ready for serialization to GT.
   """
-  @spec get_view_specs(any(), GenServer.server()) :: list(map())
-  def get_view_specs(object, server \\ GtBridge.Views) do
+  @spec get_view_object(any(), GenServer.server()) :: list(map())
+  def get_view_object(object, server \\ GtBridge.Views) do
     module = object.__struct__
+    get_view_specs(object, module, server)
+  end
+
+  @spec get_view_specs(any(), GenServer.server()) :: list(map())
+  def get_view_specs(object, module, server \\ GtBridge.Views) do
     views = GtBridge.Views.lookup(server, module)
     builder = GtBridge.Phlow.Builder
 
