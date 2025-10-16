@@ -35,7 +35,12 @@ defmodule GtBridge.GtViewedObject do
 
       _ ->
         # For primitive values, return default views
-        get_default_views(object)
+        get_default_views(object) ++
+          GtBridge.View.get_view_specs(
+            object,
+            GtBridge.Resolve.data_type_to_module(object),
+            views_server
+          )
     end
   end
 

@@ -39,7 +39,8 @@ defmodule GtBridge.View do
         unquote(body)
       end
 
-      @gt_views {__MODULE__, unquote(name)}
+      @gt_views {unquote(match_view_argument_to_module(args, __CALLER__)),
+                 {__MODULE__, unquote(name)}}
     end
   end
 
@@ -73,8 +74,8 @@ defmodule GtBridge.View do
   """
   @spec register(module(), GenServer.server()) :: :ok
   def register(module, server \\ GtBridge.Views) do
-    for {m, fun} <- module.__views__() do
-      GtBridge.Views.add(server, module, {m, fun})
+    for {module_for, {m, fun}} <- module.__views__() do
+      GtBridge.Views.add(server, module_for, {m, fun})
     end
 
     :ok
