@@ -31,11 +31,16 @@ defmodule GtBridge.GtViewedObject do
     case object do
       %{__struct__: _} = obj ->
         # Get views for structured data
-        GtBridge.View.get_view_specs(obj, views_server)
+        GtBridge.View.get_view_object(obj, views_server)
 
       _ ->
         # For primitive values, return default views
-        get_default_views(object)
+        get_default_views(object) ++
+          GtBridge.View.get_view_specs(
+            object,
+            GtBridge.Resolve.data_type_to_module(object),
+            views_server
+          )
     end
   end
 

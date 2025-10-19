@@ -75,7 +75,7 @@ defmodule GtBridge.Http.Router do
           # Try to get the object from the eval context
           case Eval.eval(:eval, object_id, nil) do
             %{__struct__: _module} = object ->
-              views = GtBridge.View.get_view_specs(object)
+              views = GtBridge.View.get_view_object(object)
               Jason.encode!(%{views: views})
 
             _ ->
