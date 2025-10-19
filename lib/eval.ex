@@ -86,10 +86,7 @@ defmodule Eval do
       else
         # Complex object - wrap with metadata (lazy loading, no value)
         # Get class info for the object
-        exclass =
-          IEx.Info.info(obj)
-          |> Enum.find({"Data type", "Unknown"}, fn {x, _} -> "Data type" == x end)
-          |> elem(1)
+        exclass = GtBridge.Resolve.data_type_to_string(obj)
 
         # The value object with metadata (no value field for lazy loading)
         value_object = %{
