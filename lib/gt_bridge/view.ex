@@ -150,11 +150,14 @@ defmodule GtBridge.View do
   def determine_constraining_arg(arg1, _), do: arg1
 
   @spec match_arg(Macro.t(), Macro.Env.t()) :: module() | nil
-  def match_arg({:%, _, [{:__aliases__, [alias: false], atoms} | _]}, _),
-    do: Enum.reduce(atoms, &Module.concat/2)
+  def match_arg({:%, _, [{:__aliases__, _, atoms} | _]}, caller) do
+    case Macro.Env.expand_alias(caller, [], atoms) do
+      {:alias, module} -> module
+      :error -> atoms |> Enum.reverse() |> Enum.reduce(&Module.concat/2)
+    end
+  end
 
   def match_arg({:%, _, [{:__MODULE__, _, _} | _]}, _), do: nil
-  def match_arg({:%, _, [{:__aliases__, [alias: mod], _} | _]}, _), do: mod
   def match_arg({:%{}, _, keyword}, _), do: Keyword.get(keyword, :__struct__, Map)
 
   def match_arg({:<<>>, _, _}, _), do: Binary
