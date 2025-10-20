@@ -1,6 +1,8 @@
 defmodule GtBridge.Http.Router do
   use Plug.Router
 
+  alias GtBridge.Eval
+
   def call(conn, config) do
     conn
     |> assign(:pharo_client, config[:pharo_client])

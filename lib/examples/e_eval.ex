@@ -1,6 +1,8 @@
 defmodule Examples.EEval do
   import ExUnit.Assertions
 
+  alias GtBridge.Eval
+
   @spec new_eval() :: pid()
   def new_eval() do
     {:ok, pid} = DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, []})

@@ -1,4 +1,4 @@
-defmodule Eval do
+defmodule GtBridge.Eval do
   use GenServer
   use TypedStruct
 
@@ -60,7 +60,7 @@ defmodule Eval do
         # isn't proper that we are manually calling notify here,
         # assumes too much context
         Code.eval_string(
-          "Eval.notify(#{inspect({e, __STACKTRACE__})}, command_id, port)",
+          "GtBridge.Eval.notify(#{inspect({e, __STACKTRACE__})}, command_id, port)",
           state.bindings ++ [command_id: command_id]
         )
 
