@@ -19,7 +19,10 @@ defmodule GtBridge do
   end
 
   def start(_type, args) do
-    GtBridge.Supervisor.start_link(args)
+    start = GtBridge.Supervisor.start_link(args)
+    # Initialize the default views
+    GtBridge.View.register(GtBridge.GtViewedObject)
+    start
   end
 
   def start_listener(port \\ 0) do
