@@ -6,6 +6,11 @@ defmodule GtBridge.GtViewedObject do
   any Elixir object, similar to Python's GtViewedObject.
   """
 
+  alias GtBridge.Phlow.List
+  alias GtBridge.Phlow.Text
+
+  use GtBridge.View
+
   @doc """
   Get view declarations for an object by its registry ID.
   This is called from GT via eval when inspecting a proxy object.
@@ -44,7 +49,8 @@ defmodule GtBridge.GtViewedObject do
     end
   end
 
-  # Get default views for primitive values.
+  # Get default views for primitive values that can't be gotten via
+  # the macro
   defp get_default_views(value) when is_integer(value) do
     [
       %{
@@ -57,32 +63,28 @@ defmodule GtBridge.GtViewedObject do
     ]
   end
 
-  defp get_default_views(value) when is_binary(value) do
-    [
-      %{
-        title: "String",
-        priority: 1,
-        viewName: "GtPhlowTextEditorViewSpecification",
-        dataTransport: 2,
-        string: value
-      }
-    ]
-  end
-
-  defp get_default_views(value) when is_list(value) do
-    [
-      %{
-        title: "List",
-        priority: 1,
-        viewName: "GtPhlowListViewSpecification",
-        dataTransport: 2,
-        itemsCount: length(value),
-        items: value
-      }
-    ]
-  end
-
   defp get_default_views(_value) do
     []
+  end
+
+  defview get_default_view(<<self::binary>>, builder) do
+    builder.text()
+    |> Text.title("String")
+    |> Text.priority(1)
+    |> Text.string(self)
+  end
+
+  defview get_default_view(self = [_ | _], builder) do
+    builder.list()
+    |> List.priority(1)
+    |> List.title("List")
+    |> List.items(fn -> self end)
+  end
+
+  defview get_default_view(self = [], builder) do
+    builder.list()
+    |> List.priority(1)
+    |> List.title("List")
+    |> List.items(fn -> self end)
   end
 end
