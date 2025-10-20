@@ -87,4 +87,11 @@ defmodule GtBridge.GtViewedObject do
     |> List.title("List")
     |> List.items(fn -> self end)
   end
+
+  defview get_default_view(self = %GtBridge.Eval.Error{}, builder) do
+    builder.text()
+    |> Text.title("Error view")
+    |> Text.priority(50)
+    |> Text.string(GtBridge.Eval.Error.dump_error(self))
+  end
 end

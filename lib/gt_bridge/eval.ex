@@ -56,14 +56,8 @@ defmodule GtBridge.Eval do
       {:reply, term, %__MODULE__{state | bindings: unique_keys}}
     catch
       kind, e ->
-        # Replace this with a proper eval strategy reply wise, it
-        # isn't proper that we are manually calling notify here,
-        # assumes too much context
-        notify(
-          {:error, Exception.format_stacktrace(__STACKTRACE__)},
-          command_id,
-          state.bindings[:port]
-        )
+        error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
+        notify(error, command_id, state.bindings[:port])
 
         {:reply, e, state}
     end
