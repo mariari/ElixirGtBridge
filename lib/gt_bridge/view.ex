@@ -151,6 +151,8 @@ defmodule GtBridge.View do
   def match_arg({:%, _, [{:__aliases__, [alias: mod], _} | _]}, _), do: mod
   def match_arg({:%{}, _, keyword}, _), do: Keyword.get(keyword, :__struct__, Map)
 
+  def match_arg({:<<>>, _, _}, _), do: Binary
+
   def match_arg(x, caller) when is_tuple(x) do
     expanded = Macro.expand(x, caller)
 
@@ -182,8 +184,6 @@ defmodule GtBridge.View do
   end
 
   # These types don't get resolved to proxy objects currently
-
-  def match_arg({:<<>>, _, _}, _), do: Binary
 
   def match_arg(x, _) when is_integer(x) do
     Integer
