@@ -1,6 +1,8 @@
 defmodule GtBridge.Http.Router do
   use Plug.Router
 
+  alias GtBridge.Eval
+
   def call(conn, config) do
     conn
     |> assign(:pharo_client, config[:pharo_client])
@@ -42,7 +44,7 @@ defmodule GtBridge.Http.Router do
     Logger.info("ENQUEUE received: #{inspect(body)}")
 
     if body["statements"] != "" do
-      Eval.eval(:eval, body["statements"], body["commandId"])
+      Eval.eval(GtBridge.Eval, body["statements"], body["commandId"])
     end
 
     # Always return empty JSON like Python bridge does
@@ -73,7 +75,7 @@ defmodule GtBridge.Http.Router do
       case body do
         %{"objectId" => object_id} ->
           # Try to get the object from the eval context
-          case Eval.eval(:eval, object_id, nil) do
+          case Eval.eval(GtBridge.Eval, object_id, nil) do
             %{__struct__: _module} = object ->
               views = GtBridge.View.get_view_object(object)
               Jason.encode!(%{views: views})

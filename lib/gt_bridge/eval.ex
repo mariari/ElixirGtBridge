@@ -1,4 +1,4 @@
-defmodule Eval do
+defmodule GtBridge.Eval do
   use GenServer
   use TypedStruct
 
