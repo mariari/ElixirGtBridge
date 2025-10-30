@@ -54,14 +54,15 @@ defmodule Eval do
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
 
       {:reply, term, %__MODULE__{state | bindings: unique_keys}}
-    rescue
-      e ->
+    catch
+      kind, e ->
         # Replace this with a proper eval strategy reply wise, it
         # isn't proper that we are manually calling notify here,
         # assumes too much context
-        Code.eval_string(
-          "Eval.notify(#{inspect({e, __STACKTRACE__})}, command_id, port)",
-          state.bindings ++ [command_id: command_id]
+        notify(
+          {:error, Exception.format_stacktrace(__STACKTRACE__)},
+          command_id,
+          state.bindings[:port]
         )
 
         {:reply, e, state}
