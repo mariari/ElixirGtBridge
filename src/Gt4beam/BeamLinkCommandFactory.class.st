@@ -1,10 +1,12 @@
 Class {
-	#name : #BeamLinkCommandFactory,
-	#superclass : #LanguageLinkCommandFactory,
-	#category : #'Gt4beam-Execution'
+	#name : 'BeamLinkCommandFactory',
+	#superclass : 'LanguageLinkCommandFactory',
+	#category : 'Gt4beam-Execution',
+	#package : 'Gt4beam',
+	#tag : 'Execution'
 }
 
-{ #category : #initalization }
+{ #category : 'initalization' }
 BeamLinkCommandFactory >> setNotifyToInstruction: anInstruction [
 	| trimmedSource parsed last |
 	anInstruction ifNil: [ ^ anInstruction ].

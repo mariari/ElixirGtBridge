@@ -1,6 +1,6 @@
-Extension { #name : #GtLlmLepiterContentExporter }
+Extension { #name : 'GtLlmLepiterContentExporter' }
 
-{ #category : #'*Gt4beam' }
+{ #category : '*Gt4beam' }
 GtLlmLepiterContentExporter >> visitElixirSnippet: aLeElixirSnippet [ 
 	self codeSnippet: aLeElixirSnippet code labelled: 'elixir'.
 

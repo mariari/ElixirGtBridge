@@ -1,13 +1,15 @@
 Class {
-	#name : #LeElixirSnippetElement,
-	#superclass : #LeExternalEvaluatedSnippetElement,
+	#name : 'LeElixirSnippetElement',
+	#superclass : 'LeExternalEvaluatedSnippetElement',
 	#instVars : [
 		'serverStrategy'
 	],
-	#category : #'Gt4beam-Lepiter'
+	#category : 'Gt4beam-Lepiter',
+	#package : 'Gt4beam',
+	#tag : 'Lepiter'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippetElement >> onSnippetViewModelChanged [
 	super onSnippetViewModelChanged.
 
@@ -17,13 +19,13 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 		pharoBindings: self snippetViewModel snippetBindings
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippetElement >> serverStrategy [
 	^ serverStrategy
 		ifNil: [ serverStrategy := LeElixirApplicationStrategy new content: self snippet ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippetElement >> updateLanguageLabel [
 	| serverAddress label |
 

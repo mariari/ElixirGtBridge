@@ -1,6 +1,6 @@
-Extension { #name : #LeHtmlVisitor }
+Extension { #name : 'LeHtmlVisitor' }
 
-{ #category : #'*Gt4beam' }
+{ #category : '*Gt4beam' }
 LeHtmlVisitor >> visitElixirSnippet: aSnippet [
 	context html
 		tag: #div

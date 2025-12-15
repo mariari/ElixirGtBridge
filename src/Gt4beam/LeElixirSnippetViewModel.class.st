@@ -1,10 +1,12 @@
 Class {
-	#name : #LeElixirSnippetViewModel,
-	#superclass : #LeCodeSnippetViewModel,
-	#category : #'Gt4beam-Lepiter'
+	#name : 'LeElixirSnippetViewModel',
+	#superclass : 'LeCodeSnippetViewModel',
+	#category : 'Gt4beam-Lepiter',
+	#package : 'Gt4beam',
+	#tag : 'Lepiter'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 	"Initialise the keyboard shortcuts in the code editor"
 
@@ -23,7 +25,7 @@ LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 		addShortcut: (LeSnippetMoveSnippetDownShortcut new combination: (self keyboardShortcut: #MoveSnippetDown))
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippetViewModel >> snippetElementClass [
 	^ LeElixirSnippetElement
 ]

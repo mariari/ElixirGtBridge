@@ -1,10 +1,12 @@
 Class {
-	#name : #LeElixirSnippet,
-	#superclass : #LeCodeSnippet,
-	#category : #'Gt4beam-Lepiter'
+	#name : 'LeElixirSnippet',
+	#superclass : 'LeCodeSnippet',
+	#category : 'Gt4beam-Lepiter',
+	#package : 'Gt4beam',
+	#tag : 'Lepiter'
 }
 
-{ #category : #'api - accessing menu' }
+{ #category : 'api - accessing menu' }
 LeElixirSnippet class >> contextMenuItemSpecification [
 	<leSnippetSpecification>
 	^ LeContextMenuItemSpecification new
@@ -12,31 +14,31 @@ LeElixirSnippet class >> contextMenuItemSpecification [
 		title: 'Elixir'
 ]
 
-{ #category : #'lepiter-store' }
+{ #category : 'lepiter-store' }
 LeElixirSnippet class >> leJsonV3Name [
 
 	^ 'elixirSnippet'
 ]
 
-{ #category : #'lepiter-store' }
+{ #category : 'lepiter-store' }
 LeElixirSnippet class >> leJsonV4Name [
 
 	^ 'elixirSnippet'
 ]
 
-{ #category : #visiting }
+{ #category : 'visiting' }
 LeElixirSnippet >> acceptVisitor: aVisitor [
 
 	^ aVisitor visitElixirSnippet: self
 ]
 
-{ #category : #converting }
+{ #category : 'converting' }
 LeElixirSnippet >> asSnippetViewModel [
 	<return: #LeSnippetViewModel>
 	^ LeElixirSnippetViewModel new snippetModel: self
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 LeElixirSnippet >> newCoder [
 	^ GtElixirCoderModel new
 ]

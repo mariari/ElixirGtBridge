@@ -1,10 +1,12 @@
 Class {
-	#name : #ElixirExecutionHandler,
-	#superclass : #LanguageLinkExecutionHandler,
-	#category : #'Gt4beam-Global'
+	#name : 'ElixirExecutionHandler',
+	#superclass : 'LanguageLinkExecutionHandler',
+	#category : 'Gt4beam-Global',
+	#package : 'Gt4beam',
+	#tag : 'Global'
 }
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 ElixirExecutionHandler >> initializeHandler [
 	commandQueue := LanguageLinkCommandRegistry executionHandler: self.
 	mapperFactory := LanguageLinkMapperFactory forExecutionHandler: self.
@@ -21,7 +23,7 @@ ElixirExecutionHandler >> initializeHandler [
 			forMessageClass: LanguageLinkCallbackMessage
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 ElixirExecutionHandler >> registerObject: aProxyObject [
 	"Don't register the object. Gets a new proxy every time"
 	weakRegistry 
@@ -31,7 +33,7 @@ ElixirExecutionHandler >> registerObject: aProxyObject [
 							executionHandler: self)
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 ElixirExecutionHandler >> removeId: aRemoteProxyId [
 	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
 ]

@@ -1,10 +1,12 @@
 Class {
-	#name : #BeamLinkApplication,
-	#superclass : #LanguageLinkApplication,
-	#category : #'Gt4beam-Global'
+	#name : 'BeamLinkApplication',
+	#superclass : 'LanguageLinkApplication',
+	#category : 'Gt4beam-Global',
+	#package : 'Gt4beam',
+	#tag : 'Global'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamLinkApplication class >> connectwithServerPort: server clientPort: cleint [
 	^ self
 		startWith: (LanguageLinkSettings new
@@ -21,14 +23,14 @@ BeamLinkApplication class >> connectwithServerPort: server clientPort: cleint [
 				yourself)
 ]
 
-{ #category : #'start - stop' }
+{ #category : 'start - stop' }
 BeamLinkApplication class >> start [
 	"We use startWith: however I need to override that to allow multiple toggleable instances"
 
 	^ self startWith: LanguageLinkSettings elixirDefaultSettings
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 BeamLinkApplication >> initializeHandlers [
 	loggingHandler := LanguageLinkLoggingHandler application: self.
 	processHandler := LanguageLinkServerHandler application: self.
@@ -36,7 +38,7 @@ BeamLinkApplication >> initializeHandlers [
 	executionHandler := ElixirExecutionHandler application: self
 ]
 
-{ #category : #directory }
+{ #category : 'directory' }
 BeamLinkApplication >> workingDirectory [
 	^ self settings workingDirectory
 ]

@@ -1,15 +1,17 @@
 Class {
-	#name : #BeamLinkDeserializer,
-	#superclass : #LanguageLinkDeserializer,
-	#category : #'Gt4beam-Serialization'
+	#name : 'BeamLinkDeserializer',
+	#superclass : 'LanguageLinkDeserializer',
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamLinkDeserializer class >> deserialize: anObject [
 	^ self new deserialize: anObject
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamLinkDeserializer >> buildProxyFor: rawObject [
 	| proxy |
 	proxy := (BeamProxyObject elixirClass: (rawObject at: #exclass))
@@ -20,7 +22,7 @@ BeamLinkDeserializer >> buildProxyFor: rawObject [
 	^ proxy
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamLinkDeserializer >> privateDeserialize: rawObj [
 
 	rawObj isCollection ifFalse: [ ^ rawObj ].
@@ -29,7 +31,7 @@ BeamLinkDeserializer >> privateDeserialize: rawObj [
 	^ rawObj collect: [ :elem | self privateDeserialize: elem ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamLinkDeserializer >> reifyProxyFor: rawObj [
 	^ self objectRegistry
 		resolve: (rawObj at: #exid)

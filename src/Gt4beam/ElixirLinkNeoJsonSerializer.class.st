@@ -1,10 +1,12 @@
 Class {
-	#name : #ElixirLinkNeoJsonSerializer,
-	#superclass : #LanguageLinkNeoJsonSerializer,
-	#category : #'Gt4beam-Pharo-MessageBroker'
+	#name : 'ElixirLinkNeoJsonSerializer',
+	#superclass : 'LanguageLinkNeoJsonSerializer',
+	#category : 'Gt4beam-Pharo-MessageBroker',
+	#package : 'Gt4beam',
+	#tag : 'Pharo-MessageBroker'
 }
 
-{ #category : #private }
+{ #category : 'private' }
 ElixirLinkNeoJsonSerializer >> deserialize: aString [
 	| read |
 	read := NeoJSONReader fromString: aString.
@@ -15,7 +17,7 @@ ElixirLinkNeoJsonSerializer >> deserialize: aString [
 	^ self handleElixirSpecificData: read
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 ElixirLinkNeoJsonSerializer >> handleElixirSpecificData: anObject [
 	"kinda poor as I just check an array, rather than mapping over everthing
 	

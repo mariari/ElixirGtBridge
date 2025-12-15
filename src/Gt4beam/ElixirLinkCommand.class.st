@@ -1,15 +1,17 @@
 Class {
-	#name : #ElixirLinkCommand,
-	#superclass : #LanguageLinkCommand,
-	#category : #'Gt4beam-Execution'
+	#name : 'ElixirLinkCommand',
+	#superclass : 'LanguageLinkCommand',
+	#category : 'Gt4beam-Execution',
+	#package : 'Gt4beam',
+	#tag : 'Execution'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 ElixirLinkCommand >> codeForRemote [
 	^ Character lf join: self instructions
 ]
 
-{ #category : #visualization }
+{ #category : 'visualization' }
 ElixirLinkCommand >> gtViewCodeForRemoteFor: aView [
 	<gtView>
 	^ aView textEditor

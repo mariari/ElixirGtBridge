@@ -1,6 +1,6 @@
-Extension { #name : #GtSmaCCParserStyler }
+Extension { #name : 'GtSmaCCParserStyler' }
 
-{ #category : #'*Gt4beam' }
+{ #category : '*Gt4beam' }
 GtSmaCCParserStyler class >> elixirStyler: aParserClass [
 	<smaccStyler: #ElixirParser priority: 50>
 	| specialNodes |

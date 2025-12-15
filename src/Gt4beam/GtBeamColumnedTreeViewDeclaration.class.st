@@ -1,15 +1,17 @@
 Class {
-	#name : #GtBeamColumnedTreeViewDeclaration,
-	#superclass : #GtBeamViewDeclaration,
-	#category : #'Gt4beam-Serialization'
+	#name : 'GtBeamColumnedTreeViewDeclaration',
+	#superclass : 'GtBeamViewDeclaration',
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 GtBeamColumnedTreeViewDeclaration class >> remoteName [
 	^ 'GtPhlowColumnedTreeViewSpecification'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 GtBeamColumnedTreeViewDeclaration >> treatView: view [
 	view
 		items: [ (self rawData attributeAt: (BeamAtomObject new: #items)) asList ];
@@ -22,7 +24,7 @@ GtBeamColumnedTreeViewDeclaration >> treatView: view [
 				text: [ :item | (item attributeAt: (BeamAtomObject new: #values)) asList at: anIndex ] ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 GtBeamColumnedTreeViewDeclaration >> viewName [
 	^ #columnedTree
 ]
