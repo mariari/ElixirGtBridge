@@ -3,7 +3,7 @@
 
 ```st
 Metacello new
-	repository: 'github://mariari/gt4beam:master/src';
+	repository: 'github://mariari/ElixirGtBridge:master/src';
 	baseline: 'Gt4beam';
 	load
 ```

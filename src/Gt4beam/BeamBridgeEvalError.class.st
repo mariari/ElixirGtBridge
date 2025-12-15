@@ -1,15 +1,17 @@
 Class {
-	#name : #BeamBridgeEvalError,
-	#superclass : #BeamProxyObject,
-	#category : #'Gt4beam-Serialization'
+	#name : 'BeamBridgeEvalError',
+	#superclass : 'BeamProxyObject',
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamBridgeEvalError class >> elixirClass [
 	^ 'GtBridge.Eval.Error'
 ]
 
-{ #category : #predicates }
+{ #category : 'predicates' }
 BeamBridgeEvalError >> isError [
 	^ false
 ]

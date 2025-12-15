@@ -1,21 +1,23 @@
 Class {
-	#name : #BeamPIDObject,
-	#superclass : #BeamProxyObject,
-	#category : #'Gt4beam-Serialization'
+	#name : 'BeamPIDObject',
+	#superclass : 'BeamProxyObject',
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #dispatch }
+{ #category : 'dispatch' }
 BeamPIDObject class >> elixirClass [
 	^ 'PID'
 ]
 
-{ #category : #'views - helpers' }
+{ #category : 'views - helpers' }
 BeamPIDObject >> childrenTree [
 	^ self
 		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> gtInformationFor: aView [
 	<gtView>
 	^ aView columnedList
@@ -30,7 +32,7 @@ BeamPIDObject >> gtInformationFor: aView [
 		send: #value
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> gtSupervisionView: aView [
 	<gtView>
 	self isSupervisor ifFalse: [ ^ aView empty ].
@@ -67,7 +69,7 @@ BeamPIDObject >> gtSupervisionView: aView [
 			aMondrian layout horizontalTree ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> information [
 	| informationTuples result |
 	informationTuples := self evaluateAndWait: 'Process.info(' , self resolve , ')'.
@@ -80,7 +82,7 @@ BeamPIDObject >> information [
 	^ result
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> isEvaluatorProcess [
 	" I determine if I'm the same process as the current evaluator.
 	I can not run certain operations on myself"
@@ -88,23 +90,23 @@ BeamPIDObject >> isEvaluatorProcess [
 	^ self evaluateAndWait: self resolve , '== self()'
 ]
 
-{ #category : #predicates }
+{ #category : 'predicates' }
 BeamPIDObject >> isSupervisor [
 	^ self
 		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> printOn: str [
 	str << (self evaluateAndWait: self resolve , '|> inspect()')
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamPIDObject >> stateView: aView [
 	<gtView>
 	| inspect |

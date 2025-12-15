@@ -1,6 +1,6 @@
-Extension { #name : #LanguageLinkSettings }
+Extension { #name : 'LanguageLinkSettings' }
 
-{ #category : #'*Gt4beam' }
+{ #category : '*Gt4beam' }
 LanguageLinkSettings class >> elixirDefaultSettings [
 	^ self new
 		clientSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: 9000 + 99 atRandom);

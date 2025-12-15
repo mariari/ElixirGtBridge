@@ -1,1 +1,1 @@
-Package { #name : #Gt4beam }
+Package { #name : 'Gt4beam' }

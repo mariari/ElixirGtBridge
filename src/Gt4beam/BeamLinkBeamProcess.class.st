@@ -1,13 +1,15 @@
 Class {
-	#name : #BeamLinkBeamProcess,
-	#superclass : #LanguageLinkAbstractProcess,
+	#name : 'BeamLinkBeamProcess',
+	#superclass : 'LanguageLinkAbstractProcess',
 	#instVars : [
 		'process'
 	],
-	#category : #'Gt4beam-Processess'
+	#category : 'Gt4beam-Processess',
+	#package : 'Gt4beam',
+	#tag : 'Processess'
 }
 
-{ #category : #gtViews }
+{ #category : 'gtViews' }
 BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 	<gtView>
 	^ composite columnedList
@@ -27,19 +29,19 @@ BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 		actionUpdateButton
 ]
 
-{ #category : #testing }
+{ #category : 'testing' }
 BeamLinkBeamProcess >> hasProcess [
 	"Answer a boolean indicating whether the receiver has a process object"
 
 	^ process isNotNil
 ]
 
-{ #category : #testing }
+{ #category : 'testing' }
 BeamLinkBeamProcess >> isRunning [
 	^ process notNil and: [ process isRunning ]
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 BeamLinkBeamProcess >> newProcess [
 	^ GtSubprocessWithInMemoryOutput new
 		workingDirectory: self workingDirectory fullName;
@@ -48,7 +50,7 @@ BeamLinkBeamProcess >> newProcess [
 		yourself
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 BeamLinkBeamProcess >> processArguments [
 	| arguments |
 	arguments := OrderedCollection new.
@@ -59,7 +61,7 @@ BeamLinkBeamProcess >> processArguments [
 	^ arguments
 ]
 
-{ #category : #'start-stop' }
+{ #category : 'start-stop' }
 BeamLinkBeamProcess >> start [
 	process := self newProcess.
 	process run.
@@ -71,7 +73,7 @@ BeamLinkBeamProcess >> start [
 		andClient: self application settings clientSocketAddress port asString
 ]
 
-{ #category : #http }
+{ #category : 'http' }
 BeamLinkBeamProcess >> startHTTPAt: server andClient: client [
 	process stdinStream
 		nextPutAll: (String
@@ -85,7 +87,7 @@ BeamLinkBeamProcess >> startHTTPAt: server andClient: client [
 						lf ])
 ]
 
-{ #category : #tcp }
+{ #category : 'tcp' }
 BeamLinkBeamProcess >> startTCPAt: socket [
 	process stdinStream
 		nextPutAll: (String
@@ -97,14 +99,14 @@ BeamLinkBeamProcess >> startTCPAt: socket [
 						lf ])
 ]
 
-{ #category : #'start-stop' }
+{ #category : 'start-stop' }
 BeamLinkBeamProcess >> stop [
 	process ifNil: [ ^ self ].
 	process terminate.
 	process := nil
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamLinkBeamProcess >> workingDirectory [
 	^ application settings workingDirectory
 ]

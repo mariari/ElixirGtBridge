@@ -1,6 +1,6 @@
 Class {
-	#name : #BeamProxyObject,
-	#superclass : #Object,
+	#name : 'BeamProxyObject',
+	#superclass : 'Object',
 	#instVars : [
 		'elixirClass',
 		'elixirVar',
@@ -8,15 +8,17 @@ Class {
 		'value',
 		'application'
 	],
-	#category : #'Gt4beam-Serialization'
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass [
 	^ self subclassResponsibility
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass: aClass [
 	| proxyClass proxyClasses |
 	proxyClasses := (self allSubclasses
@@ -25,7 +27,7 @@ BeamProxyObject class >> elixirClass: aClass [
 	^ proxyClass new elixirClass: aClass
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> = AnotherObject [
 	^ super = AnotherObject
 		ifFalse: [ self class = AnotherObject class
@@ -33,67 +35,67 @@ BeamProxyObject >> = AnotherObject [
 		ifTrue: [ true ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> application [
 	^ application
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> application: anObject [
 	application := anObject
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> asList [
 	^ (1 to: self length) collect: [ :anIndex | self itemAt: anIndex - 1 ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> attributeAt: name [
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', name resolve, ')'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> attributes [
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.list_attributes(' , self elixirVar asString , ')'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> attributesAndValues [
 	^ self attributes asList
 		collect: [ :anItem | anItem -> (self attributeAt: anItem) ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> elixirClass [
 	^ elixirClass
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> elixirClass: anObject [
 	elixirClass := anObject
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> elixirVar [
 	^ elixirVar
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> elixirVar: anObject [
 	elixirVar := anObject
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> evaluateAndWait: string [
 	^ self application newCommandFactory
 		<< string;
 		sendAndWait
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> gtElixirRawFor: aView [
 	<gtView>
 	^ aView columnedTree
@@ -110,7 +112,7 @@ BeamProxyObject >> gtElixirRawFor: aView [
 		actionUpdateButton
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> gtRemoteViewsFor: aView [
 	"Create a composite view with all remote views"
 
@@ -126,7 +128,7 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 		views: (viewDecls collect: [ :decl | self viewFromDeclaration: decl ])
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> gtSourceFor: aView [
 	<gtView>
 	^ aView textEditor
@@ -137,47 +139,47 @@ BeamProxyObject >> gtSourceFor: aView [
 		styler: ElixirParser gtStyler
 ]
 
-{ #category : #comparing }
+{ #category : 'comparing' }
 BeamProxyObject >> hash [
 	^ self class hash hashMultiply bitXor: self asString hash hashMultiply
 ]
 
-{ #category : #predicates }
+{ #category : 'predicates' }
 BeamProxyObject >> isError [
 	^ false
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> itemAt: idx [
 	^ self evaluateAndWait: self resolve , '|> Enum.at(' , idx asString , ')'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> length [
 	^ self evaluateAndWait: self resolve , '|> length()'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> printOn: str [
 	str << (self evaluateAndWait: self resolve , '|> inspect(pretty: true)')
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> rawData [
 	^ rawData
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamProxyObject >> rawData: anObject [
 	rawData := anObject
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> resolve [
 	^ 'GtBridge.ObjectRegistry.resolve(' , self elixirVar asString , ')'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> source [
 	| file |
 	file := self sourceFile asFileReference.
@@ -187,20 +189,20 @@ BeamProxyObject >> source [
 	^ nil
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> sourceFile [
 	^ self
 		evaluateAndWait: 'List.to_string(' , self resolve , '.__struct__.module_info(:compile)[:source])'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> viewDeclarations [
 	^ self
 		evaluateAndWait: 'GtBridge.GtViewedObject.get_views_declarations_by_id(' , self elixirVar asString
 				, ')'
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> viewFromDeclaration: aDeclaration [
 	^ (GtBeamViewDeclaration fromRawData: aDeclaration) asView
 ]

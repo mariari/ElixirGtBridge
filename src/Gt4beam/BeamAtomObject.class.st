@@ -1,18 +1,20 @@
 Class {
-	#name : #BeamAtomObject,
-	#superclass : #Object,
+	#name : 'BeamAtomObject',
+	#superclass : 'Object',
 	#instVars : [
 		'symbol'
 	],
-	#category : #'Gt4beam-Serialization'
+	#category : 'Gt4beam-Serialization',
+	#package : 'Gt4beam',
+	#tag : 'Serialization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamAtomObject class >> new: aSymbol [
 	^ self new symbol: aSymbol
 ]
 
-{ #category : #comparing }
+{ #category : 'comparing' }
 BeamAtomObject >> = aSymbol [
 	"I should probably do this better"
 
@@ -20,12 +22,12 @@ BeamAtomObject >> = aSymbol [
 	^ self symbol = aSymbol symbol
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamAtomObject >> determinePID [
 	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamAtomObject >> evaluateAndWait: aString [
 	"I'm unsure how this works when we have multiple beam instances... Since this isn't related to any personal data"
 
@@ -34,7 +36,7 @@ BeamAtomObject >> evaluateAndWait: aString [
 		sendAndWait
 ]
 
-{ #category : #views }
+{ #category : 'views' }
 BeamAtomObject >> gtPIDView: aView [
 	<gtView>
 	| pid |
@@ -46,29 +48,29 @@ BeamAtomObject >> gtPIDView: aView [
 		views: pid gtViewsInCurrentContext
 ]
 
-{ #category : #comparing }
+{ #category : 'comparing' }
 BeamAtomObject >> hash [
 	^ self symbol hash hashMultiply
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamAtomObject >> printOn: aStream [
 	self symbol printOn: aStream
 ]
 
-{ #category : #'elixir - resolution' }
+{ #category : 'elixir - resolution' }
 BeamAtomObject >> resolve [
 	^ (symbol at: 1) = (symbol at: 1) asUppercase
 		ifTrue: [ symbol ]
 		ifFalse: [ ':' , symbol ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamAtomObject >> symbol [
 	^ symbol
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 BeamAtomObject >> symbol: anObject [
 	symbol := anObject
 ]

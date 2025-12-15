@@ -1,6 +1,6 @@
 Class {
-	#name : #GtElixirCoderModel,
-	#superclass : #GtSourceCoder,
+	#name : 'GtElixirCoderModel',
+	#superclass : 'GtSourceCoder',
 	#instVars : [
 		'pharoBindings',
 		'exception',
@@ -8,22 +8,24 @@ Class {
 		'commandFactory',
 		'elixirLinkApplicationStrategy'
 	],
-	#category : #'Gt4beam-Coder'
+	#category : 'Gt4beam-Coder',
+	#package : 'Gt4beam',
+	#tag : 'Coder'
 }
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 GtElixirCoderModel class >> code: aString [
 
 	^ self new sourceCode:
 		  (GtCoderExplicitStringSource new source: aString)
 ]
 
-{ #category : #converting }
+{ #category : 'converting' }
 GtElixirCoderModel >> asCoderViewModel [
 	^ GtElixirSnippetCoderViewModel new coder: self
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString [
 	"Answer the source code with all declared variables returned in an immediate dictionary"
 
@@ -32,7 +34,7 @@ GtElixirCoderModel >> bindAndExecute: sourceString [
 	^ self bindAndExecuteRaw: sourceString
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
 	self initializeApplication.
 	commandFactory := application newCommandFactory.
@@ -42,23 +44,23 @@ GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
 		sendAndWait
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> computeAst: theSourceString [
 	^ ElixirParser
 		parseWithErrors: theSourceString
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> exception [
 	^ exception
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> initializeAddOns: addOns [
 	super initializeAddOns: addOns.
 
@@ -86,13 +88,13 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 				id: GtSourceCoderDoItActionId ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> initializeApplication [
 	application := elixirLinkApplicationStrategy applicationServer.
 	application isRunning ifFalse: [ application start ].
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
 	super initializeShortcuts: addOns.
 
@@ -102,22 +104,22 @@ GtElixirCoderModel >> initializeShortcuts: addOns [
 				addShortcut: GtSourceCoderDoItAndInspectShortcut new ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> newCompletionStrategy [
 	^ GtCompletionStrategy new
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> pharoBindings: anObject [
 	pharoBindings := anObject
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
 	^ self bindAndExecute: aSourceString
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
 	"Answer the modified source to return the declared variables"
 	^ String
@@ -125,7 +127,7 @@ GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames
 			stream << trimmedSourceString ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 GtElixirCoderModel >> variableBindings: aGtSnippetBindings [
 
 	^ self pharoBindings: aGtSnippetBindings

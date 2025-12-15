@@ -1,16 +1,18 @@
 Class {
-	#name : #BeamCodeVisualizer,
-	#superclass : #Object,
-	#category : #'Gt4beam-CodeVisualization'
+	#name : 'BeamCodeVisualizer',
+	#superclass : 'Object',
+	#category : 'Gt4beam-CodeVisualization',
+	#package : 'Gt4beam',
+	#tag : 'CodeVisualization'
 }
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> codeView [
 	<gtExample>
 	^ self packageViewIncluding: self class
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> colorForClass: aClass [
 	(aClass methods anySatisfy: [ :m | m isAbstract ]) ifTrue: [ ^ Color blue ].
 	aClass superclass = TestCase ifTrue: [ ^ Color orange ].
@@ -22,7 +24,7 @@ BeamCodeVisualizer >> colorForClass: aClass [
 	^ Color black
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> colorForMethod: aCompiledMethod [
 	aCompiledMethod isFromTrait ifTrue: [ ^ Color brown ].
 	aCompiledMethod isAbstract ifTrue: [ ^ Color yellow ].
@@ -36,12 +38,12 @@ BeamCodeVisualizer >> colorForMethod: aCompiledMethod [
 	^ Color green
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> isAccessor: aCompiledMethod [
 	^(self isSimpleGetter: aCompiledMethod) or: [self isSimpleSetter: aCompiledMethod]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> isSimpleGetter: aMethod [
 	"Only a method directly returning an instance variable"
 
@@ -50,7 +52,7 @@ BeamCodeVisualizer >> isSimpleGetter: aMethod [
 				and: [ aMethod ast statements first value isVariable ] ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> isSimpleSetter: aMethod [
 	"Only a method directly returning an instance variable"
 
@@ -59,7 +61,7 @@ BeamCodeVisualizer >> isSimpleSetter: aMethod [
 				and: [ aMethod ast statements first variable isVariable ] ]
 ]
 
-{ #category : #'as yet unclassified' }
+{ #category : 'as yet unclassified' }
 BeamCodeVisualizer >> packageViewIncluding: aClass [
 	| view tags |
 	view := GtMondrian new.
