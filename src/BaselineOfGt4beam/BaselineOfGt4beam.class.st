@@ -1,14 +1,15 @@
 Class {
-	#name : #BaselineOfGt4beam,
-	#superclass : #BaselineOf,
-	#category : #BaselineOfGt4beam
+	#name : 'BaselineOfGt4beam',
+	#superclass : 'BaselineOf',
+	#category : 'BaselineOfGt4beam',
+	#package : 'BaselineOfGt4beam'
 }
 
-{ #category : #loading }
+{ #category : 'loading' }
 BaselineOfGt4beam class >> loadLepiter [
 	IceRepository registry  
 		detect: [ :aRepository |
-			aRepository name = 'gt4beam' ]
+			aRepository name = 'ElixirGtBridge' ]
 		ifFound: [ :aRepository | 
 			| defaultDatabase currentProperties |
 			defaultDatabase := LeDatabasesRegistry defaultLogicalDatabase.
@@ -20,7 +21,7 @@ BaselineOfGt4beam class >> loadLepiter [
 			self inform: 'Repository not found.' ]
 ]
 
-{ #category : #baseline }
+{ #category : 'baseline' }
 BaselineOfGt4beam >> baseline: spec [
 	<baseline>
 		^ spec for: #common do: [
