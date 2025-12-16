@@ -66,7 +66,6 @@ defmodule GtBridge.Eval do
   @spec notify(term(), String.t(), pos_integer()) :: term()
   def notify(obj, id, port) do
     require Logger
-    Logger.info("Notify called: obj=#{inspect(obj)}, id=#{id}, port=#{port}")
 
     # Register the object and get a unique ID (nil for primitives)
     exid = GtBridge.ObjectRegistry.register(obj)
@@ -101,10 +100,8 @@ defmodule GtBridge.Eval do
     }
 
     url = "http://localhost:" <> to_string(port) <> "/EVAL"
-    Logger.info("POSTing to #{url} with data: #{inspect(data)}")
 
-    response = Req.post!(url, json: data)
-    Logger.info("POST response: #{inspect(response)}")
+    Req.post!(url, json: data)
 
     obj
   end
