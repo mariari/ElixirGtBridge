@@ -66,14 +66,14 @@
 					"__type" : "time",
 					"time" : {
 						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T15:30:56.220018-05:00"
+						"dateAndTimeString" : "2025-12-16T14:13:41.428493+00:00"
 					}
 				},
 				"uid" : {
 					"__type" : "uid",
 					"uidString" : "NAtaOq79DQCzgiK0CXPFyg=="
 				},
-				"code" : "BeamLinkApplication uniqueInstance"
+				"code" : "BeamLinkApplication uniqueInstance restar"
 			},
 			{
 				"__type" : "textSnippet",
@@ -137,14 +137,14 @@
 					"__type" : "time",
 					"time" : {
 						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-19T15:51:09.38178+08:00"
+						"dateAndTimeString" : "2025-10-19T15:51:10.67894+08:00"
 					}
 				},
 				"uid" : {
 					"__type" : "uid",
 					"uidString" : "bpZVPq79DQC1bVtkCXPFyg=="
 				},
-				"code" : "BeamLinkApplication resetUniqueInstance\r\tstartWith: (LanguageLinkSettings new\r\t\t\tclientSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: 8081);\r\t\t\tserverSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: 8080);\r\t\t\tmessageBrokerStrategy: BeamLink;\r\t\t\tserverProcessClass: BeamLinkBeamProcess;\r\t\t\tplatform: BeamPlatform new;\r\t\t\tcommandFactoryClass: BeamLinkCommandFactory;\r\t\t\tcommandClass: ElixirLinkCommand;\r\t\t\tserializerClass: LanguageLinkSerializer;\r\t\t\tdeserializerClass: BeamLinkDeserializer;\r\t\t\tparserClass: ElixirParser;\r\t\t\tyourself)"
+				"code" : "BeamLinkApplication resetUniqueInstance\r\tstartWith: (LanguageLinkSettings new\r\t\t\tclientSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: 8081);\r\t\t\tserverSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: 8080);\r\t\t\tmessageBrokerStrategy: BeamLinkHttpMessageBroker;\r\t\t\tserverProcessClass: BeamLinkBeamProcess;\r\t\t\tplatform: BeamPlatform new;\r\t\t\tcommandFactoryClass: BeamLinkCommandFactory;\r\t\t\tcommandClass: ElixirLinkCommand;\r\t\t\tserializerClass: LanguageLinkSerializer;\r\t\t\tdeserializerClass: BeamLinkDeserializer;\r\t\t\tparserClass: ElixirParser;\r\t\t\tyourself)"
 			},
 			{
 				"__type" : "textSnippet",
