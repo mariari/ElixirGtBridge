@@ -40,9 +40,6 @@ defmodule GtBridge.Http.Router do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
     body = conn.body_params
 
-    require Logger
-    Logger.info("ENQUEUE received: #{inspect(body)}")
-
     if body["statements"] != "" do
       Eval.eval(GtBridge.Eval, body["statements"], body["commandId"])
     end
