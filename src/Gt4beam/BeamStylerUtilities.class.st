@@ -5,7 +5,7 @@ Class {
 	#package : 'Gt4beam'
 }
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> colorAndHighlightParenthesesLeft: aLeftIndex right: aRightIndex atNestingLevel: aNestingLevel inText: aText leftLength: aLength [
 	self
 		highlightParenthesesLeft: aLeftIndex
@@ -19,7 +19,7 @@ BeamStylerUtilities class >> colorAndHighlightParenthesesLeft: aLeftIndex right:
 		leftLength: aLength
 ]
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> colorParenthesesLeft: aLeftIndex right: aRightIndex atNestingLevel: aNestingLevel inText: aText leftLength: aLength [
 	| color |
 	color := self parenthesesColorAt: aNestingLevel.
@@ -27,7 +27,7 @@ BeamStylerUtilities class >> colorParenthesesLeft: aLeftIndex right: aRightIndex
 	(aText from: aRightIndex to: aRightIndex) foreground: color
 ]
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> highlightParenthesesLeft: aLeftIndex right: aRightIndex inText: aText [
 	| theParanthesesMarker cursorEnterAction cursorLeaveAction |
 	theParanthesesMarker := BrTextInvisibleMarkerAttribute new.
@@ -62,7 +62,7 @@ BeamStylerUtilities class >> highlightParenthesesLeft: aLeftIndex right: aRightI
 		leave: cursorLeaveAction
 ]
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> keywords [
 	^ {'defmodule'.
 		'def'.
@@ -77,14 +77,14 @@ BeamStylerUtilities class >> keywords [
 		'end'}
 ]
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> parenthesesColorAt: anIndex [
 	| colors |
 	colors := self parenthesesColors.
 	^ colors at: (anIndex - 1) \\ colors size + 1
 ]
 
-{ #category : '*Gt4beam' }
+{ #category : 'as yet unclassified' }
 BeamStylerUtilities class >> parenthesesColors [
 	| colors |
 	colors := BrGlamorousColors distinctTenStrongColors allButFirst allButLast
