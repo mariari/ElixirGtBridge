@@ -26,6 +26,7 @@ defmodule GtBridge.MixProject do
       {:msgpax, "~> 2.4"},
       {:typed_struct, "~> 0.3.0"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
