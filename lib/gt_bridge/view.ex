@@ -82,6 +82,24 @@ defmodule GtBridge.View do
   end
 
   @doc """
+  I scan all loaded modules for `__views__/0` and register them.
+
+  The `@after_compile` hooks that `defview` generates fire during
+  compilation, before the Views GenServer is started, so they fail
+  silently. Call me after the application starts to pick up any
+  views that were missed.
+  """
+  @spec register_all(GenServer.server()) :: :ok
+  def register_all(server \\ GtBridge.Views) do
+    for {module, _} <- :code.all_loaded(),
+        function_exported?(module, :__views__, 0) do
+      register(module, server)
+    end
+
+    :ok
+  end
+
+  @doc """
   Get all view specifications for a given object by calling its registered views.
   Returns a list of dictionaries ready for serialization to GT.
   """
