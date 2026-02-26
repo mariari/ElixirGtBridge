@@ -52,7 +52,6 @@ defmodule GtBridge.Http.Router do
   # Receive notifications/callbacks (GT might POST here)
   post "/EVAL" do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
-    body = conn.body_params
 
     conn
     |> send_resp(200, Jason.encode!(%{success: true}))
