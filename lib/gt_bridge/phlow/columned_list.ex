@@ -65,33 +65,22 @@ defmodule GtBridge.Phlow.ColumnedList do
         []
       end
 
-    require Logger
-    Logger.info("ColumnedList items_data: #{inspect(items_data)}")
-    Logger.info("ColumnedList columns: #{inspect(self.columns)}")
-
-    # Format items for each column - each row should be a list of formatted string values
     formatted_data =
       Enum.map(items_data, fn item ->
-        row_values =
-          Enum.map(self.columns, fn col ->
-            Column.format_item(col, item)
-          end)
-
-        Logger.info("Row values: #{inspect(row_values)}")
-        row_values
+        Enum.map(self.columns, fn col ->
+          Column.format_item(col, item)
+        end)
       end)
 
-    result = %{
+    %{
       title: self.view_title,
       priority: self.view_priority,
       viewName: "GtPhlowColumnedListViewSpecification",
       dataTransport: 2,
       itemsCount: length(items_data),
       columns: Enum.map(self.columns, &Column.as_dict/1),
-      items: formatted_data
+      items: formatted_data,
+      rawItems: items_data
     }
-
-    Logger.info("ColumnedList as_dict result: #{inspect(result)}")
-    result
   end
 end
