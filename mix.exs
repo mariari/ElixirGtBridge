@@ -1,14 +1,20 @@
 defmodule GtBridge.MixProject do
   use Mix.Project
 
+  @version "0.9.0"
+  @source_url "https://github.com/mariari/ElixirGtBridge"
+
   def project do
     [
       app: :gt_bridge,
-      version: "0.9.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       plt_add_apps: [:mix, :ex_unit],
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package(),
+      source_url: @source_url
     ]
   end
 
@@ -22,7 +28,18 @@ defmodule GtBridge.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  defp description do
+    "A bridge between Glamorous Toolkit (GT) and the BEAM VM, enabling remote code evaluation, object inspection, and Phlow view rendering."
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => @source_url},
+      files: ~w(lib mix.exs README.md LICENSE)
+    ]
+  end
+
   defp deps do
     [
       {:msgpax, "~> 2.4"},
@@ -31,8 +48,6 @@ defmodule GtBridge.MixProject do
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:req, "~> 0.5.0"}
     ]
   end
