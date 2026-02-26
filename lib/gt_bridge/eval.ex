@@ -65,8 +65,6 @@ defmodule GtBridge.Eval do
 
   @spec notify(term(), String.t(), pos_integer()) :: term()
   def notify(obj, id, port) do
-    require Logger
-
     # Register the object and get a unique ID (nil for primitives)
     exid = GtBridge.ObjectRegistry.register(obj)
 

@@ -54,9 +54,6 @@ defmodule GtBridge.Http.Router do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
     body = conn.body_params
 
-    require Logger
-    Logger.info("Received EVAL callback: #{inspect(body)}")
-
     conn
     |> send_resp(200, Jason.encode!(%{success: true}))
   end
