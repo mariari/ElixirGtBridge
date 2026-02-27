@@ -27,7 +27,7 @@ GtElixirCompletionStrategy >> hasCompletionEntryFor: aString [
 { #category : 'testing' }
 GtElixirCompletionStrategy >> isSeparatorCharacter: aCharacter [
 	^ aCharacter isSeparator
-		or: [ '()[]{}.,;=+-*/<>|#' includes: aCharacter ]
+		or: [ '()[]{},;=+-*/<>|#' includes: aCharacter ]
 ]
 
 { #category : 'completion' }
