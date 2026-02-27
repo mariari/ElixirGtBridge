@@ -26,12 +26,18 @@ GtElixirCoderModel >> asCoderViewModel [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecute: sourceString [
-	"Answer the source code with all declared variables returned in an immediate dictionary"
+GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext [
+	| fullSource selfObj |
 
 	<gtIgnoreConstraint: #GtRBAcceptVisitorCalledFromNonVisitingMethods>
 	<remoteDebuggerSignal>
-	^ self bindAndExecuteRaw: sourceString
+	selfObj := [ aContext requesterObject selfObject ]
+		on: Error do: [ nil ].
+	fullSource := ((selfObj isKindOf: BeamProxyObject)
+		or: [ selfObj isKindOf: BeamAtomObject ])
+		ifTrue: [ 'self = ' , selfObj resolve , String cr , sourceString ]
+		ifFalse: [ sourceString ].
+	^ self bindAndExecuteRaw: fullSource
 ]
 
 { #category : 'accessing' }
@@ -116,7 +122,7 @@ GtElixirCoderModel >> pharoBindings: anObject [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
-	^ self bindAndExecute: aSourceString
+	^ self bindAndExecute: aSourceString inContext: aGtSourceCoderEvaluationContext
 ]
 
 { #category : 'accessing' }
