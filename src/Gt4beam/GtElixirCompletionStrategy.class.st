@@ -50,7 +50,14 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 		, serverAddress port asString , '/COMPLETE'.
 	payload := { 'code' -> aString } asDictionary.
 	coderViewModel sourceText ifNotNil: [ :src |
-		payload at: 'source' put: src asString ].
+		| srcString sepIdx |
+		srcString := src asString.
+		"sourceText may lag one keystroke; rebuild tail from aString.
+		 Find the last separator before cursor and append aString."
+		sepIdx := srcString size.
+		[ sepIdx > 0 and: [ (self isSeparatorCharacter: (srcString at: sepIdx)) not ] ]
+			whileTrue: [ sepIdx := sepIdx - 1 ].
+		payload at: 'source' put: (srcString first: sepIdx) , aString ].
 	response := ZnClient new
 		url: url;
 		entity: (ZnEntity
