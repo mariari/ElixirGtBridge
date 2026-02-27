@@ -13,23 +13,37 @@ GtBeamMondrianViewDeclaration class >> remoteName [
 
 { #category : 'as yet unclassified' }
 GtBeamMondrianViewDeclaration >> treatView: view [
-	| nodes adjacency layoutName |
+	| nodes adjacency layoutName objects items |
 	nodes := (self rawData attributeAt: #nodes) asList.
 	adjacency := (self rawData attributeAt: #adjacency) asList.
 	layoutName := self rawData attributeAt: #layout.
+	objects := (self rawData attributeAt: #objects)
+		ifNotNil: [ :o | o asList ].
+	items := objects ifNil: [ nodes ].
 	view painting: [ :aMondrian |
 		aMondrian nodes
-			stencil: [ :aNode |
-				BrLabel new
-					text: (aNode attributeAt: #label);
-					aptitude: BrGlamorousLabelAptitude ];
-			with: nodes.
+			stencil: [ :anItem |
+				| idx label |
+				idx := items identityIndexOf: anItem.
+				label := ((nodes at: idx) attributeAt: #label) asString.
+				BrHorizontalPane new
+					geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
+					border: (BlBorder paint: Color lightGray width: 1);
+					background: Color white;
+					padding: (BlInsets all: 5);
+					addChild: (BrLabel new
+						text: label;
+						aptitude: BrGlamorousLabelAptitude);
+					constraintsDo: [ :c |
+						c horizontal fitContent.
+						c vertical fitContent ] ];
+			with: items.
 		aMondrian edges
-			connectToAll: [ :aNode |
+			connectToAll: [ :anItem |
 				| idx |
-				idx := nodes identityIndexOf: aNode.
+				idx := items identityIndexOf: anItem.
 				(adjacency at: idx) asList
-					collect: [ :childIdx | nodes at: childIdx + 1 ] ].
+					collect: [ :childIdx | items at: childIdx + 1 ] ].
 		aMondrian layout perform: layoutName asSymbol ]
 ]
 

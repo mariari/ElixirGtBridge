@@ -7,13 +7,14 @@ defmodule GtBridge.Phlow.Mondrian do
 
   ### Public API
 
-  - `title/2`      — set the view title
-  - `priority/2`   — set the view priority
-  - `nodes/2`      — set the node list (list or 0-arity fn)
+  - `title/2`       — set the view title
+  - `priority/2`    — set the view priority
+  - `nodes/2`       — set the node list (list or 0-arity fn)
   - `node_label/2`  — set the node→label function
-  - `edges/2`      — set the item→children function
-  - `layout/2`     — set the layout atom
-  - `as_dict/1`    — serialize for GT transport
+  - `node_object/2` — set the node→inspectable object function
+  - `edges/2`       — set the item→children function
+  - `layout/2`      — set the layout atom
+  - `as_dict/1`     — serialize for GT transport
   """
   use TypedStruct
 
@@ -22,6 +23,7 @@ defmodule GtBridge.Phlow.Mondrian do
     field(:view_priority, integer(), default: 1)
     field(:nodes_callback, (-> list()) | nil, default: nil)
     field(:node_label, (any() -> String.t()) | nil, default: nil)
+    field(:node_object, (any() -> any()) | nil, default: nil)
     field(:edges_callback, (any() -> list()) | nil, default: nil)
     field(:layout, atom(), default: :horizontal_tree)
   end
@@ -48,6 +50,16 @@ defmodule GtBridge.Phlow.Mondrian do
   @spec node_label(t(), (any() -> String.t())) :: t()
   def node_label(self, fun) do
     %__MODULE__{self | node_label: fun}
+  end
+
+  @doc """
+  I set a function that maps each node to the object GT should
+  inspect when the node is clicked.  When not set, clicking a
+  node inspects the node itself.
+  """
+  @spec node_object(t(), (any() -> any())) :: t()
+  def node_object(self, fun) do
+    %__MODULE__{self | node_object: fun}
   end
 
   @spec edges(t(), (any() -> list())) :: t()
@@ -88,7 +100,7 @@ defmodule GtBridge.Phlow.Mondrian do
       |> Macro.camelize()
       |> downcase_first()
 
-    %{
+    base = %{
       title: self.view_title,
       priority: self.view_priority,
       viewName: "GtPhlowMondrianViewSpecification",
@@ -97,6 +109,12 @@ defmodule GtBridge.Phlow.Mondrian do
       adjacency: adjacency,
       layout: layout_str
     }
+
+    if self.node_object do
+      Map.put(base, :objects, Enum.map(items, self.node_object))
+    else
+      base
+    end
   end
 
   defp downcase_first(<<first::utf8, rest::binary>>) do

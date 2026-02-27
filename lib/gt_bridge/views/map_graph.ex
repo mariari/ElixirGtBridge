@@ -15,6 +15,7 @@ defmodule GtBridge.Views.MapGraph do
     |> Mondrian.priority(15)
     |> Mondrian.nodes(all_nodes)
     |> Mondrian.node_label(fn %{label: label} -> label end)
+    |> Mondrian.node_object(fn %{value: value} -> value end)
     |> Mondrian.edges(fn %{children: children} -> children end)
     |> Mondrian.layout(:horizontal_tree)
   end
@@ -24,7 +25,7 @@ defmodule GtBridge.Views.MapGraph do
   ############################################################
 
   # Returns {all_nodes, top_level_nodes}.
-  # Each node is %{label: string, children: [node], id: ref}.
+  # Each node is %{label: string, value: original, children: [node], id: ref}.
   # The id ensures uniqueness in the index map even when two
   # nodes share the same label (e.g. two values of "1").
   @spec build_nodes(map()) :: {list(map()), list(map())}
@@ -33,12 +34,12 @@ defmodule GtBridge.Views.MapGraph do
       case value do
         %{} = nested ->
           {nested_all, nested_top} = build_nodes(nested)
-          key_node = %{label: inspect(key), children: nested_top, id: make_ref()}
+          key_node = %{label: inspect(key), value: key, children: nested_top, id: make_ref()}
           {all_acc ++ [key_node | nested_all], top_acc ++ [key_node]}
 
         _ ->
-          val_node = %{label: inspect(value), children: [], id: make_ref()}
-          key_node = %{label: inspect(key), children: [val_node], id: make_ref()}
+          val_node = %{label: inspect(value), value: value, children: [], id: make_ref()}
+          key_node = %{label: inspect(key), value: key, children: [val_node], id: make_ref()}
           {all_acc ++ [key_node, val_node], top_acc ++ [key_node]}
       end
     end)
