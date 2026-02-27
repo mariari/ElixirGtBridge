@@ -22,6 +22,9 @@ defmodule GtBridgeTest do
   test "mondrian" do
     Examples.EMondrian.simple_graph()
     Examples.EMondrian.default_labels()
+    Examples.EMondrian.map_graph_flat()
+    Examples.EMondrian.map_graph_nested()
+    Examples.EMondrian.map_graph_view_registered()
   end
 
   test "Testing Views" do
