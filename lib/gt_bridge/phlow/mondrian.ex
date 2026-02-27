@@ -5,16 +5,21 @@ defmodule GtBridge.Phlow.Mondrian do
   I serialize a node list, adjacency matrix, and layout name so that
   GT can render the graph via `GtPhlowMondrianViewSpecification`.
 
+  The API mirrors GT's Mondrian: `nodes/2` sets the domain objects,
+  `node_label/2` extracts display text, `edges/2` returns children
+  from the same collection.  Each serialized node carries both a
+  `label` (for display) and `object` (the original domain item, for
+  click-to-inspect).
+
   ### Public API
 
-  - `title/2`       — set the view title
-  - `priority/2`    — set the view priority
-  - `nodes/2`       — set the node list (list or 0-arity fn)
-  - `node_label/2`  — set the node→label function
-  - `node_object/2` — set the node→inspectable object function
-  - `edges/2`       — set the item→children function
-  - `layout/2`      — set the layout atom
-  - `as_dict/1`     — serialize for GT transport
+  - `title/2`      — set the view title
+  - `priority/2`   — set the view priority
+  - `nodes/2`      — set the node list (list or 0-arity fn)
+  - `node_label/2` — set the node→label function
+  - `edges/2`      — set the item→children function
+  - `layout/2`     — set the layout atom
+  - `as_dict/1`    — serialize for GT transport
   """
   use TypedStruct
 
@@ -23,7 +28,6 @@ defmodule GtBridge.Phlow.Mondrian do
     field(:view_priority, integer(), default: 1)
     field(:nodes_callback, (-> list()) | nil, default: nil)
     field(:node_label, (any() -> String.t()) | nil, default: nil)
-    field(:node_object, (any() -> any()) | nil, default: nil)
     field(:edges_callback, (any() -> list()) | nil, default: nil)
     field(:layout, atom(), default: :horizontal_tree)
   end
@@ -52,16 +56,6 @@ defmodule GtBridge.Phlow.Mondrian do
     %__MODULE__{self | node_label: fun}
   end
 
-  @doc """
-  I set a function that maps each node to the object GT should
-  inspect when the node is clicked.  When not set, clicking a
-  node inspects the node itself.
-  """
-  @spec node_object(t(), (any() -> any())) :: t()
-  def node_object(self, fun) do
-    %__MODULE__{self | node_object: fun}
-  end
-
   @spec edges(t(), (any() -> list())) :: t()
   def edges(self, fun) when is_function(fun, 1) do
     %__MODULE__{self | edges_callback: fun}
@@ -77,13 +71,18 @@ defmodule GtBridge.Phlow.Mondrian do
     items = if self.nodes_callback, do: self.nodes_callback.(), else: []
     label_fn = self.node_label || (&inspect/1)
 
+    # First-occurrence wins so duplicate values share a node
+    # rather than creating orphans.
     index_map =
       items
       |> Enum.with_index()
+      |> Enum.reverse()
       |> Map.new()
 
     nodes_data =
-      Enum.map(items, fn item -> %{label: label_fn.(item)} end)
+      Enum.map(items, fn item ->
+        %{label: label_fn.(item), object: item}
+      end)
 
     adjacency =
       Enum.map(items, fn item ->
@@ -100,7 +99,7 @@ defmodule GtBridge.Phlow.Mondrian do
       |> Macro.camelize()
       |> downcase_first()
 
-    base = %{
+    %{
       title: self.view_title,
       priority: self.view_priority,
       viewName: "GtPhlowMondrianViewSpecification",
@@ -109,12 +108,6 @@ defmodule GtBridge.Phlow.Mondrian do
       adjacency: adjacency,
       layout: layout_str
     }
-
-    if self.node_object do
-      Map.put(base, :objects, Enum.map(items, self.node_object))
-    else
-      base
-    end
   end
 
   defp downcase_first(<<first::utf8, rest::binary>>) do

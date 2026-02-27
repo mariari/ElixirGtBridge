@@ -13,13 +13,11 @@ GtBeamMondrianViewDeclaration class >> remoteName [
 
 { #category : 'as yet unclassified' }
 GtBeamMondrianViewDeclaration >> treatView: view [
-	| nodes adjacency layoutName objects items |
+	| nodes adjacency layoutName items |
 	nodes := (self rawData attributeAt: #nodes) asList.
 	adjacency := (self rawData attributeAt: #adjacency) asList.
 	layoutName := self rawData attributeAt: #layout.
-	objects := (self rawData attributeAt: #objects)
-		ifNotNil: [ :o | o asList ].
-	items := objects ifNil: [ nodes ].
+	items := nodes collect: [ :aNode | aNode attributeAt: #object ].
 	view painting: [ :aMondrian |
 		aMondrian nodes
 			stencil: [ :anItem |

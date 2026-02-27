@@ -26,7 +26,7 @@ defmodule Examples.EMondrian do
 
     assert dict.viewName == "GtPhlowMondrianViewSpecification"
     assert length(dict.nodes) == 4
-    assert Enum.at(dict.nodes, 0) == %{label: "a"}
+    assert Enum.at(dict.nodes, 0) == %{label: "a", object: :a}
     assert Enum.at(dict.adjacency, 0) == [1, 2]
     assert Enum.at(dict.adjacency, 1) == [3]
     assert Enum.at(dict.adjacency, 2) == []
@@ -42,7 +42,7 @@ defmodule Examples.EMondrian do
       |> Mondrian.nodes([1, 2, 3])
       |> Mondrian.as_dict()
 
-    assert Enum.at(dict.nodes, 0) == %{label: "1"}
+    assert Enum.at(dict.nodes, 0) == %{label: "1", object: 1}
 
     dict
   end
@@ -55,13 +55,13 @@ defmodule Examples.EMondrian do
     assert dict.viewName == "GtPhlowMondrianViewSpecification"
     assert length(dict.nodes) == 2
 
-    labels = Enum.map(dict.nodes, & &1.label)
-    assert ":a" in labels
-    assert "1" in labels
+    # Domain objects as nodes, inspect/1 for labels
+    objects = Enum.map(dict.nodes, & &1.object)
+    assert :a in objects
+    assert 1 in objects
 
-    # Key points to value: find :a's index, check its adjacency
-    a_idx = Enum.find_index(dict.nodes, &(&1.label == ":a"))
-    v_idx = Enum.find_index(dict.nodes, &(&1.label == "1"))
+    a_idx = Enum.find_index(dict.nodes, &(&1.object == :a))
+    v_idx = Enum.find_index(dict.nodes, &(&1.object == 1))
     assert Enum.at(dict.adjacency, a_idx) == [v_idx]
     assert Enum.at(dict.adjacency, v_idx) == []
 
@@ -75,14 +75,14 @@ defmodule Examples.EMondrian do
 
     assert length(dict.nodes) == 3
 
-    labels = Enum.map(dict.nodes, & &1.label)
-    assert ":x" in labels
-    assert ":y" in labels
-    assert "1" in labels
+    objects = Enum.map(dict.nodes, & &1.object)
+    assert :x in objects
+    assert :y in objects
+    assert 1 in objects
 
-    x_idx = Enum.find_index(dict.nodes, &(&1.label == ":x"))
-    y_idx = Enum.find_index(dict.nodes, &(&1.label == ":y"))
-    v_idx = Enum.find_index(dict.nodes, &(&1.label == "1"))
+    x_idx = Enum.find_index(dict.nodes, &(&1.object == :x))
+    y_idx = Enum.find_index(dict.nodes, &(&1.object == :y))
+    v_idx = Enum.find_index(dict.nodes, &(&1.object == 1))
 
     # :x → :y → 1
     assert Enum.at(dict.adjacency, x_idx) == [y_idx]
