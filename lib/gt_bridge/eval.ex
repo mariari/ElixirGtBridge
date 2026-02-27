@@ -59,17 +59,7 @@ defmodule GtBridge.Eval do
       state.bindings
       |> Keyword.drop(internal)
       |> Map.new(fn {name, value} ->
-        exid = GtBridge.ObjectRegistry.register(value)
-
-        serialized =
-          if exid == nil do
-            value
-          else
-            exclass = GtBridge.Resolve.data_type_to_string(value)
-            %{exclass: exclass, exid: exid}
-          end
-
-        {Atom.to_string(name), serialized}
+        {Atom.to_string(name), register_value(value)}
       end)
 
     {:reply, result, state}
@@ -99,42 +89,31 @@ defmodule GtBridge.Eval do
 
   @spec notify(term(), String.t(), pos_integer()) :: term()
   def notify(obj, id, port) do
-    # Register the object and get a unique ID (nil for primitives)
-    exid = GtBridge.ObjectRegistry.register(obj)
+    registered = register_value(obj)
 
-    # If it's a primitive (exid is nil), send it directly without wrapping
-    value_json_string =
-      if exid == nil do
-        # Primitive - send as-is, use our own serializer to get around
-        # atoms and binary
-        {:ok, json} = GtBridge.Serializer.to_json(obj)
-        json
-      else
-        # Complex object - wrap with metadata (lazy loading, no value)
-        # Get class info for the object
-        exclass = GtBridge.Resolve.data_type_to_string(obj)
-
-        # The value object with metadata (no value field for lazy loading)
-        value_object = %{
-          exclass: exclass,
-          exid: exid
-        }
-
-        {:ok, json} = Jason.encode(value_object)
-        json
+    {:ok, value_json_string} =
+      case registered do
+        %{exid: _} -> Jason.encode(registered)
+        primitive -> GtBridge.Serializer.to_json(primitive)
       end
 
-    data = %{
-      type: "EVAL",
-      id: id,
-      value: value_json_string,
-      __sync: "_"
-    }
-
+    data = %{type: "EVAL", id: id, value: value_json_string, __sync: "_"}
     url = "http://localhost:" <> to_string(port) <> "/EVAL"
-
     Req.post!(url, json: data)
 
     obj
+  end
+
+  ############################################################
+  #                   Private Implementation                 #
+  ############################################################
+
+  # Register a value in ObjectRegistry.  Returns `%{exclass, exid}`
+  # for complex objects, or the value as-is for primitives.
+  defp register_value(value) do
+    case GtBridge.ObjectRegistry.register(value) do
+      nil -> value
+      exid -> %{exclass: GtBridge.Resolve.data_type_to_string(value), exid: exid}
+    end
   end
 end
