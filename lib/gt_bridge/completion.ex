@@ -57,14 +57,16 @@ defmodule GtBridge.Completion do
   ############################################################
 
   defp complete_alias(hint) do
+    depth = length(String.split(hint, "."))
+
     for {module, _} <- :code.all_loaded(),
         name = Atom.to_string(module),
         String.starts_with?(name, "Elixir."),
         short = String.replace_prefix(name, "Elixir.", ""),
-        not String.contains?(short, "."),
         String.starts_with?(short, hint) do
-      short
+      short |> String.split(".") |> Enum.take(depth) |> Enum.join(".")
     end
+    |> Enum.uniq()
     |> Enum.sort()
   end
 
@@ -78,12 +80,27 @@ defmodule GtBridge.Completion do
         _ -> []
       end
 
-    for {fun, _arity} <- funs,
-        name = Atom.to_string(fun),
-        String.starts_with?(name, hint),
-        not String.starts_with?(name, "__") do
-      prefix <> name
-    end
+    fun_completions =
+      for {fun, _arity} <- funs,
+          name = Atom.to_string(fun),
+          String.starts_with?(name, hint),
+          not String.starts_with?(name, "__") do
+        prefix <> name
+      end
+
+    parent = Atom.to_string(module) <> "."
+
+    submodule_completions =
+      for {mod, _} <- :code.all_loaded(),
+          full = Atom.to_string(mod),
+          String.starts_with?(full, parent),
+          rest = String.replace_prefix(full, parent, ""),
+          segment = rest |> String.split(".") |> hd(),
+          String.starts_with?(segment, hint) do
+        prefix <> segment
+      end
+
+    (fun_completions ++ submodule_completions)
     |> Enum.uniq()
     |> Enum.sort()
   end
