@@ -19,6 +19,11 @@ defmodule GtBridgeTest do
     Examples.EEval.rebind_a_to_a()
   end
 
+  test "mondrian" do
+    Examples.EMondrian.simple_graph()
+    Examples.EMondrian.default_labels()
+  end
+
   test "Testing Views" do
     Examples.EViews.int_list_view_ref()
     Examples.EViews.name_text_view_ref()
