@@ -98,6 +98,7 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 GtElixirCoderModel >> initializeApplication [
 	application := elixirLinkApplicationStrategy applicationServer.
 	application isRunning ifFalse: [ application start ].
+	^ application
 ]
 
 { #category : 'accessing' }
