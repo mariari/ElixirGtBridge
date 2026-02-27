@@ -56,6 +56,10 @@ BeamLinkBeamProcess >> processArguments [
 	arguments := OrderedCollection new.
 
 	arguments
+		add: '--sname';
+		add: 'glam';
+		add: '--cookie';
+		add: 'glam';
 		add: '-S';
 		add: 'mix'.
 	^ arguments
