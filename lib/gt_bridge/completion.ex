@@ -221,7 +221,7 @@ defmodule GtBridge.Completion do
         short = String.replace_prefix(name, "Elixir.", ""),
         String.starts_with?(short, hint),
         function_exported?(module, :__struct__, 1) do
-      short
+      "%" <> short
     end
     |> Enum.sort()
   end

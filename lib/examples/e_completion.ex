@@ -54,7 +54,7 @@ defmodule Examples.ECompletion do
   def complete_struct() do
     results = Completion.complete("%MapS")
 
-    assert "MapSet" in results
+    assert "%MapSet" in results
 
     results
   end
