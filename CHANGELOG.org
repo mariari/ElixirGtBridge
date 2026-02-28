@@ -1,0 +1,32 @@
+* Changelog
+
+** v0.11.0
+
+*** Features
+
+- Elixir autocompletion in GT snippets — completions for modules,
+  functions, Erlang modules, variables, structs, and struct fields
+  via ~Code.Fragment.cursor_context/1~ and ~POST /COMPLETE~
+- Self binding for inspector snippets — inspected ~BeamProxyObject~
+  or ~BeamAtomObject~ is bound as =self= when evaluating Elixir code
+  in the inspector
+- Elixir bindings flow back to GT — ~POST /BINDINGS~ returns session
+  variables after evaluation so Lepiter snippets share bindings
+  across cells
+- Mondrian graph views from Elixir — topology-only serialization
+  (nodes + adjacency + layout) rendered by GT via
+  ~GtPhlowMondrianViewSpecification~.  Includes MapGraph view for
+  maps
+- Enable Erlang distribution and remsh info accessor for managed
+  BEAM processes
+
+*** Improvements
+
+- Adopt ExExample framework for all example modules with caching,
+  composition, and auto-generated tests
+- Add =@moduledoc= to all example modules
+- Remove redundant ~BeamAtomObject~ wrapping in view declarations
+- Fix ~classTags~ → ~tags~ API rename in ~BeamCodeVisualizer~
+- Drop redundant self binding from eval (renamed to =pid:=)
+- Extract ~register_value/1~ to deduplicate object serialization
+  in Eval
