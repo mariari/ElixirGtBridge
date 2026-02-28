@@ -34,6 +34,16 @@ defmodule GtBridge.Eval do
   end
 
   @doc """
+  I return the current bindings as a map of name→serialized value.
+  Internal bindings (:port, :command_id, :pid) are filtered out.
+  Non-primitive values are registered in ObjectRegistry.
+  """
+  @spec get_bindings(GenServer.server()) :: map()
+  def get_bindings(pid) do
+    GenServer.call(pid, :get_bindings)
+  end
+
+  @doc """
   Remove an object from the registry.
   Called by GT when a proxy object is garbage collected.
   """
@@ -45,6 +55,30 @@ defmodule GtBridge.Eval do
   ############################################################
   #                    Genserver Behavior                    #
   ############################################################
+
+  @impl true
+  def handle_call(:get_bindings, _from, state = %__MODULE__{}) do
+    internal = [:port, :command_id, :pid]
+
+    result =
+      state.bindings
+      |> Keyword.drop(internal)
+      |> Map.new(fn {name, value} ->
+        exid = GtBridge.ObjectRegistry.register(value)
+
+        serialized =
+          if exid == nil do
+            value
+          else
+            exclass = GtBridge.Resolve.data_type_to_string(value)
+            %{exclass: exclass, exid: exid}
+          end
+
+        {Atom.to_string(name), serialized}
+      end)
+
+    {:reply, result, state}
+  end
 
   # TODO garbage collect old values in the environment after a while
   @impl true
