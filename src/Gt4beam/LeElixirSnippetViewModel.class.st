@@ -13,7 +13,7 @@ LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 	aCoderViewModel
 		"Create New snippet (after the current snippet)"
 		addShortcut: (LeSnippetSplitSnippetShortcut new combination: (self keyboardShortcut: #SplitSnippet));
-		"Delete previous character, or merge with previous snippet"	
+		"Delete previous character, or merge with previous snippet"
 		addShortcut: (LeSnippetDeletePreviousShortcut new combination: (self keyboardShortcut: #DeletePrevious));
 		"Indent LeSnippet"
 		addShortcut: (LeSnippetIndentSnippetShortcut new combination: (self keyboardShortcut: #IndentSnippet));
