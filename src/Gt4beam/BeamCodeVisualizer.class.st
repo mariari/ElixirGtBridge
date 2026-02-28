@@ -65,7 +65,7 @@ BeamCodeVisualizer >> isSimpleSetter: aMethod [
 BeamCodeVisualizer >> packageViewIncluding: aClass [
 	| view tags |
 	view := GtMondrian new.
-	tags := (RPackageOrganizer default globalPackageOf: aClass) classTags
+	tags := (RPackageOrganizer default globalPackageOf: aClass) tags
 			removeAllSuchThat: [ :e | e name = 'Manifest' ].
 	view nodes
 		shape: [ :each | GtMondrianUMLClassElement withDefaultContainer label: each name asString ];

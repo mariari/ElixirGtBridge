@@ -11,9 +11,11 @@ Class {
 
 { #category : 'as yet unclassified' }
 GtBeamViewDeclaration class >> fromRawData: aData [
+	| name |
+	name := aData attributeAt: #viewName.
 	self
-		allSubclassesDo: [ :aSubclass | 
-			aSubclass remoteName = (aData attributeAt: (BeamAtomObject new: #viewName))
+		allSubclassesDo: [ :aSubclass |
+			aSubclass remoteName = name
 				ifTrue: [ ^ aSubclass new rawData: aData ] ].
 
 	^ self error: 'Unknown view'
@@ -30,8 +32,8 @@ GtBeamViewDeclaration >> asView [
 	view := GtPhlowView empty perform: self viewName.
 
 	view
-		title: (self rawData attributeAt: (BeamAtomObject new: #title));
-		priority: (self rawData attributeAt:  (BeamAtomObject new: #priority)).
+		title: (self rawData attributeAt: #title);
+		priority: (self rawData attributeAt: #priority).
 
 	self treatView: view.
 

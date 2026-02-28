@@ -14,7 +14,7 @@ GtBeamListViewDeclaration class >> remoteName [
 { #category : 'as yet unclassified' }
 GtBeamListViewDeclaration >> treatView: aView [
 	aView
-		items: [ (self rawData attributeAt: (BeamAtomObject new: #items)) asList ]
+		items: [ (self rawData attributeAt: #items) asList ]
 ]
 
 { #category : 'as yet unclassified' }
