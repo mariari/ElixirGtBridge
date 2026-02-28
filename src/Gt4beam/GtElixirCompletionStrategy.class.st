@@ -31,12 +31,30 @@ GtElixirCompletionStrategy >> coderViewModel: aCoderViewModel [
 ]
 
 { #category : 'completion' }
-GtElixirCompletionStrategy >> completionStringStreamStartingWith: aString [
-	| results |
-	results := [ self fetchCompletionsFor: aString ]
-		on: Error
-		do: [ :e | #() ].
+GtElixirCompletionStrategy >> completionActionStreamFor: aText at: positionInteger requested: aBoolean [
+	| string first prefix results |
+	string := aText asString.
+	first := (string first: positionInteger)
+		findLast: [ :c | self isSeparatorCharacter: c ].
+	prefix := string copyFrom: first + 1 to: positionInteger.
+	results := [ self fetchCompletionsFor: prefix ]
+		on: Error do: [ #() ].
 	^ results asAsyncStream
+		collect: [ :each |
+			| insertText |
+			insertText := (each includes: $/)
+				ifTrue: [ each copyUpTo: $/ ]
+				ifFalse: [ each ].
+			GtInsertTextCompletionAction
+				labeled: (self labelFor: each withSearch: prefix)
+				completion: (insertText allButFirst: prefix size)
+				position: positionInteger
+				from: positionInteger - prefix size + 1 ]
+]
+
+{ #category : 'testing' }
+GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
+	^ true
 ]
 
 { #category : 'private' }
@@ -54,9 +72,7 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 		srcString := src asString.
 		"sourceText may lag one keystroke; rebuild tail from aString.
 		 Find the last separator before cursor and append aString."
-		sepIdx := srcString size.
-		[ sepIdx > 0 and: [ (self isSeparatorCharacter: (srcString at: sepIdx)) not ] ]
-			whileTrue: [ sepIdx := sepIdx - 1 ].
+		sepIdx := srcString findLast: [ :c | self isSeparatorCharacter: c ].
 		payload at: 'source' put: (srcString first: sepIdx) , aString ].
 	response := ZnClient new
 		url: url;
@@ -72,6 +88,18 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 { #category : 'testing' }
 GtElixirCompletionStrategy >> hasCompletionEntryFor: aString [
 	^ aString size >= 2
+]
+
+{ #category : 'private' }
+GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
+	| text |
+	text := aString asRopedText glamorousCodeFont.
+	(text from: 1 to: searchString size)
+		attributes: { BlTextDecorationAttribute new
+			color: BrGlamorousColors textHighlightColor;
+			thickness: 3;
+			underline }.
+	^ text
 ]
 
 { #category : 'testing' }
