@@ -7,7 +7,8 @@ Class {
 		'application',
 		'commandFactory',
 		'elixirLinkApplicationStrategy',
-		'sessionId'
+		'sessionId',
+		'sessionFinalizerRegistered'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -44,12 +45,30 @@ GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext [
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
 	self initializeApplication.
+	self ensureSessionFinalizer.
 	commandFactory := application newCommandFactory.
 	commandFactory sessionId: sessionId.
 
 	^ commandFactory
 		<< sourceString;
 		sendAndWait
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> ensureSessionFinalizer [
+	"I register a BeamSessionFinalizer on the per-view bindings object.
+	When bindings is GC'd (view closed), the finalizer fires SESSION_CLOSE.
+	Uses FinalizationRegistry directly — the execution handler's
+	weakRegistry ivar has no public accessor."
+	sessionFinalizerRegistered == true ifTrue: [ ^ self ].
+	pharoBindings ifNil: [ ^ self ].
+	sessionId ifNil: [ ^ self ].
+	FinalizationRegistry default
+		add: pharoBindings
+		finalizer: (BeamSessionFinalizer
+			sessionId: sessionId
+			application: application).
+	sessionFinalizerRegistered := true
 ]
 
 { #category : 'accessing' }
@@ -166,12 +185,35 @@ GtElixirCoderModel >> pharoBindings: anObject [
 { #category : 'accessing' }
 GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
 	| result bindings |
+	self resolvePerViewState: aGtSourceCoderEvaluationContext.
 	result := self bindAndExecute: aSourceString inContext: aGtSourceCoderEvaluationContext.
 	bindings := self fetchBindings.
 	bindings associationsDo: [ :assoc |
 		pharoBindings ifNotNil: [
 			(pharoBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
+	"Release so the coder model (persisted via snippet) does not pin
+	the per-view bindings.  The finalizer is already registered and
+	resolvePerViewState: will re-set pharoBindings on next eval."
+	pharoBindings := nil.
 	^ result
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> resolvePerViewState: aContext [
+	"The coder model is shared between views (same snippet model).
+	Resolve the per-view pharoBindings and sessionId from the
+	evaluation context so each view gets its own Elixir session."
+	| coderVM viewBindings newSessionId |
+	coderVM := [ aContext requesterObject coderViewModel ]
+		on: Error do: [ nil ].
+	coderVM ifNil: [ ^ self ].
+	viewBindings := coderVM viewPharoBindings.
+	viewBindings ifNil: [ ^ self ].
+	pharoBindings := viewBindings.
+	newSessionId := LeElixirSnippetElement sessionIdFor: viewBindings.
+	newSessionId = sessionId ifFalse: [
+		sessionFinalizerRegistered := nil ].
+	sessionId := newSessionId
 ]
 
 { #category : 'private' }
