@@ -57,6 +57,14 @@ defmodule GtBridge.Http.Router do
     |> send_resp(200, Jason.encode!(%{success: true}))
   end
 
+  post "/BINDINGS" do
+    {:ok, _, conn} = Plug.Conn.read_body(conn)
+    bindings = Eval.get_bindings(GtBridge.Eval)
+
+    conn
+    |> send_resp(200, Jason.encode!(bindings))
+  end
+
   # Get view specifications for an object
   post "/GET_VIEWS" do
     {:ok, _, conn} = Plug.Conn.read_body(conn)

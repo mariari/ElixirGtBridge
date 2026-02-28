@@ -56,6 +56,29 @@ GtElixirCoderModel >> computeAst: theSourceString [
 		parseWithErrors: theSourceString
 ]
 
+{ #category : 'private' }
+GtElixirCoderModel >> doFetchBindings [
+	| serverAddress url response raw result |
+	application ifNil: [ ^ Dictionary new ].
+	serverAddress := application settings serverSocketAddress.
+	serverAddress ifNil: [ ^ Dictionary new ].
+	url := 'http://' , serverAddress ipOrName , ':'
+		, serverAddress port asString , '/BINDINGS'.
+	response := ZnClient new
+		url: url;
+		entity: (ZnEntity
+				with: '{}'
+				type: ZnMimeType applicationJson);
+		post;
+		response.
+	response isSuccess ifFalse: [ ^ Dictionary new ].
+	raw := STONJSON fromString: response contents.
+	result := Dictionary new: raw size.
+	raw keysAndValuesDo: [ :name :value |
+		result at: name put: (self reifyBindingValue: value) ].
+	^ result
+]
+
 { #category : 'accessing' }
 GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
@@ -64,6 +87,11 @@ GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 { #category : 'accessing' }
 GtElixirCoderModel >> exception [
 	^ exception
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> fetchBindings [
+	^ [ self doFetchBindings ] on: Error do: [ Dictionary new ]
 ]
 
 { #category : 'accessing' }
@@ -123,7 +151,25 @@ GtElixirCoderModel >> pharoBindings: anObject [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
-	^ self bindAndExecute: aSourceString inContext: aGtSourceCoderEvaluationContext
+	| result bindings |
+	result := self bindAndExecute: aSourceString inContext: aGtSourceCoderEvaluationContext.
+	bindings := self fetchBindings.
+	bindings associationsDo: [ :assoc |
+		pharoBindings ifNotNil: [
+			(pharoBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
+	^ result
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> reifyBindingValue: aValue [
+	"Proxy references carry exid+exclass; reify as BeamProxyObject.
+	Everything else passes through as a primitive."
+	(aValue isDictionary and: [ aValue includesKey: 'exid' ])
+		ifTrue: [
+			^ (BeamProxyObject elixirClass: (aValue at: 'exclass'))
+				elixirVar: (aValue at: 'exid');
+				application: application ].
+	^ aValue
 ]
 
 { #category : 'accessing' }
