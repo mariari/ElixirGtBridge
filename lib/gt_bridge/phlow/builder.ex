@@ -39,6 +39,14 @@ defmodule GtBridge.Phlow.Builder do
   end
 
   @doc """
+  Create a new Mondrian (graph) view.
+  """
+  @spec mondrian() :: GtBridge.Phlow.Mondrian.t()
+  def mondrian do
+    %GtBridge.Phlow.Mondrian{}
+  end
+
+  @doc """
   Create a new empty view.
   """
   @spec empty() :: GtBridge.Phlow.Empty.t()
