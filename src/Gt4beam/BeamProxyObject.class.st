@@ -121,10 +121,13 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 { #category : #'as yet unclassified' }
 BeamProxyObject >> gtSourceFor: aView [
 	<gtView>
+	| src |
+	src := self source.
+	src ifNil: [ ^ aView empty ].
 	^ aView textEditor
 		title: 'Source';
 		priority: 110;
-		text: [ self source ];
+		text: [ src ];
 		aptitude: BrGlamorousCodeEditorAptitude;
 		styler: ElixirParser gtStyler
 ]
@@ -164,10 +167,10 @@ BeamProxyObject >> resolve [
 { #category : #'as yet unclassified' }
 BeamProxyObject >> source [
 	| file |
-	file := self sourceFile asFileReference.
-
+	file := self sourceFile.
+	file isString ifFalse: [ ^ nil ].
+	file := file asFileReference.
 	file exists ifTrue: [ ^ file contents ].
-
 	^ nil
 ]
 
