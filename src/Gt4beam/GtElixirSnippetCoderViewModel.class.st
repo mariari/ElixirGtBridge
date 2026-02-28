@@ -8,5 +8,5 @@ Class {
 
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> newCompletionStrategy [
-	^ GtElixirCompletionStrategy new
+	^ GtElixirCompletionStrategy new coderModel: self coderModel
 ]
