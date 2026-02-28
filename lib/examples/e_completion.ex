@@ -13,8 +13,8 @@ defmodule Examples.ECompletion do
   example complete_enum_dot do
     results = Completion.complete("Enum.ma")
 
-    assert "Enum.map" in results
-    assert "Enum.map_every" in results
+    assert Enum.any?(results, &String.starts_with?(&1, "Enum.map/2"))
+    assert Enum.any?(results, &String.starts_with?(&1, "Enum.map_every/3"))
 
     results
   end
@@ -41,7 +41,7 @@ defmodule Examples.ECompletion do
   example complete_erlang_dot do
     results = Completion.complete(":erlang.no")
 
-    assert ":erlang.node" in results
+    assert ":erlang.node/0" in results
 
     results
   end
@@ -80,10 +80,11 @@ defmodule Examples.ECompletion do
     results
   end
 
-  @spec complete_empty_returns_something() :: [String.t()]
-  example complete_empty_returns_something do
+  @spec complete_kernel_with_arity() :: [String.t()]
+  example complete_kernel_with_arity do
     results = Completion.complete("is_")
 
+    assert "is_atom/1" in results
     assert length(results) > 0
 
     results
