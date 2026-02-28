@@ -26,6 +26,7 @@ defmodule GtBridgeTest do
     Examples.ECompletion.complete_erlang_dot()
     Examples.ECompletion.complete_with_bindings()
     Examples.ECompletion.complete_struct()
+    Examples.ECompletion.complete_struct_fields()
     Examples.ECompletion.complete_empty_returns_something()
   end
 

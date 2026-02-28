@@ -59,6 +59,21 @@ defmodule Examples.ECompletion do
     results
   end
 
+  @spec complete_struct_fields() :: [String.t()]
+  def complete_struct_fields() do
+    # GT sends "ho" as code (from { separator) and full source for context
+    results = Completion.complete("ho", [], "%URI{ho")
+
+    assert "host" in results
+    assert "port" not in results
+
+    # Without source context, falls back to normal local_or_var
+    fallback = Completion.complete("ho")
+    assert "host" not in fallback
+
+    results
+  end
+
   @spec complete_empty_returns_something() :: [String.t()]
   def complete_empty_returns_something() do
     results = Completion.complete("is_")

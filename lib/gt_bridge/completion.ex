@@ -134,30 +134,85 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(_source, hint, bindings) do
-    vars =
-      for {name, _val} <- bindings,
-          str = Atom.to_string(name),
-          String.starts_with?(str, hint) do
-        str
-      end
+  defp complete_local_or_var(source, hint, bindings) do
+    struct_fields = struct_fields_for(source, hint)
 
-    kernel_funs =
-      for {fun, _arity} <-
-            Kernel.__info__(:functions) ++
-              Kernel.__info__(:macros),
-          name = Atom.to_string(fun),
-          String.starts_with?(name, hint),
-          not String.starts_with?(name, "__") do
+    if struct_fields != [] do
+      struct_fields
+    else
+      vars =
+        for {name, _val} <- bindings,
+            str = Atom.to_string(name),
+            String.starts_with?(str, hint) do
+          str
+        end
+
+      kernel_funs =
+        for {fun, _arity} <-
+              Kernel.__info__(:functions) ++
+                Kernel.__info__(:macros),
+            name = Atom.to_string(fun),
+            String.starts_with?(name, hint),
+            not String.starts_with?(name, "__") do
+          name
+        end
+
+      root_modules = complete_alias(hint)
+
+      (vars ++ kernel_funs ++ root_modules)
+      |> Enum.uniq()
+      |> Enum.sort()
+    end
+  end
+
+  defp struct_fields_for(nil, _hint), do: []
+
+  defp struct_fields_for(source, hint) do
+    with {:ok, ast} <- Code.Fragment.container_cursor_to_quoted(source),
+         {:%, _, [{:__aliases__, _, aliases}, {:%{}, _, _}]} <-
+           find_struct_around_cursor(ast),
+         module = Module.concat(aliases),
+         {:module, _} <- Code.ensure_loaded(module),
+         true <- function_exported?(module, :__struct__, 1) do
+      for key <- Map.keys(module.__struct__()),
+          key != :__struct__,
+          name = Atom.to_string(key),
+          String.starts_with?(name, hint) do
         name
       end
-
-    root_modules = complete_alias(hint)
-
-    (vars ++ kernel_funs ++ root_modules)
-    |> Enum.uniq()
-    |> Enum.sort()
+      |> Enum.sort()
+    else
+      _ -> []
+    end
   end
+
+  defp find_struct_around_cursor({:%, _, [_aliases, {:%{}, _, fields}]} = node) do
+    if has_cursor?(fields), do: node, else: nil
+  end
+
+  defp find_struct_around_cursor({_, _, children}) when is_list(children) do
+    Enum.find_value(children, &find_struct_around_cursor/1)
+  end
+
+  defp find_struct_around_cursor([_ | _] = list) do
+    Enum.find_value(list, &find_struct_around_cursor/1)
+  end
+
+  defp find_struct_around_cursor({left, right}) do
+    find_struct_around_cursor(left) || find_struct_around_cursor(right)
+  end
+
+  defp find_struct_around_cursor(_), do: nil
+
+  defp has_cursor?({:__cursor__, _, _}), do: true
+
+  defp has_cursor?({_, _, children}) when is_list(children) do
+    Enum.any?(children, &has_cursor?/1)
+  end
+
+  defp has_cursor?([_ | _] = list), do: Enum.any?(list, &has_cursor?/1)
+  defp has_cursor?({left, right}), do: has_cursor?(left) or has_cursor?(right)
+  defp has_cursor?(_), do: false
 
   defp complete_struct(hint) do
     for {module, _} <- :code.all_loaded(),
