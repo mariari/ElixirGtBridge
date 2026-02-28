@@ -2,6 +2,7 @@ defmodule GtBridge.Http.Router do
   use Plug.Router
 
   alias GtBridge.Eval
+  alias GtBridge.EvalRegistry
 
   def call(conn, config) do
     conn
@@ -41,7 +42,8 @@ defmodule GtBridge.Http.Router do
     body = conn.body_params
 
     if body["statements"] != "" do
-      Eval.eval(GtBridge.Eval, body["statements"], body["commandId"])
+      eval = resolve_eval(conn, body)
+      Eval.eval(eval, body["statements"], body["commandId"])
     end
 
     # Always return empty JSON like Python bridge does
@@ -62,7 +64,8 @@ defmodule GtBridge.Http.Router do
     body = conn.body_params
     code = body["code"] || ""
     source = body["source"]
-    results = Eval.complete(GtBridge.Eval, code, source)
+    eval = resolve_eval(conn, body)
+    results = Eval.complete(eval, code, source)
 
     conn
     |> send_resp(200, Jason.encode!(results))
@@ -70,7 +73,9 @@ defmodule GtBridge.Http.Router do
 
   post "/BINDINGS" do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
-    bindings = Eval.get_bindings(GtBridge.Eval)
+    body = conn.body_params
+    eval = resolve_eval(conn, body)
+    bindings = Eval.get_bindings(eval)
 
     conn
     |> send_resp(200, Jason.encode!(bindings))
@@ -86,8 +91,10 @@ defmodule GtBridge.Http.Router do
     response =
       case body do
         %{"objectId" => object_id} ->
+          eval = resolve_eval(conn, body)
+
           # Try to get the object from the eval context
-          case Eval.eval(GtBridge.Eval, object_id, nil) do
+          case Eval.eval(eval, object_id, nil) do
             %{__struct__: _module} = object ->
               views = GtBridge.View.get_view_object(object)
               Jason.encode!(%{views: views})
@@ -102,5 +109,28 @@ defmodule GtBridge.Http.Router do
 
     conn
     |> send_resp(200, response)
+  end
+
+  post "/SESSION_CLOSE" do
+    {:ok, _, conn} = Plug.Conn.read_body(conn)
+    body = conn.body_params
+    session_id = body["sessionId"]
+
+    if session_id do
+      EvalRegistry.remove(session_id)
+    end
+
+    conn
+    |> send_resp(200, "{}")
+  end
+
+  ############################################################
+  #                   Private Implementation                 #
+  ############################################################
+
+  defp resolve_eval(conn, body) do
+    session_id = body["sessionId"] || "default"
+    port = conn.assigns.pharo_client
+    EvalRegistry.get_or_create(session_id, port: port)
   end
 end

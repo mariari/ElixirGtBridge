@@ -1,10 +1,31 @@
 Class {
 	#name : 'BeamLinkCommandFactory',
 	#superclass : 'LanguageLinkCommandFactory',
+	#instVars : [
+		'sessionId'
+	],
 	#category : 'Gt4beam-Execution',
 	#package : 'Gt4beam',
 	#tag : 'Execution'
 }
+
+{ #category : 'accessing' }
+BeamLinkCommandFactory >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+BeamLinkCommandFactory >> sessionId: aString [
+	sessionId := aString
+]
+
+{ #category : 'building' }
+BeamLinkCommandFactory >> buildCommand [
+	| cmd |
+	cmd := super buildCommand.
+	cmd sessionId: sessionId.
+	^ cmd
+]
 
 { #category : 'initalization' }
 BeamLinkCommandFactory >> setNotifyToInstruction: anInstruction [

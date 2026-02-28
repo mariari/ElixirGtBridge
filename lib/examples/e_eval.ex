@@ -8,6 +8,7 @@ defmodule Examples.EEval do
   import ExUnit.Assertions
 
   alias GtBridge.Eval
+  alias GtBridge.EvalRegistry
 
   def rerun?(_), do: true
 
@@ -56,5 +57,61 @@ defmodule Examples.EEval do
     assert Eval.eval(pid, "a", nil) == :a
 
     pid
+  end
+
+  @spec sessions_are_isolated() :: {pid(), pid()}
+  example sessions_are_isolated do
+    page_a = "page-" <> Integer.to_string(:rand.uniform(100_000))
+    page_b = "page-" <> Integer.to_string(:rand.uniform(100_000))
+
+    eval_a = EvalRegistry.get_or_create(page_a)
+    eval_b = EvalRegistry.get_or_create(page_b)
+
+    assert eval_a != eval_b
+
+    Eval.eval(eval_a, "x = 1", nil)
+    Eval.eval(eval_b, "x = 2", nil)
+
+    assert Eval.eval(eval_a, "x", nil) == 1
+    assert Eval.eval(eval_b, "x", nil) == 2
+
+    EvalRegistry.remove(page_a)
+    EvalRegistry.remove(page_b)
+
+    {eval_a, eval_b}
+  end
+
+  @spec session_get_or_create_is_idempotent() :: pid()
+  example session_get_or_create_is_idempotent do
+    session = "idem-" <> Integer.to_string(:rand.uniform(100_000))
+
+    pid1 = EvalRegistry.get_or_create(session)
+    pid2 = EvalRegistry.get_or_create(session)
+
+    assert pid1 == pid2
+
+    EvalRegistry.remove(session)
+
+    pid1
+  end
+
+  @spec session_remove_cleans_up() :: :ok
+  example session_remove_cleans_up do
+    session = "cleanup-" <> Integer.to_string(:rand.uniform(100_000))
+
+    pid = EvalRegistry.get_or_create(session)
+    assert Process.alive?(pid)
+
+    EvalRegistry.remove(session)
+    refute Process.alive?(pid)
+
+    # A new get_or_create after removal starts a fresh process
+    new_pid = EvalRegistry.get_or_create(session)
+    assert new_pid != pid
+    assert Process.alive?(new_pid)
+
+    EvalRegistry.remove(session)
+
+    :ok
   end
 end

@@ -8,6 +8,7 @@ defmodule GtBridge.Supervisor do
   @impl true
   def init(_args) do
     children = [
+      {Registry, keys: :unique, name: GtBridge.EvalRegistry},
       {EvaluationSupervisor, []},
       {Tcp.Supervisor, []},
       {GtBridge.Http.Supervisor, []},

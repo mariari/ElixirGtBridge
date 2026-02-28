@@ -6,7 +6,8 @@ Class {
 		'exception',
 		'application',
 		'commandFactory',
-		'elixirLinkApplicationStrategy'
+		'elixirLinkApplicationStrategy',
+		'sessionId'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -44,6 +45,7 @@ GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext [
 GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
 	self initializeApplication.
 	commandFactory := application newCommandFactory.
+	commandFactory sessionId: sessionId.
 
 	^ commandFactory
 		<< sourceString;
@@ -58,16 +60,18 @@ GtElixirCoderModel >> computeAst: theSourceString [
 
 { #category : 'private' }
 GtElixirCoderModel >> doFetchBindings [
-	| serverAddress url response raw result |
+	| serverAddress url response raw result payload |
 	application ifNil: [ ^ Dictionary new ].
 	serverAddress := application settings serverSocketAddress.
 	serverAddress ifNil: [ ^ Dictionary new ].
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/BINDINGS'.
+	payload := Dictionary new.
+	sessionId ifNotNil: [ payload at: #sessionId put: sessionId ].
 	response := ZnClient new
 		url: url;
 		entity: (ZnEntity
-				with: '{}'
+				with: (STONJSON toString: payload)
 				type: ZnMimeType applicationJson);
 		post;
 		response.
@@ -77,6 +81,16 @@ GtElixirCoderModel >> doFetchBindings [
 	raw keysAndValuesDo: [ :name :value |
 		result at: name put: (self reifyBindingValue: value) ].
 	^ result
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> sessionId: aString [
+	sessionId := aString
 ]
 
 { #category : 'accessing' }

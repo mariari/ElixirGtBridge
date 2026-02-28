@@ -16,7 +16,16 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 	self updateLanguageLabel.
 	self coder
 		elixirLinkApplicationStrategy: self serverStrategy;
-		pharoBindings: self snippetViewModel snippetBindings
+		pharoBindings: self snippetViewModel snippetBindings;
+		sessionId: self snippetSessionId
+]
+
+{ #category : 'private' }
+LeElixirSnippetElement >> snippetSessionId [
+	"I return the page UUID as the session ID for per-page eval isolation.
+	Inspector snippets have no page, so they fall back to nil (→ default session)."
+	^ [ self snippet page uid asString ]
+		on: Error do: [ nil ]
 ]
 
 { #category : 'accessing' }
