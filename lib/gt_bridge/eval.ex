@@ -28,9 +28,9 @@ defmodule GtBridge.Eval do
     GenServer.call(pid, {:eval, code, command_id})
   end
 
-  @spec complete(GenServer.server(), String.t()) :: [String.t()]
-  def complete(pid, code_prefix) do
-    GenServer.call(pid, {:complete, code_prefix})
+  @spec complete(GenServer.server(), String.t(), String.t() | nil) :: [String.t()]
+  def complete(pid, code_prefix, source \\ nil) do
+    GenServer.call(pid, {:complete, code_prefix, source})
   end
 
   @doc """
@@ -48,8 +48,8 @@ defmodule GtBridge.Eval do
 
   # TODO garbage collect old values in the environment after a while
   @impl true
-  def handle_call({:complete, code_prefix}, _from, state = %__MODULE__{}) do
-    results = GtBridge.Completion.complete(code_prefix, state.bindings)
+  def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
+    results = GtBridge.Completion.complete(code_prefix, state.bindings, source)
     {:reply, results, state}
   end
 

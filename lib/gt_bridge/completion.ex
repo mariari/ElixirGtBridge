@@ -11,20 +11,19 @@ defmodule GtBridge.Completion do
 
   - `complete/1` — complete with no bindings
   - `complete/2` — complete with bindings from an Eval session
+  - `complete/3` — complete with bindings and full source context
   """
-
-  @doc """
-  I return a list of completion strings for `code_prefix`.
-  """
-  @spec complete(String.t()) :: [String.t()]
-  def complete(code_prefix), do: complete(code_prefix, [])
 
   @doc """
   I return a list of completion strings for `code_prefix`,
   including variable names from `bindings`.
+
+  The optional third argument `source` is the full source text up to
+  the cursor. When provided, it is passed through to sub-completers
+  that may need surrounding context (e.g. struct field completion).
   """
-  @spec complete(String.t(), Code.binding()) :: [String.t()]
-  def complete(code_prefix, bindings) do
+  @spec complete(String.t(), Code.binding(), String.t() | nil) :: [String.t()]
+  def complete(code_prefix, bindings \\ [], source \\ nil) do
     case Code.Fragment.cursor_context(code_prefix) do
       {:alias, hint} ->
         complete_alias(List.to_string(hint))
@@ -39,13 +38,13 @@ defmodule GtBridge.Completion do
         complete_erlang_module(List.to_string(hint))
 
       {:local_or_var, hint} ->
-        complete_local_or_var(List.to_string(hint), bindings)
+        complete_local_or_var(source, List.to_string(hint), bindings)
 
       {:struct, hint} ->
         complete_struct(List.to_string(hint))
 
       :expr ->
-        complete_local_or_var("", bindings)
+        complete_local_or_var(source, "", bindings)
 
       _ ->
         []
@@ -135,7 +134,7 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(hint, bindings) do
+  defp complete_local_or_var(_source, hint, bindings) do
     vars =
       for {name, _val} <- bindings,
           str = Atom.to_string(name),

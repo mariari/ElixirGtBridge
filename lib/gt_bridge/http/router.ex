@@ -61,7 +61,8 @@ defmodule GtBridge.Http.Router do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
     body = conn.body_params
     code = body["code"] || ""
-    results = Eval.complete(GtBridge.Eval, code)
+    source = body["source"]
+    results = Eval.complete(GtBridge.Eval, code, source)
 
     conn
     |> send_resp(200, Jason.encode!(results))
