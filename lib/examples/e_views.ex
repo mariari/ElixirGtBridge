@@ -4,6 +4,8 @@ defmodule Examples.EViews do
   struct with two views to exercise view registration and rendering.
   """
 
+  use ExExample
+
   import ExUnit.Assertions
 
   use TypedStruct
@@ -11,6 +13,8 @@ defmodule Examples.EViews do
 
   alias GtBridge.Phlow.List
   alias GtBridge.Phlow.Text
+
+  def rerun?(_), do: true
 
   typedstruct do
     field(:int, integer(), default: 0)
@@ -52,23 +56,23 @@ defmodule Examples.EViews do
   ############################################################
 
   @spec int_list_view_ref() :: {Examples.EViews, :int_list_view}
-  def int_list_view_ref() do
+  example int_list_view_ref do
     {__MODULE__, :int_list_view}
   end
 
   @spec name_text_view_ref() :: {Examples.EViews, :name_text_view}
-  def name_text_view_ref() do
+  example name_text_view_ref do
     {__MODULE__, :name_text_view}
   end
 
   @spec empty_view() :: pid()
-  def empty_view() do
+  example empty_view do
     {:ok, pid} = GtBridge.Views.start_link([])
     pid
   end
 
   @spec register_views() :: pid()
-  def register_views() do
+  example register_views do
     ret = empty_view()
 
     # Register all views from this module
@@ -85,7 +89,7 @@ defmodule Examples.EViews do
   end
 
   @spec test_get_view_specs() :: :ok
-  def test_get_view_specs() do
+  example test_get_view_specs do
     server = register_views()
     obj = with_values(42, "Test")
 

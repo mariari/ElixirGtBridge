@@ -3,12 +3,14 @@ defmodule Examples.EMondrian do
   I am examples for the Mondrian graph view shim.
   """
 
+  use ExExample
+
   import ExUnit.Assertions
 
   alias GtBridge.Phlow.Mondrian
 
   @spec simple_graph() :: map()
-  def simple_graph() do
+  example simple_graph do
     nodes = [:a, :b, :c, :d]
 
     children = %{
@@ -40,7 +42,7 @@ defmodule Examples.EMondrian do
   end
 
   @spec default_labels() :: map()
-  def default_labels() do
+  example default_labels do
     dict =
       GtBridge.Phlow.Builder.mondrian()
       |> Mondrian.nodes([1, 2, 3])
@@ -52,7 +54,7 @@ defmodule Examples.EMondrian do
   end
 
   @spec map_graph_flat() :: map()
-  def map_graph_flat() do
+  example map_graph_flat do
     view = GtBridge.Views.MapGraph.graph(%{a: 1}, GtBridge.Phlow.Builder)
     dict = Mondrian.as_dict(view)
 
@@ -73,7 +75,7 @@ defmodule Examples.EMondrian do
   end
 
   @spec map_graph_nested() :: map()
-  def map_graph_nested() do
+  example map_graph_nested do
     view = GtBridge.Views.MapGraph.graph(%{x: %{y: 1}}, GtBridge.Phlow.Builder)
     dict = Mondrian.as_dict(view)
 
@@ -97,7 +99,7 @@ defmodule Examples.EMondrian do
   end
 
   @spec map_graph_view_registered() :: map()
-  def map_graph_view_registered() do
+  example map_graph_view_registered do
     GtBridge.View.register(GtBridge.Views.MapGraph)
     views = GtBridge.Views.lookup(GtBridge.Views, Map)
     assert MapSet.size(views) >= 1

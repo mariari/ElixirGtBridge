@@ -3,15 +3,19 @@ defmodule Examples.ETcp do
   I am examples for TCP listener and connection setup.
   """
 
+  use ExExample
+
   import ExUnit.Assertions
 
+  def rerun?(_), do: true
+
   @spec start_listener() :: :ignore | {:error, any()} | {:ok, pid()} | {:ok, pid(), any()}
-  def start_listener(port \\ 0) do
+  example start_listener(port \\ 0) do
     GtBridge.start_listener(port)
   end
 
   @spec start_tcp_connection(integer()) :: {:ok, port()}
-  def start_tcp_connection(port \\ 0) do
+  example start_tcp_connection(port \\ 0) do
     {:ok, pid} = start_listener(port)
     real_port = Tcp.Listener.port(pid)
     assert real_port == port || port == 0

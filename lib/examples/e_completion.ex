@@ -3,12 +3,14 @@ defmodule Examples.ECompletion do
   I am examples for the Elixir autocompletion system.
   """
 
+  use ExExample
+
   import ExUnit.Assertions
 
   alias GtBridge.Completion
 
   @spec complete_enum_dot() :: [String.t()]
-  def complete_enum_dot() do
+  example complete_enum_dot do
     results = Completion.complete("Enum.ma")
 
     assert "Enum.map" in results
@@ -18,7 +20,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_alias() :: [String.t()]
-  def complete_alias() do
+  example complete_alias do
     results = Completion.complete("GenSer")
 
     assert "GenServer" in results
@@ -27,7 +29,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_erlang_module() :: [String.t()]
-  def complete_erlang_module() do
+  example complete_erlang_module do
     results = Completion.complete(":erlan")
 
     assert ":erlang" in results
@@ -36,7 +38,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_erlang_dot() :: [String.t()]
-  def complete_erlang_dot() do
+  example complete_erlang_dot do
     results = Completion.complete(":erlang.no")
 
     assert ":erlang.node" in results
@@ -45,7 +47,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_with_bindings() :: [String.t()]
-  def complete_with_bindings() do
+  example complete_with_bindings do
     results = Completion.complete("my_v", my_var: 42, my_val: "hello")
 
     assert "my_var" in results
@@ -55,7 +57,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_struct() :: [String.t()]
-  def complete_struct() do
+  example complete_struct do
     results = Completion.complete("%MapS")
 
     assert "%MapSet" in results
@@ -64,7 +66,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_struct_fields() :: [String.t()]
-  def complete_struct_fields() do
+  example complete_struct_fields do
     # GT sends "ho" as code (from { separator) and full source for context
     results = Completion.complete("ho", [], "%URI{ho")
 
@@ -79,7 +81,7 @@ defmodule Examples.ECompletion do
   end
 
   @spec complete_empty_returns_something() :: [String.t()]
-  def complete_empty_returns_something() do
+  example complete_empty_returns_something do
     results = Completion.complete("is_")
 
     assert length(results) > 0
