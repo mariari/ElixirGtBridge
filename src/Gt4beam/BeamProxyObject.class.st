@@ -124,6 +124,9 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 
 	viewDecls ifEmpty: [ ^ aView empty ].
 
+	viewDecls size = 1
+		ifTrue: [ ^ self viewFromDeclaration: viewDecls first ].
+
 	^ aView composite
 		title: 'Remote views';
 		priority: 1;
