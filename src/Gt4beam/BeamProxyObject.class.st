@@ -53,7 +53,13 @@ BeamProxyObject >> asList [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> attributeAt: name [
 	| resolvedName |
-	resolvedName := name isString ifTrue: [':', name] ifFalse: [name resolve].
+	resolvedName := name isSymbol
+		ifTrue: [ ':', name ]
+		ifFalse: [ name isString
+			ifTrue: [ '"', name, '"' ]
+			ifFalse: [ (name respondsTo: #resolve)
+				ifTrue: [ name resolve ]
+				ifFalse: [ name asString ] ] ].
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', resolvedName, ')'
 ]
