@@ -26,15 +26,12 @@ BeamPIDObject >> gtInformationFor: aView [
 
 { #category : #'as yet unclassified' }
 BeamPIDObject >> information [
-	| informationTuples result |
+	| informationTuples |
 	informationTuples := self evaluateAndWait: 'Process.info(' , self resolve , ')'.
-	result := Dictionary new.
-	informationTuples asList do: [:aTuple |
+	^ (informationTuples asList collect: [ :aTuple |
 		| pair |
 		pair := aTuple asList.
-		result at: pair first second put: pair second
-	].
-	^ result
+		pair first -> pair second ]) asDictionary
 ]
 
 { #category : #'as yet unclassified' }
