@@ -2,7 +2,8 @@ Class {
 	#name : 'GtElixirCompletionStrategy',
 	#superclass : 'GtStreamedCompletionStrategy',
 	#instVars : [
-		'coderModel'
+		'coderModel',
+		'coderViewModel'
 	],
 	#category : 'Gt4beam-Completion',
 	#package : 'Gt4beam',
@@ -19,6 +20,16 @@ GtElixirCompletionStrategy >> coderModel: aCoderModel [
 	coderModel := aCoderModel
 ]
 
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> coderViewModel [
+	^ coderViewModel
+]
+
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> coderViewModel: aCoderViewModel [
+	coderViewModel := aCoderViewModel
+]
+
 { #category : 'completion' }
 GtElixirCompletionStrategy >> completionStringStreamStartingWith: aString [
 	| results |
@@ -30,17 +41,20 @@ GtElixirCompletionStrategy >> completionStringStreamStartingWith: aString [
 
 { #category : 'private' }
 GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
-	| application serverAddress url response |
+	| application serverAddress url response payload |
 	coderModel ifNil: [ ^ #() ].
 	application := coderModel initializeApplication.
 	application ifNil: [ ^ #() ].
 	serverAddress := application settings serverSocketAddress.
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/COMPLETE'.
+	payload := { 'code' -> aString } asDictionary.
+	coderViewModel sourceText ifNotNil: [ :src |
+		payload at: 'source' put: src asString ].
 	response := ZnClient new
 		url: url;
 		entity: (ZnEntity
-				with: (STONJSON toString: { 'code' -> aString } asDictionary)
+				with: (STONJSON toString: payload)
 				type: ZnMimeType applicationJson);
 		post;
 		response.
