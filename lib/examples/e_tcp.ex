@@ -1,4 +1,8 @@
 defmodule Examples.ETcp do
+  @moduledoc """
+  I am examples for TCP listener and connection setup.
+  """
+
   import ExUnit.Assertions
 
   @spec start_listener() :: :ignore | {:error, any()} | {:ok, pid()} | {:ok, pid(), any()}

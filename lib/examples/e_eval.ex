@@ -1,4 +1,8 @@
 defmodule Examples.EEval do
+  @moduledoc """
+  I am examples for GtBridge.Eval, the evaluation GenServer.
+  """
+
   import ExUnit.Assertions
 
   alias GtBridge.Eval

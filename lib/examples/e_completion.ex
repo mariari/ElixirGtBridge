@@ -1,4 +1,8 @@
 defmodule Examples.ECompletion do
+  @moduledoc """
+  I am examples for the Elixir autocompletion system.
+  """
+
   import ExUnit.Assertions
 
   alias GtBridge.Completion
