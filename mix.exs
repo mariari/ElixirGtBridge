@@ -49,7 +49,8 @@ defmodule GtBridge.MixProject do
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
-      {:req, "~> 0.5.0"}
+      {:req, "~> 0.5.0"},
+      {:ex_example, "~> 0.1.0"}
     ]
   end
 end
