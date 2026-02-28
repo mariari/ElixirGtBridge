@@ -38,6 +38,11 @@ BeamLinkApplication >> initializeHandlers [
 	executionHandler := ElixirExecutionHandler application: self
 ]
 
+{ #category : 'accessing' }
+BeamLinkApplication >> remShInfo [
+	^ self processHandler processCommandLineString
+]
+
 { #category : 'directory' }
 BeamLinkApplication >> workingDirectory [
 	^ self settings workingDirectory

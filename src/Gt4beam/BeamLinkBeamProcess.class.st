@@ -9,6 +9,11 @@ Class {
 	#tag : 'Processess'
 }
 
+{ #category : 'accessing' }
+BeamLinkBeamProcess >> commandLineString [
+	^ process commandLineString
+]
+
 { #category : 'gtViews' }
 BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 	<gtView>
