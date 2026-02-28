@@ -1,4 +1,8 @@
 defmodule Examples.EMondrian do
+  @moduledoc """
+  I am examples for the Mondrian graph view shim.
+  """
+
   import ExUnit.Assertions
 
   alias GtBridge.Phlow.Mondrian

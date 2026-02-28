@@ -1,4 +1,9 @@
 defmodule Examples.EViews do
+  @moduledoc """
+  I am examples for the Phlow view system. I also define a sample
+  struct with two views to exercise view registration and rendering.
+  """
+
   import ExUnit.Assertions
 
   use TypedStruct

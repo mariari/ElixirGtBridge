@@ -1,4 +1,8 @@
 defmodule Examples.ESerialization do
+  @moduledoc """
+  I am examples for the GtBridge serializer.
+  """
+
   import ExUnit.Assertions
 
   @spec self_json() :: binary()
