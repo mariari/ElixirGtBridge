@@ -30,6 +30,14 @@ defmodule GtBridgeTest do
     Examples.ECompletion.complete_empty_returns_something()
   end
 
+  test "mondrian" do
+    Examples.EMondrian.simple_graph()
+    Examples.EMondrian.default_labels()
+    Examples.EMondrian.map_graph_flat()
+    Examples.EMondrian.map_graph_nested()
+    Examples.EMondrian.map_graph_view_registered()
+  end
+
   test "Testing Views" do
     Examples.EViews.int_list_view_ref()
     Examples.EViews.name_text_view_ref()
