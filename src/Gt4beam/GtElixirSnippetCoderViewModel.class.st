@@ -12,6 +12,8 @@ Class {
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> newCompletionStrategy [
 	^ GtElixirCompletionStrategy new
+		coderModel: self coderModel;
+		coderViewModel: self
 ]
 
 { #category : 'accessing' }

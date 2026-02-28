@@ -28,6 +28,11 @@ defmodule GtBridge.Eval do
     GenServer.call(pid, {:eval, code, command_id})
   end
 
+  @spec complete(GenServer.server(), String.t(), String.t() | nil) :: [String.t()]
+  def complete(pid, code_prefix, source \\ nil) do
+    GenServer.call(pid, {:complete, code_prefix, source})
+  end
+
   @doc """
   Remove an object from the registry.
   Called by GT when a proxy object is garbage collected.
@@ -42,6 +47,12 @@ defmodule GtBridge.Eval do
   ############################################################
 
   # TODO garbage collect old values in the environment after a while
+  @impl true
+  def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
+    results = GtBridge.Completion.complete(code_prefix, state.bindings, source)
+    {:reply, results, state}
+  end
+
   @impl true
   def handle_call({:eval, string, command_id}, _from, state = %__MODULE__{}) do
     try do

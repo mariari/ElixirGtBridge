@@ -57,6 +57,17 @@ defmodule GtBridge.Http.Router do
     |> send_resp(200, Jason.encode!(%{success: true}))
   end
 
+  post "/COMPLETE" do
+    {:ok, _, conn} = Plug.Conn.read_body(conn)
+    body = conn.body_params
+    code = body["code"] || ""
+    source = body["source"]
+    results = Eval.complete(GtBridge.Eval, code, source)
+
+    conn
+    |> send_resp(200, Jason.encode!(results))
+  end
+
   # Get view specifications for an object
   post "/GET_VIEWS" do
     {:ok, _, conn} = Plug.Conn.read_body(conn)

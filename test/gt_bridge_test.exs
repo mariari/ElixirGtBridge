@@ -19,6 +19,17 @@ defmodule GtBridgeTest do
     Examples.EEval.rebind_a_to_a()
   end
 
+  test "completion" do
+    Examples.ECompletion.complete_enum_dot()
+    Examples.ECompletion.complete_alias()
+    Examples.ECompletion.complete_erlang_module()
+    Examples.ECompletion.complete_erlang_dot()
+    Examples.ECompletion.complete_with_bindings()
+    Examples.ECompletion.complete_struct()
+    Examples.ECompletion.complete_struct_fields()
+    Examples.ECompletion.complete_empty_returns_something()
+  end
+
   test "Testing Views" do
     Examples.EViews.int_list_view_ref()
     Examples.EViews.name_text_view_ref()
