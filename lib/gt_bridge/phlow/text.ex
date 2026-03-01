@@ -12,6 +12,7 @@ defmodule GtBridge.Phlow.Text do
     field(:text_string, String.t(), default: "")
     field(:monospace, boolean(), default: false)
     field(:font_size, pos_integer() | nil, default: nil)
+    field(:markdown, boolean(), default: false)
   end
 
   @doc """
@@ -56,6 +57,14 @@ defmodule GtBridge.Phlow.Text do
   end
 
   @doc """
+  I mark the text as markdown. GT renders with LeTextSnippet.
+  """
+  @spec markdown(t()) :: t()
+  def markdown(self) do
+    %__MODULE__{self | markdown: true}
+  end
+
+  @doc """
   Convert the text view to a dictionary format for serialization to GT.
   """
   @spec as_dict(t()) :: map()
@@ -67,7 +76,8 @@ defmodule GtBridge.Phlow.Text do
       dataTransport: 2,
       string: self.text_string,
       monospace: self.monospace,
-      fontSize: self.font_size
+      fontSize: self.font_size,
+      markdown: self.markdown
     }
   end
 end

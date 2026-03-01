@@ -26,3 +26,7 @@ end
 defmodule GtBridgeTest.Views do
   use ExExample.ExUnit, for: Examples.EViews
 end
+
+defmodule GtBridgeTest.Documentation do
+  use ExExample.ExUnit, for: Examples.EDocumentation
+end

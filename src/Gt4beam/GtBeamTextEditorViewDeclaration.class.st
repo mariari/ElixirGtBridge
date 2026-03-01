@@ -11,8 +11,25 @@ GtBeamTextEditorViewDeclaration class >> remoteName [
 	^ 'GtPhlowTextEditorViewSpecification'
 ]
 
-{ #category : 'as yet unclassified' }
-GtBeamTextEditorViewDeclaration >> treatView: view [
+{ #category : 'testing' }
+GtBeamTextEditorViewDeclaration >> isMarkdown [
+	^ (self rawData attributeAt: #markdown) = true
+]
+
+{ #category : 'private' }
+GtBeamTextEditorViewDeclaration >> treatMarkdownView: view [
+	| string page |
+	string := self rawData attributeAt: #string.
+	page := LePage named: (self rawData attributeAt: #title).
+	LeDatabase new addPage: page.
+	(string splitOn: '__SECTION__') do: [ :s |
+		s trimBoth isEmpty ifFalse: [
+			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
+	view stencil: [ page asPreviewElement vMatchParent ]
+]
+
+{ #category : 'private' }
+GtBeamTextEditorViewDeclaration >> treatTextView: view [
 	view text: [
 		| text |
 		text := (self rawData attributeAt: #string) asRopedText.
@@ -26,6 +43,15 @@ GtBeamTextEditorViewDeclaration >> treatView: view [
 ]
 
 { #category : 'as yet unclassified' }
+GtBeamTextEditorViewDeclaration >> treatView: view [
+	self isMarkdown
+		ifTrue: [ self treatMarkdownView: view ]
+		ifFalse: [ self treatTextView: view ]
+]
+
+{ #category : 'as yet unclassified' }
 GtBeamTextEditorViewDeclaration >> viewName [
-	^ #textEditor
+	self isMarkdown
+		ifTrue: [ ^ #explicit ]
+		ifFalse: [ ^ #textEditor ]
 ]
