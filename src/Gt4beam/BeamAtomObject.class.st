@@ -37,6 +37,27 @@ BeamAtomObject >> evaluateAndWait: aString [
 ]
 
 { #category : 'views' }
+BeamAtomObject >> gtModuleDocsView: aView [
+	<gtView>
+	| sections page |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	sections := self evaluateAndWait:
+		'GtBridge.Documentation.to_sections('
+		, 'GtBridge.Documentation.for_module('
+		, self resolve , '))'.
+	sections isString ifFalse: [ ^ aView empty ].
+	page := LePage named: self symbol.
+	LeDatabase new addPage: page.
+	(sections splitOn: '__SECTION__') do: [ :s |
+		s trimBoth isEmpty ifFalse: [
+			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
+	^ aView explicit
+		title: 'Documentation';
+		priority: 3;
+		stencil: [ page asPreviewElement vMatchParent ]
+]
+
+{ #category : 'views' }
 BeamAtomObject >> gtPIDView: aView [
 	<gtView>
 	| pid |
@@ -51,6 +72,11 @@ BeamAtomObject >> gtPIDView: aView [
 { #category : 'comparing' }
 BeamAtomObject >> hash [
 	^ self symbol hash hashMultiply
+]
+
+{ #category : 'testing' }
+BeamAtomObject >> isModuleAtom [
+	^ symbol notEmpty and: [ symbol first isUppercase ]
 ]
 
 { #category : 'as yet unclassified' }

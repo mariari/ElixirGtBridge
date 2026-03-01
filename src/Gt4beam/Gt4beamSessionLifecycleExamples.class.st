@@ -229,6 +229,51 @@ Gt4beamSessionLifecycleExamples >> structViews [
 	^ s
 ]
 
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> documentationSections [
+	"I verify to_sections returns a delimited string."
+	<gtExample>
+	| sections |
+	sections := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.to_sections(
+			GtBridge.Documentation.for_module(Enum))'.
+	self assert: (sections includesSubstring: '__SECTION__').
+	^ sections
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> functionDocumentation [
+	"I return function-level docs for Enum.map/2."
+	<gtExample>
+	| doc |
+	doc := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.for_function(Enum, :map, 2)'.
+	self assertObjectPhlowViewsFor: doc.
+	^ doc
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> moduleAtomDocsView [
+	"I verify a module atom has isModuleAtom and documentation renders."
+	<gtExample>
+	| atom |
+	atom := self target bindAndExecuteRaw: 'Enum'.
+	self assert: (atom isKindOf: BeamAtomObject).
+	self assert: atom isModuleAtom.
+	^ atom
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> moduleDocumentation [
+	"I return a Documentation proxy for Enum."
+	<gtExample>
+	| doc |
+	doc := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.for_module(Enum)'.
+	self assertObjectPhlowViewsFor: doc.
+	^ doc
+]
+
 { #category : 'examples - bindings' }
 Gt4beamSessionLifecycleExamples >> targetWithAccumulatedBindings [
 	"I return the target coder after accumulating more bindings.
