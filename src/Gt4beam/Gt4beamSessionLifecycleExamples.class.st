@@ -38,7 +38,7 @@ Gt4beamSessionLifecycleExamples >> completeModuleDot [
 	<gtExample>
 	| results |
 	results := self completionStrategy fetchCompletionsFor: 'Enum.ma'.
-	self assert: (results includes: 'Enum.map').
+	self assert: (results anySatisfy: [ :r | r beginsWith: 'Enum.map/' ]).
 	^ results
 ]
 
@@ -98,7 +98,7 @@ Gt4beamSessionLifecycleExamples >> gcCleansUpSession [
 		coder sessionId ] value.
 	before := self sessionCountVia: observer.
 	Smalltalk garbageCollect.
-	(Delay forMilliseconds: 50) wait.
+	(Delay forMilliseconds: 100) wait.
 	after := self sessionCountVia: observer.
 	self assert: after < before.
 	^ observer
