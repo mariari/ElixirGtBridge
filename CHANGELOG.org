@@ -1,5 +1,22 @@
 * Changelog
 
+** v0.13.0
+
+*** Features
+
+- Editable source view — ~BeamProxyObject~ source tab delegates to
+  ~gtEditorView~, providing save/cancel buttons, Ctrl+S, and
+  modification tracking with Elixir syntax highlighting
+- Text view formatting — ~monospace~ and ~fontSize~ options for
+  Phlow text views
+
+*** Bug Fixes
+
+- Sort view specs by priority before sending to GT — views now
+  appear in declared priority order
+- Apply ~item_format~ in ~PhlowList.as_dict/1~ — list items now
+  respect custom formatting
+
 ** v0.12.0
 
 *** Features
