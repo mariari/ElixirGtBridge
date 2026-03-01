@@ -53,7 +53,13 @@ BeamProxyObject >> asList [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> attributeAt: name [
 	| resolvedName |
-	resolvedName := name isString ifTrue: [':', name] ifFalse: [name resolve].
+	resolvedName := name isSymbol
+		ifTrue: [ ':', name ]
+		ifFalse: [ name isString
+			ifTrue: [ '"', name, '"' ]
+			ifFalse: [ (name respondsTo: #resolve)
+				ifTrue: [ name resolve ]
+				ifFalse: [ name asString ] ] ].
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', resolvedName, ')'
 ]
@@ -124,6 +130,9 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 
 	viewDecls ifEmpty: [ ^ aView empty ].
 
+	viewDecls size = 1
+		ifTrue: [ ^ self viewFromDeclaration: viewDecls first ].
+
 	^ aView composite
 		title: 'Remote views';
 		priority: 1;
@@ -133,10 +142,13 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtSourceFor: aView [
 	<gtView>
+	| src |
+	src := self source.
+	src ifNil: [ ^ aView empty ].
 	^ aView textEditor
 		title: 'Source';
 		priority: 110;
-		text: [ self source ];
+		text: [ src ];
 		aptitude: BrGlamorousCodeEditorAptitude;
 		styler: ElixirParser gtStyler
 ]
@@ -184,10 +196,10 @@ BeamProxyObject >> resolve [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> source [
 	| file |
-	file := self sourceFile asFileReference.
-
+	file := self sourceFile.
+	file isString ifFalse: [ ^ nil ].
+	file := file asFileReference.
 	file exists ifTrue: [ ^ file contents ].
-
 	^ nil
 ]
 
