@@ -142,15 +142,21 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtSourceFor: aView [
 	<gtView>
-	| src |
-	src := self source.
-	src ifNil: [ ^ aView empty ].
-	^ aView textEditor
+	| file |
+	file := self sourceFile.
+	file isString ifFalse: [ ^ aView empty ].
+	file := file asFileReference.
+	file exists ifFalse: [ ^ aView empty ].
+	^ aView explicit
 		title: 'Source';
 		priority: 110;
-		text: [ src ];
-		aptitude: BrGlamorousCodeEditorAptitude;
-		styler: ElixirParser gtStyler
+		stencil: [
+			| pane |
+			pane := file gtEditorView.
+			pane childNamed: #editor ifFound: [ :editor |
+				editor aptitude: BrGlamorousCodeEditorAptitude.
+				editor editor styler: ElixirParser gtStyler ].
+			pane ]
 ]
 
 { #category : 'comparing' }
@@ -191,16 +197,6 @@ BeamProxyObject >> rawData: anObject [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> resolve [
 	^ 'GtBridge.ObjectRegistry.resolve(' , self elixirVar asString , ')'
-]
-
-{ #category : 'as yet unclassified' }
-BeamProxyObject >> source [
-	| file |
-	file := self sourceFile.
-	file isString ifFalse: [ ^ nil ].
-	file := file asFileReference.
-	file exists ifTrue: [ ^ file contents ].
-	^ nil
 ]
 
 { #category : 'as yet unclassified' }
