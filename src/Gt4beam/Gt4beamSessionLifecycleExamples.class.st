@@ -189,6 +189,46 @@ Gt4beamSessionLifecycleExamples >> target [
 	^ coder
 ]
 
+{ #category : 'examples - views' }
+Gt4beamSessionLifecycleExamples >> integerKeyedMapViews [
+	"I verify all views render for a map with integer keys."
+	<gtExample>
+	| map |
+	map := self target bindAndExecuteRaw: '%{1 => "one", 2 => "two"}'.
+	self assertObjectPhlowViewsFor: map.
+	^ map
+]
+
+{ #category : 'examples - views' }
+Gt4beamSessionLifecycleExamples >> pidViews [
+	"I verify all views render for a PID."
+	<gtExample>
+	| pid |
+	pid := self target bindAndExecuteRaw: 'self()'.
+	self assertObjectPhlowViewsFor: pid.
+	^ pid
+]
+
+{ #category : 'examples - views' }
+Gt4beamSessionLifecycleExamples >> stringKeyedMapViews [
+	"I verify all views render for a map with string keys."
+	<gtExample>
+	| map |
+	map := self target bindAndExecuteRaw: '%{"hi" => "mom"}'.
+	self assertObjectPhlowViewsFor: map.
+	^ map
+]
+
+{ #category : 'examples - views' }
+Gt4beamSessionLifecycleExamples >> structViews [
+	"I verify all views render for a struct (has source)."
+	<gtExample>
+	| s |
+	s := self target bindAndExecuteRaw: '%GtBridge.Eval{}'.
+	self assertObjectPhlowViewsFor: s.
+	^ s
+]
+
 { #category : 'examples - bindings' }
 Gt4beamSessionLifecycleExamples >> targetWithAccumulatedBindings [
 	"I return the target coder after accumulating more bindings.
