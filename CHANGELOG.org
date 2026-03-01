@@ -1,5 +1,44 @@
 * Changelog
 
+** v0.14.0
+
+*** Features
+
+- Module documentation views — inspecting a module atom (e.g. ~Enum~)
+  shows a Documentation tab as a full Lepiter page with module doc and
+  per-function sections rendered as markdown ~LeTextSnippet~​s
+- ~h/1~ documentation helper in eval sessions — call ~h(Enum)~,
+  ~h({Enum, :map})~, or ~h({Enum, :map, 2})~ to get a ~Documentation~
+  struct with browsable Phlow views, available without explicit import
+  via ~Macro.Env~ injection
+- Type documentation — ~Documentation.for_type/3~ and Types view tab
+  for modules with documented types
+- Markdown text view support — Phlow text views with ~markdown: true~
+  render as ~LeTextSnippet~ in GT instead of plain text (reusable
+  beyond docs)
+
+*** Improvements
+
+- Remove per-view ivars from ~GtElixirCoderModel~ — ~pharoBindings~,
+  ~sessionId~, and ~sessionFinalizerRegistered~ were shared mutable
+  state that got overwritten on each eval.  Now passed as parameters
+  through the eval chain.  Dead ~exception~ ivar and ~commandFactory~
+  ivar also removed
+
+*** Bug Fixes
+
+- Wire inspector ~selfObject~ onto Elixir coder view model — evaluating
+  ~self~ in inspector Elixir snippets now correctly binds the inspected
+  object
+- Fix ~isScripting~ error — add extension method on
+  ~GtSharedVariablesBindings~ so typing in doc snippets doesn't crash
+- Preserve existing fenced code blocks in ~normalize_markdown~ — mermaid
+  and other fenced blocks no longer get mangled
+- Fix ~completeModuleDot~ assertion — match arity-qualified completion
+  format (~Enum.map/2(enumerable, fun)~)
+- Bump ~gcCleansUpSession~ delay from 50ms to 100ms to reduce false
+  positives
+
 ** v0.13.0
 
 *** Features
