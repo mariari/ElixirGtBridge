@@ -1,5 +1,42 @@
 * Changelog
 
+** v0.12.0
+
+*** Features
+
+- Per-page eval sessions — each Lepiter page and inspector gets its
+  own ~GtBridge.Eval~ process via ~EvalRegistry~, isolating bindings
+  between views
+- Session lifecycle management — ~BeamSessionFinalizer~ sends
+  ~POST /SESSION_CLOSE~ when a page or inspector view is GC'd,
+  cleaning up the BEAM-side eval process and its registered objects
+- Completion with arity signatures — completion menu shows
+  ~Enum.map/2(enumerable, fun)~ with parameter names from
+  ~Code.fetch_docs/1~, but inserts only the function name
+- Struct field completion on ~{~ and ~,~ — typing inside
+  ~%URI{~ completes struct fields using full source context
+
+*** Improvements
+
+- Action-based completion — ~completionActionStreamFor:at:requested:~
+  returns ~AsyncStream~ of ~GtInsertTextCompletionAction~ with
+  monospace styled labels and prefix highlighting
+- Unwrap single remote view — when an object declares only one
+  Phlow view, show it directly instead of wrapping in a composite
+- Reset ~LeJsonV4~ mapping cache on package load — fixes
+  ~LeUnknownSnippet~ for elixir snippets when GT4beam loads after
+  Lepiter's initial type scan
+
+*** Bug Fixes
+
+- Fix ~attributeAt:~ for string and numeric map keys — distinguish
+  Symbol (atom, ~:~ prefix) from String (~"~ quotes) since Symbol
+  is a subclass of String in Pharo
+- Fix PID information view — ~Process.info~ returns ~BeamAtomObject~
+  keys, use ~pair first~ not ~pair first second~
+- Guard source view against non-struct objects — return empty view
+  instead of crashing on PIDs, maps, etc.
+
 ** v0.11.0
 
 *** Features
