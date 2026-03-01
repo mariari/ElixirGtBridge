@@ -26,6 +26,13 @@ LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 ]
 
 { #category : 'accessing' }
+LeElixirSnippetViewModel >> inspectorSelfObject [
+	"I return the inspected object from the shared snippet context,
+	or nil if not in an inspector."
+	^ sharedContext ifNotNil: [ :ctx | ctx selfObject ]
+]
+
+{ #category : 'accessing' }
 LeElixirSnippetViewModel >> snippetElementClass [
 	^ LeElixirSnippetElement
 ]

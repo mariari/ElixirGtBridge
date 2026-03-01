@@ -21,7 +21,9 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 		elixirLinkApplicationStrategy: self serverStrategy;
 		pharoBindings: self snippetViewModel snippetBindings.
 	self coderViewModel
-		viewPharoBindings: self snippetViewModel snippetBindings
+		viewPharoBindings: self snippetViewModel snippetBindings.
+	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
+		self coderViewModel selfObject: obj ]
 ]
 
 { #category : 'private' }
