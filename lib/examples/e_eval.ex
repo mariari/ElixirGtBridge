@@ -114,4 +114,30 @@ defmodule Examples.EEval do
 
     :ok
   end
+
+  @spec terminate_cleans_object_registry() :: :ok
+  example terminate_cleans_object_registry do
+    session = "obj-cleanup-" <> Integer.to_string(:rand.uniform(100_000))
+
+    pid = EvalRegistry.get_or_create(session)
+
+    # Eval and bind a non-primitive — gets registered in ObjectRegistry
+    Eval.eval(pid, "x = %{c: 3}", nil)
+    bindings = Eval.get_bindings(pid)
+    assert Map.has_key?(bindings, "x")
+    exid = bindings["x"].exid
+    assert exid != nil
+
+    # Object is in the registry before termination
+    assert GtBridge.ObjectRegistry.get(exid) != :error
+
+    # Terminate the session
+    EvalRegistry.remove(session)
+    refute Process.alive?(pid)
+
+    # Object has been cleaned up from the registry
+    assert GtBridge.ObjectRegistry.get(exid) == :error
+
+    :ok
+  end
 end

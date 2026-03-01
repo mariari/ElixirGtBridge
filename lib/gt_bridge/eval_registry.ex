@@ -2,6 +2,22 @@ defmodule GtBridge.EvalRegistry do
   @moduledoc """
   I map session IDs to `GtBridge.Eval` processes.
 
+  A session maps to a single evaluation context in GT — one page
+  view or one inspector view.  All snippets within the same view
+  share a session (same bindings).  Opening the same page twice
+  creates two sessions.
+
+  On the GT side, the scope object is `GtSharedVariablesBindings`
+  (inside `LeSharedSnippetContext`).  It is created per
+  `LePageViewModel` and propagated to all snippet view models.
+  The session ID (a UUID) is stored in a class-side
+  `WeakIdentityKeyDictionary` on `LeElixirSnippetElement`,
+  identity-keyed on the bindings object.
+
+  Sessions are created on demand (first eval) and removed when
+  GT's `BeamSessionFinalizer` fires on GC of the shared bindings
+  object, sending `POST /SESSION_CLOSE`.
+
   I use an Elixir `Registry` for lookup and start new Eval processes
   under `EvaluationSupervisor` on demand.  Sessions without a
   `sessionId` use `"default"` for backward compatibility.
@@ -24,17 +40,21 @@ defmodule GtBridge.EvalRegistry do
   @spec get_or_create(String.t(), keyword()) :: GenServer.server()
   def get_or_create(session_id, opts \\ []) do
     case Registry.lookup(@registry, session_id) do
-      [{pid, _}] ->
-        pid
+      [{pid, _}] when is_pid(pid) ->
+        if Process.alive?(pid), do: pid, else: start_eval(session_id, opts)
 
-      [] ->
-        name = {:via, Registry, {@registry, session_id}}
-        child_opts = Keyword.put(opts, :name, name)
+      _ ->
+        start_eval(session_id, opts)
+    end
+  end
 
-        case DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, child_opts}) do
-          {:ok, pid} -> pid
-          {:error, {:already_started, pid}} -> pid
-        end
+  defp start_eval(session_id, opts) do
+    name = {:via, Registry, {@registry, session_id}}
+    child_opts = Keyword.put(opts, :name, name)
+
+    case DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, child_opts}) do
+      {:ok, pid} -> pid
+      {:error, {:already_started, pid}} -> pid
     end
   end
 

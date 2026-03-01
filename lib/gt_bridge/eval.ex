@@ -1,10 +1,30 @@
 defmodule GtBridge.Eval do
+  @moduledoc """
+  I am a per-session evaluation GenServer.
+
+  Each instance corresponds to a GT view's evaluation context
+  (`LeSharedSnippetContext`).  All snippets within the same view
+  share one Eval process (same bindings).
+
+  I track object IDs registered in `GtBridge.ObjectRegistry` during
+  my lifetime.  When I terminate (session closed), I batch-remove
+  all tracked objects from the registry.
+
+  ## Cleanup
+
+  GT's `BeamSessionFinalizer` sends `POST /SESSION_CLOSE` when the
+  per-view `GtSharedVariablesBindings` is GC'd (page/inspector closed).
+  The router calls `EvalRegistry.remove/1` which terminates me, and
+  `terminate/2` batch-removes all tracked objects from the registry.
+  """
+
   use GenServer
   use TypedStruct
 
   typedstruct do
     field(:bindings, Code.binding())
     field(:port, non_neg_integer(), default: nil)
+    field(:registered_ids, MapSet.t(non_neg_integer()), default: MapSet.new())
   end
 
   def start_link(init_args) do
@@ -14,6 +34,7 @@ defmodule GtBridge.Eval do
 
   @impl true
   def init(init_args) do
+    Process.flag(:trap_exit, true)
     port = Keyword.get(init_args, :port, nil)
     default_bindings = if port, do: [port: port], else: []
     {:ok, %__MODULE__{bindings: default_bindings, port: port}}
@@ -67,10 +88,9 @@ defmodule GtBridge.Eval do
         {Atom.to_string(name), register_value(value)}
       end)
 
-    {:reply, result, state}
+    {:reply, result, collect_registered(state)}
   end
 
-  # TODO garbage collect old values in the environment after a while
   @impl true
   def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
     results = GtBridge.Completion.complete(code_prefix, state.bindings, source)
@@ -88,13 +108,13 @@ defmodule GtBridge.Eval do
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
 
-      {:reply, term, %__MODULE__{state | bindings: unique_keys}}
+      {:reply, term, collect_registered(%__MODULE__{state | bindings: unique_keys})}
     catch
       kind, e ->
         error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
         notify(error, command_id, state.bindings[:port])
 
-        {:reply, e, state}
+        {:reply, e, collect_registered(state)}
     end
   end
 
@@ -115,16 +135,44 @@ defmodule GtBridge.Eval do
     obj
   end
 
+  @impl true
+  def terminate(_reason, state) do
+    GtBridge.ObjectRegistry.remove_all(MapSet.to_list(state.registered_ids))
+    :ok
+  end
+
   ############################################################
   #                   Private Implementation                 #
   ############################################################
 
   # Register a value in ObjectRegistry.  Returns `%{exclass, exid}`
   # for complex objects, or the value as-is for primitives.
+  # Accumulates IDs in the process dictionary for collection by
+  # `collect_registered/1` after the call completes.
   defp register_value(value) do
     case GtBridge.ObjectRegistry.register(value) do
-      nil -> value
-      exid -> %{exclass: GtBridge.Resolve.data_type_to_string(value), exid: exid}
+      nil ->
+        value
+
+      exid ->
+        ids = Process.get(:_reg_ids, [])
+        Process.put(:_reg_ids, [exid | ids])
+        %{exclass: GtBridge.Resolve.data_type_to_string(value), exid: exid}
+    end
+  end
+
+  defp collect_registered(state) do
+    case Process.get(:_reg_ids) do
+      nil ->
+        state
+
+      [] ->
+        state
+
+      ids ->
+        Process.delete(:_reg_ids)
+        new = Enum.reduce(ids, state.registered_ids, &MapSet.put(&2, &1))
+        %{state | registered_ids: new}
     end
   end
 end

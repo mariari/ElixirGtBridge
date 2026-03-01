@@ -2,7 +2,8 @@ Class {
 	#name : 'GtElixirSnippetCoderViewModel',
 	#superclass : 'GtSourceCoderViewModel',
 	#instVars : [
-		'selfObject'
+		'selfObject',
+		'viewPharoBindings'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -24,4 +25,14 @@ GtElixirSnippetCoderViewModel >> selfObject [
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> selfObject: anObject [
 	selfObject := anObject
+]
+
+{ #category : 'accessing' }
+GtElixirSnippetCoderViewModel >> viewPharoBindings [
+	^ viewPharoBindings
+]
+
+{ #category : 'accessing' }
+GtElixirSnippetCoderViewModel >> viewPharoBindings: aBindings [
+	viewPharoBindings := aBindings
 ]
