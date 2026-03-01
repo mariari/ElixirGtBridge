@@ -2,13 +2,8 @@ Class {
 	#name : 'GtElixirCoderModel',
 	#superclass : 'GtSourceCoder',
 	#instVars : [
-		'pharoBindings',
-		'exception',
 		'application',
-		'commandFactory',
-		'elixirLinkApplicationStrategy',
-		'sessionId',
-		'sessionFinalizerRegistered'
+		'elixirLinkApplicationStrategy'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -28,47 +23,26 @@ GtElixirCoderModel >> asCoderViewModel [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext [
+GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
 	| fullSource selfObj |
-
-	<gtIgnoreConstraint: #GtRBAcceptVisitorCalledFromNonVisitingMethods>
-	<remoteDebuggerSignal>
 	selfObj := [ aContext requesterObject selfObject ]
 		on: Error do: [ nil ].
 	fullSource := ((selfObj isKindOf: BeamProxyObject)
 		or: [ selfObj isKindOf: BeamAtomObject ])
 		ifTrue: [ 'self = ' , selfObj resolve , String cr , sourceString ]
 		ifFalse: [ sourceString ].
-	^ self bindAndExecuteRaw: fullSource
+	^ self bindAndExecuteRaw: fullSource sessionId: sid
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
+GtElixirCoderModel >> bindAndExecuteRaw: sourceString sessionId: sid [
+	| factory |
 	self initializeApplication.
-	self ensureSessionFinalizer.
-	commandFactory := application newCommandFactory.
-	commandFactory sessionId: sessionId.
-
-	^ commandFactory
+	factory := application newCommandFactory.
+	sid ifNotNil: [ factory sessionId: sid ].
+	^ factory
 		<< sourceString;
 		sendAndWait
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> ensureSessionFinalizer [
-	"I register a BeamSessionFinalizer on the per-view bindings object.
-	When bindings is GC'd (view closed), the finalizer fires SESSION_CLOSE.
-	Uses FinalizationRegistry directly — the execution handler's
-	weakRegistry ivar has no public accessor."
-	sessionFinalizerRegistered == true ifTrue: [ ^ self ].
-	pharoBindings ifNil: [ ^ self ].
-	sessionId ifNil: [ ^ self ].
-	FinalizationRegistry default
-		add: pharoBindings
-		finalizer: (BeamSessionFinalizer
-			sessionId: sessionId
-			application: application).
-	sessionFinalizerRegistered := true
 ]
 
 { #category : 'accessing' }
@@ -78,7 +52,7 @@ GtElixirCoderModel >> computeAst: theSourceString [
 ]
 
 { #category : 'private' }
-GtElixirCoderModel >> doFetchBindings [
+GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
 	| serverAddress url response raw result payload |
 	application ifNil: [ ^ Dictionary new ].
 	serverAddress := application settings serverSocketAddress.
@@ -86,7 +60,7 @@ GtElixirCoderModel >> doFetchBindings [
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/BINDINGS'.
 	payload := Dictionary new.
-	sessionId ifNotNil: [ payload at: #sessionId put: sessionId ].
+	sid ifNotNil: [ payload at: #sessionId put: sid ].
 	response := ZnClient new
 		url: url;
 		entity: (ZnEntity
@@ -103,28 +77,27 @@ GtElixirCoderModel >> doFetchBindings [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> sessionId [
-	^ sessionId
-]
-
-{ #category : 'accessing' }
-GtElixirCoderModel >> sessionId: aString [
-	sessionId := aString
-]
-
-{ #category : 'accessing' }
 GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> exception [
-	^ exception
+{ #category : 'private' }
+GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
+	aCoderVM ifNil: [ ^ self ].
+	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
+	viewBindings ifNil: [ ^ self ].
+	sid ifNil: [ ^ self ].
+	FinalizationRegistry default
+		add: viewBindings
+		finalizer: (BeamSessionFinalizer
+			sessionId: sid
+			application: application).
+	aCoderVM sessionFinalizerRegistered: true
 ]
 
 { #category : 'private' }
-GtElixirCoderModel >> fetchBindings [
-	^ [ self doFetchBindings ] on: Error do: [ Dictionary new ]
+GtElixirCoderModel >> fetchBindingsWithSessionId: sid [
+	^ [ self doFetchBindingsWithSessionId: sid ] on: Error do: [ Dictionary new ]
 ]
 
 { #category : 'accessing' }
@@ -138,7 +111,7 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 		ifNotNil: [ addOns
 				addMainAction: 'Inspect' translated
 				icon: BrGlamorousVectorIcons playinspect
-				action: [ :aCoderUIModel :anElement | 
+				action: [ :aCoderUIModel :anElement |
 					GtCoderCodeExecutor doItAndGo
 						coderViewModel: aCoderUIModel;
 						element: anElement;
@@ -147,7 +120,7 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 			addOns
 				addMainAction: 'Evaluate' translated
 				icon: BrGlamorousVectorIcons play
-				action: [ :aCoderUIModel :anElement | 
+				action: [ :aCoderUIModel :anElement |
 					GtCoderCodeExecutor doIt
 						coderViewModel: aCoderUIModel;
 						element: anElement;
@@ -178,42 +151,24 @@ GtElixirCoderModel >> newCompletionStrategy [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> pharoBindings: anObject [
-	pharoBindings := anObject
-]
-
-{ #category : 'accessing' }
-GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
-	| result bindings |
-	self resolvePerViewState: aGtSourceCoderEvaluationContext.
-	result := self bindAndExecute: aSourceString inContext: aGtSourceCoderEvaluationContext.
-	bindings := self fetchBindings.
-	bindings associationsDo: [ :assoc |
-		pharoBindings ifNotNil: [
-			(pharoBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
-	"Release so the coder model (persisted via snippet) does not pin
-	the per-view bindings.  The finalizer is already registered and
-	resolvePerViewState: will re-set pharoBindings on next eval."
-	pharoBindings := nil.
-	^ result
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> resolvePerViewState: aContext [
-	"The coder model is shared between views (same snippet model).
-	Resolve the per-view pharoBindings and sessionId from the
-	evaluation context so each view gets its own Elixir session."
-	| coderVM viewBindings newSessionId |
+GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFailDo: anEvaluationFailBlock [
+	| coderVM viewBindings sid result bindings |
 	coderVM := [ aContext requesterObject coderViewModel ]
 		on: Error do: [ nil ].
-	coderVM ifNil: [ ^ self ].
-	viewBindings := coderVM viewPharoBindings.
-	viewBindings ifNil: [ ^ self ].
-	pharoBindings := viewBindings.
-	newSessionId := LeElixirSnippetElement sessionIdFor: viewBindings.
-	newSessionId = sessionId ifFalse: [
-		sessionFinalizerRegistered := nil ].
-	sessionId := newSessionId
+	viewBindings := coderVM ifNotNil: [ coderVM viewPharoBindings ].
+	sid := viewBindings
+		ifNotNil: [ LeElixirSnippetElement sessionIdFor: viewBindings ].
+	result := self bindAndExecute: aSourceString
+		inContext: aContext
+		sessionId: sid.
+	self ensureSessionFinalizerFor: viewBindings
+		sessionId: sid
+		coderViewModel: coderVM.
+	bindings := self fetchBindingsWithSessionId: sid.
+	bindings associationsDo: [ :assoc |
+		viewBindings ifNotNil: [
+			(viewBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
+	^ result
 ]
 
 { #category : 'private' }
@@ -232,12 +187,6 @@ GtElixirCoderModel >> reifyBindingValue: aValue [
 GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
 	"Answer the modified source to return the declared variables"
 	^ String
-		streamContents: [ :stream | 
+		streamContents: [ :stream |
 			stream << trimmedSourceString ]
-]
-
-{ #category : 'accessing' }
-GtElixirCoderModel >> variableBindings: aGtSnippetBindings [
-
-	^ self pharoBindings: aGtSnippetBindings
 ]
