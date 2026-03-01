@@ -114,11 +114,13 @@ defmodule GtBridge.View do
     views = GtBridge.Views.lookup(server, module)
     builder = GtBridge.Phlow.Builder
 
-    Enum.map(views, fn {mod, fun} ->
+    views
+    |> Enum.map(fn {mod, fun} ->
       view_result = apply(mod, fun, [object, builder])
       view_module = view_result.__struct__
       apply(view_module, :as_dict, [view_result])
     end)
+    |> Enum.sort_by(& &1[:priority])
   end
 
   ############################################################
