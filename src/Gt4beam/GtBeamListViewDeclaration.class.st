@@ -13,8 +13,15 @@ GtBeamListViewDeclaration class >> remoteName [
 
 { #category : 'as yet unclassified' }
 GtBeamListViewDeclaration >> treatView: aView [
+	| formattedItems rawItems textMap |
+	formattedItems := (self rawData attributeAt: #items) asList.
+	rawItems := (self rawData attributeAt: #rawItems) asList.
+	textMap := IdentityDictionary new: rawItems size.
+	rawItems withIndexDo: [ :item :idx |
+		textMap at: item put: (formattedItems at: idx) ].
 	aView
-		items: [ (self rawData attributeAt: #items) asList ]
+		items: [ rawItems ];
+		itemText: [ :item | textMap at: item ]
 ]
 
 { #category : 'as yet unclassified' }
