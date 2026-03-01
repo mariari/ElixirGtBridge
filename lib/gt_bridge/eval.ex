@@ -103,7 +103,10 @@ defmodule GtBridge.Eval do
       {term, new_bindings} =
         string
         |> String.replace("\r", "\n")
-        |> Code.eval_string(state.bindings ++ [command_id: command_id])
+        |> Code.eval_string(
+          state.bindings ++ [command_id: command_id],
+          GtBridge.Eval.Env.env()
+        )
 
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
@@ -140,6 +143,31 @@ defmodule GtBridge.Eval do
     GtBridge.ObjectRegistry.remove_all(MapSet.to_list(state.registered_ids))
     :ok
   end
+
+  ############################################################
+  #                     Eval Built-ins                       #
+  ############################################################
+
+  @doc """
+  I return documentation for a module, function, or type.
+
+  Bound as `h` in every eval session. Returns a `Documentation`
+  struct whose Phlow views render the docs in GT's inspector.
+
+      h.(Enum)
+      h.({Enum, :map})
+      h.({Enum, :map, 2})
+  """
+  @spec h(module() | {module(), atom()} | {module(), atom(), non_neg_integer()}) ::
+          GtBridge.Documentation.t()
+  def h(module) when is_atom(module),
+    do: GtBridge.Documentation.for_module(module)
+
+  def h({module, function}),
+    do: GtBridge.Documentation.for_function(module, function)
+
+  def h({module, function, arity}),
+    do: GtBridge.Documentation.for_function(module, function, arity)
 
   ############################################################
   #                   Private Implementation                 #
