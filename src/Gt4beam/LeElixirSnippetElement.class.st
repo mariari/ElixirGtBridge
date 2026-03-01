@@ -18,8 +18,7 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 
 	self updateLanguageLabel.
 	self coder
-		elixirLinkApplicationStrategy: self serverStrategy;
-		pharoBindings: self snippetViewModel snippetBindings.
+		elixirLinkApplicationStrategy: self serverStrategy.
 	self coderViewModel
 		viewPharoBindings: self snippetViewModel snippetBindings.
 	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |

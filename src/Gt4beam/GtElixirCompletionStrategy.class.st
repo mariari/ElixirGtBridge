@@ -3,7 +3,8 @@ Class {
 	#superclass : 'GtStreamedCompletionStrategy',
 	#instVars : [
 		'coderModel',
-		'coderViewModel'
+		'coderViewModel',
+		'sessionId'
 	],
 	#category : 'Gt4beam-Completion',
 	#package : 'Gt4beam',
@@ -52,11 +53,6 @@ GtElixirCompletionStrategy >> completionActionStreamFor: aText at: positionInteg
 				from: positionInteger - prefix size + 1 ]
 ]
 
-{ #category : 'testing' }
-GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
-	^ true
-]
-
 { #category : 'private' }
 GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	| application serverAddress url response payload |
@@ -67,7 +63,7 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/COMPLETE'.
 	payload := { 'code' -> aString } asDictionary.
-	coderModel sessionId ifNotNil: [ :sid |
+	sessionId ifNotNil: [ :sid |
 		payload at: #sessionId put: sid ].
 	coderViewModel sourceText ifNotNil: [ :src |
 		| srcString sepIdx |
@@ -92,6 +88,17 @@ GtElixirCompletionStrategy >> hasCompletionEntryFor: aString [
 	^ aString size >= 2
 ]
 
+{ #category : 'testing' }
+GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
+	^ true
+]
+
+{ #category : 'testing' }
+GtElixirCompletionStrategy >> isSeparatorCharacter: aCharacter [
+	^ aCharacter isSeparator
+		or: [ '()[]{},;=+-*/<>|#' includes: aCharacter ]
+]
+
 { #category : 'private' }
 GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
 	| text |
@@ -104,8 +111,12 @@ GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
 	^ text
 ]
 
-{ #category : 'testing' }
-GtElixirCompletionStrategy >> isSeparatorCharacter: aCharacter [
-	^ aCharacter isSeparator
-		or: [ '()[]{},;=+-*/<>|#' includes: aCharacter ]
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> sessionId: aString [
+	sessionId := aString
 ]

@@ -3,7 +3,8 @@ Class {
 	#superclass : 'GtSourceCoderViewModel',
 	#instVars : [
 		'selfObject',
-		'viewPharoBindings'
+		'viewPharoBindings',
+		'sessionFinalizerRegistered'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -12,9 +13,13 @@ Class {
 
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> newCompletionStrategy [
-	^ GtElixirCompletionStrategy new
+	| strategy |
+	strategy := GtElixirCompletionStrategy new
 		coderModel: self coderModel;
-		coderViewModel: self
+		coderViewModel: self.
+	viewPharoBindings ifNotNil: [ :bindings |
+		strategy sessionId: (LeElixirSnippetElement sessionIdFor: bindings) ].
+	^ strategy
 ]
 
 { #category : 'accessing' }
@@ -25,6 +30,16 @@ GtElixirSnippetCoderViewModel >> selfObject [
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> selfObject: anObject [
 	selfObject := anObject
+]
+
+{ #category : 'accessing' }
+GtElixirSnippetCoderViewModel >> sessionFinalizerRegistered [
+	^ sessionFinalizerRegistered ifNil: [ false ]
+]
+
+{ #category : 'accessing' }
+GtElixirSnippetCoderViewModel >> sessionFinalizerRegistered: aBoolean [
+	sessionFinalizerRegistered := aBoolean
 ]
 
 { #category : 'accessing' }
