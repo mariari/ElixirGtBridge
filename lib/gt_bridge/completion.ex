@@ -71,6 +71,7 @@ defmodule GtBridge.Completion do
 
   defp complete_dot(module, hint) do
     prefix = inspect(module) <> "."
+    sigs = function_signatures(module)
 
     funs =
       try do
@@ -80,11 +81,18 @@ defmodule GtBridge.Completion do
       end
 
     fun_completions =
-      for {fun, _arity} <- funs,
+      for {fun, arity} <- funs,
           name = Atom.to_string(fun),
           String.starts_with?(name, hint),
           not String.starts_with?(name, "__") do
-        prefix <> name
+        sig = Map.get(sigs, {fun, arity})
+
+        suffix =
+          if sig,
+            do: "/" <> Integer.to_string(arity) <> "(" <> sig <> ")",
+            else: "/" <> Integer.to_string(arity)
+
+        prefix <> name <> suffix
       end
 
     parent = Atom.to_string(module) <> "."
@@ -114,11 +122,11 @@ defmodule GtBridge.Completion do
         _ -> []
       end
 
-    for {fun, _arity} <- exports,
+    for {fun, arity} <- exports,
         name = Atom.to_string(fun),
         String.starts_with?(name, hint),
         name != "module_info" do
-      prefix <> name
+      prefix <> name <> "/" <> Integer.to_string(arity)
     end
     |> Enum.uniq()
     |> Enum.sort()
@@ -148,13 +156,13 @@ defmodule GtBridge.Completion do
         end
 
       kernel_funs =
-        for {fun, _arity} <-
+        for {fun, arity} <-
               Kernel.__info__(:functions) ++
                 Kernel.__info__(:macros),
             name = Atom.to_string(fun),
             String.starts_with?(name, hint),
             not String.starts_with?(name, "__") do
-          name
+          name <> "/" <> Integer.to_string(arity)
         end
 
       root_modules = complete_alias(hint)
@@ -228,5 +236,23 @@ defmodule GtBridge.Completion do
 
   defp resolve_alias(charlist) do
     Module.concat([List.to_string(charlist)])
+  end
+
+  defp function_signatures(module) do
+    case Code.fetch_docs(module) do
+      {:docs_v1, _, _, _, _, _, docs} ->
+        for {{kind, name, arity}, _, signatures, _, _} <- docs,
+            kind in [:function, :macro],
+            sig <- signatures,
+            into: %{} do
+          # signatures are like "map(enumerable, fun)" — strip name prefix
+          params = String.replace_prefix(sig, Atom.to_string(name), "")
+          params = String.trim_leading(params, "(") |> String.trim_trailing(")")
+          {{name, arity}, params}
+        end
+
+      _ ->
+        %{}
+    end
   end
 end
