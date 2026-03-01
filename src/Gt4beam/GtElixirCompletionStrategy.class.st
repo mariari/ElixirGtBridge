@@ -49,6 +49,8 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/COMPLETE'.
 	payload := { 'code' -> aString } asDictionary.
+	coderModel sessionId ifNotNil: [ :sid |
+		payload at: #sessionId put: sid ].
 	coderViewModel sourceText ifNotNil: [ :src |
 		| srcString sepIdx |
 		srcString := src asString.

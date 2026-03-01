@@ -23,6 +23,18 @@ ElixirExecutionHandler >> initializeHandler [
 			forMessageClass: LanguageLinkCallbackMessage
 ]
 
+{ #category : 'messaging' }
+ElixirExecutionHandler >> buildMessageFromCommand: command [
+	| message |
+	message := ElixirLinkEnqueueCommandMessage
+		commandId: command id
+		statements: command codeForRemote
+		bindings: (command bindings collect: [ :obj | self serialize: obj ]).
+	message addBinding: #pharoCommandId -> (self serialize: command id).
+	message sessionId: command sessionId.
+	^ message
+]
+
 { #category : 'as yet unclassified' }
 ElixirExecutionHandler >> registerObject: aProxyObject [
 	"Don't register the object. Gets a new proxy every time"

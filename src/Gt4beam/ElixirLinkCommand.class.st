@@ -1,10 +1,23 @@
 Class {
 	#name : 'ElixirLinkCommand',
 	#superclass : 'LanguageLinkCommand',
+	#instVars : [
+		'sessionId'
+	],
 	#category : 'Gt4beam-Execution',
 	#package : 'Gt4beam',
 	#tag : 'Execution'
 }
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId: aString [
+	sessionId := aString
+]
 
 { #category : 'accessing' }
 ElixirLinkCommand >> codeForRemote [
