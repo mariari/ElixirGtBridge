@@ -70,6 +70,31 @@ feature depends on another topic, merge that topic into yours.
    a parent topic), resolve conflicts.  If changes beyond conflict
    resolution are needed, put them in a separate `evil!` commit.
 
+## Editing Topic Chains
+
+When you need to edit a commit in a chain of topics (e.g., strip
+an unrelated concern, split a commit, fix a bug introduced
+mid-chain), use interactive rebase with merge preservation:
+
+```bash
+git rebase -i --rebase-merges --no-rebase-cousins --update-refs <base>
+```
+
+- `--rebase-merges` preserves merge commits in the history.
+- `--no-rebase-cousins` keeps merged-in side branches in place
+  (only the main line is rebased, not the dependencies).
+- `--update-refs` automatically moves branch pointers that point
+  to rebased commits, so downstream topics stay consistent.
+
+This avoids rebuilding `next` from scratch when only a few
+commits need surgery.  Use it to:
+
+- Strip an unrelated concern from a commit and make it a
+  separate topic.
+- Split a commit that mixes two concerns.
+- Amend a commit mid-chain without manually updating every
+  downstream branch pointer.
+
 ## Commit Messages
 
 - First line: imperative summary of what changed.

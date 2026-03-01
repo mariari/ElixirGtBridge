@@ -74,10 +74,35 @@ Test: every changed line traces to the request.
 1. **Stop** after 2 failed attempts at the same approach.
 2. **Preserve state** — don't destroy partial work.
 3. **Diagnose** — what failed and why.
-4. **Capture** — note what to avoid next time.
+4. **Capture** — note what to avoid and what to prefer.
 5. **Decide** — change approach or ask for guidance.
 
 Never brute-force. Never report success if verification failed.
+
+## Learnings
+
+Capture reusable knowledge when discovery cost >5 minutes and
+the insight applies to future work. Two categories:
+
+- **Avoid:** `[thing] — [why it failed] — [context]`
+- **Prefer:** `[thing] — [why it works] — [context]`
+
+Store in project memory files. Check learnings before starting
+work on a familiar area. Remove learnings that turn out wrong.
+
+## Architecture Awareness
+
+- **Know which state is essential and which is derived.** Essential
+  state is the data you can't regenerate. Derived state can be
+  rebuilt from essential state. Don't protect derived state — if
+  you can rebuild it, you don't need to back it up or migrate it.
+- **Prefer platform primitives when they fit.** ETS over a database
+  for ephemeral data, GenServer over a library for coordination,
+  processes over threads. But reach for the right tool, not the
+  ideological one.
+- **Don't force a pattern.** Event sourcing suits some domains,
+  plain CRUD suits others. The architecture should follow the
+  problem, not a doctrine.
 
 ## Scope Awareness
 

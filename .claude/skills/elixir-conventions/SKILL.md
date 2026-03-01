@@ -66,9 +66,40 @@ Choose where state lives based on two questions:
 
 ## Examples
 
+Examples use the `ExExample` library for caching and composition.
+
+- `use ExExample` in the module, `import ExUnit.Assertions` for
+  assertions.
+- Define examples with the `example` macro:
+  ```elixir
+  @spec create_upload() :: Upload.t()
+  example create_upload do
+    {:ok, upload} = Uploads.store_new_file(...)
+    assert upload.stored_name != nil
+    upload  # return a useful object
+  end
+  ```
+- Examples are cached — calling one from another reuses the
+  result instead of re-running. This enables composition:
+  ```elixir
+  example add_comment do
+    upload = EUpload.create_upload()  # cached, not re-run
+    {:ok, comment} = Comments.create(...)
+    comment
+  end
+  ```
+- Override `rerun?/1` to control caching per example:
+  `def rerun?(_), do: true` to always re-run (e.g., examples
+  that spawn processes or depend on runtime state). Pattern
+  match on specific examples for selective control.
+- Tests: `use ExExample.ExUnit, for: Examples.EModule` to
+  auto-generate one test per example.
 - Live in `lib/examples/e_<module>.ex`.
-- Module name pattern: `E<Module>` (e.g., `ENode`, `EShard`).
-- Use `import ExUnit.Assertions` for `assert`.
+- Module name: `E<Module>` (e.g., `EUpload`, `EEventStore`).
+- Every example gets `@spec` — they are typed public functions.
+- Run with: `mix run -e 'EModule.example_name()'`
+- Build examples incrementally: verify each layer in IEX before
+  writing the next. The examples ARE the verification.
 
 ## Interactive Testing
 

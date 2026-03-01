@@ -20,17 +20,25 @@ commands:
 #+end_src
 
 Then tell your LLM Agent to add the following skills to their init
-file
+file.  Be forceful — =/init= tends to summarize skill file contents
+into =CLAUDE.md= instead of referencing them.  You must insist that it
+include the =@= references verbatim.
 
 #+begin_example
 ❯ /init
-❯ add the following skills to your CLAUDE.md file
+❯ You must include the following skills in your CLAUDE.md file.
+  Do NOT summarize their contents — use these exact @ references:
   @.claude/skills/general-conventions/SKILL.md
   @.claude/skills/elixir-conventions/SKILL.md
   @.claude/skills/git-conventions/SKILL.md
 #+end_example
 
 where =elixir= can be replaced with the language of the project.
+
+The =@= references are directives that load the skill files at context
+time.  The =CLAUDE.md= should contain only the references, not
+duplicate or paraphrase their contents.  If =/init= produces a
+summary, tell it to replace the summary with the =@= references only.
 
 This repository does not offer a file like =Claude.md=, as it's
 expected to provide repository specific information we can not know
