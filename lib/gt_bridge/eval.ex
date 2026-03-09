@@ -23,6 +23,7 @@ defmodule GtBridge.Eval do
 
   typedstruct do
     field(:bindings, Code.binding())
+    field(:env, Macro.Env.t())
     field(:port, non_neg_integer(), default: nil)
     field(:registered_ids, MapSet.t(non_neg_integer()), default: MapSet.new())
   end
@@ -37,7 +38,7 @@ defmodule GtBridge.Eval do
     Process.flag(:trap_exit, true)
     port = Keyword.get(init_args, :port, nil)
     default_bindings = if port, do: [port: port], else: []
-    {:ok, %__MODULE__{bindings: default_bindings, port: port}}
+    {:ok, %__MODULE__{bindings: default_bindings, env: GtBridge.Eval.Env.env(), port: port}}
   end
 
   ############################################################
@@ -100,18 +101,23 @@ defmodule GtBridge.Eval do
   @impl true
   def handle_call({:eval, string, command_id}, _from, state = %__MODULE__{}) do
     try do
-      {term, new_bindings} =
+      quoted =
         string
         |> String.replace("\r", "\n")
-        |> Code.eval_string(
+        |> Code.string_to_quoted!()
+
+      {term, new_bindings, new_env} =
+        Code.eval_quoted_with_env(
+          quoted,
           state.bindings ++ [command_id: command_id],
-          GtBridge.Eval.Env.env()
+          state.env
         )
 
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
 
-      {:reply, term, collect_registered(%__MODULE__{state | bindings: unique_keys})}
+      {:reply, term,
+       collect_registered(%__MODULE__{state | bindings: unique_keys, env: new_env})}
     catch
       kind, e ->
         error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
