@@ -113,7 +113,10 @@ GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
 
 { #category : 'accessing' }
 GtElixirCompletionStrategy >> sessionId [
-	^ sessionId
+	^ sessionId ifNil: [
+		coderViewModel ifNotNil: [ :vm |
+			vm viewPharoBindings ifNotNil: [ :bindings |
+				LeElixirSnippetElement sessionIdFor: bindings ] ] ]
 ]
 
 { #category : 'accessing' }
