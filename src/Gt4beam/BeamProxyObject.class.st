@@ -202,7 +202,7 @@ BeamProxyObject >> resolve [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> sourceFile [
 	^ self
-		evaluateAndWait: 'List.to_string(' , self resolve , '.__struct__.module_info(:compile)[:source])'
+		evaluateAndWait: 'GtBridge.Resolve.source_file(' , self resolve , ')'
 ]
 
 { #category : 'as yet unclassified' }
