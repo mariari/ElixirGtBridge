@@ -94,7 +94,7 @@ defmodule GtBridge.Eval do
 
   @impl true
   def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
-    results = GtBridge.Completion.complete(code_prefix, state.bindings, source)
+    results = GtBridge.Completion.complete(code_prefix, state.bindings, source, state.env)
     {:reply, results, state}
   end
 
