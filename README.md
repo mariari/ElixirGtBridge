@@ -18,13 +18,13 @@ After installing with Metacello, you will be able to execute
 
 ## Installing in an Elixir Project
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `gt_bridge` to your list of dependencies in `mix.exs`:
+The package is [available on Hex](https://hex.pm/packages/gt_bridge).
+Add `gt_bridge` to your dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:gt_bridge, "~> 0.1.0"}
+    {:gt_bridge, "~> 0.14.1"}
   ]
 end
 ```

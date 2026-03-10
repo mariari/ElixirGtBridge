@@ -1,5 +1,32 @@
 * Changelog
 
+** v0.14.1
+
+*** Features
+
+- Persistent ~alias~, ~import~, and ~require~ across eval sessions —
+  ~Macro.Env~ is now accumulated alongside bindings using
+  ~Code.eval_quoted_with_env/3~, so directives evaluated in one snippet
+  carry forward to subsequent snippets in the same page
+- Alias-aware auto-completion — completion suggestions include alias
+  short names and resolve aliased modules for dot-completion (e.g.
+  ~alias Foo.Bar~ then ~Bar.~ completes ~Bar~'s functions)
+- Source code view for module atoms — inspecting a module (via ~h(Mod)~
+  or a bare atom) shows the source file tab when the module's compile
+  path is locally available
+
+*** Bug Fixes
+
+- Parenthesize last expression in notify wrapper — ~alias~, ~import~,
+  ~require~, and ~use~ directives no longer fail with
+  ~undefined function alias/3~ when evaluated through GT's snippet
+  bridge (~setNotifyToInstruction:~ now wraps as
+  ~GtBridge.Eval.notify((expr), ...)~)
+- Lazily resolve session ID in completion strategy — completion requests
+  now reach the correct per-page eval session instead of the default
+  session.  The ~sessionId~ getter resolves from ~viewPharoBindings~
+  on demand, and ~fetchCompletionsFor:~ goes through the getter
+
 ** v0.14.0
 
 *** Features
