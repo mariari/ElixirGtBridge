@@ -1,5 +1,14 @@
 * Changelog
 
+** v0.15.0
+
+*** Features
+
+- ~flush()~ built-in for eval sessions — drains and returns all
+  messages received by the eval process, like IEx's ~flush/0~.
+  Useful when user code subscribes ~self()~ to event brokers.
+  Messages are silently stashed by ~handle_info/2~ until flushed
+
 ** v0.14.1
 
 *** Features
