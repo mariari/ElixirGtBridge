@@ -63,7 +63,7 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	url := 'http://' , serverAddress ipOrName , ':'
 		, serverAddress port asString , '/COMPLETE'.
 	payload := { 'code' -> aString } asDictionary.
-	sessionId ifNotNil: [ :sid |
+	self sessionId ifNotNil: [ :sid |
 		payload at: #sessionId put: sid ].
 	coderViewModel sourceText ifNotNil: [ :src |
 		| srcString sepIdx |
@@ -113,7 +113,10 @@ GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
 
 { #category : 'accessing' }
 GtElixirCompletionStrategy >> sessionId [
-	^ sessionId
+	^ sessionId ifNil: [
+		coderViewModel ifNotNil: [ :vm |
+			vm viewPharoBindings ifNotNil: [ :bindings |
+				LeElixirSnippetElement sessionIdFor: bindings ] ] ]
 ]
 
 { #category : 'accessing' }
