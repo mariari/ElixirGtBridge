@@ -14,7 +14,7 @@ defmodule GtBridge.Eval.Env do
          file: "nofile",
          line: 1,
          functions:
-           [{GtBridge.Eval, [{:h, 1}]} | __ENV__.functions]
+           [{GtBridge.Eval, [{:h, 1}, {:flush, 0}]} | __ENV__.functions]
        })
 
   @spec env() :: Macro.Env.t()
