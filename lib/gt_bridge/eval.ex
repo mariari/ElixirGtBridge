@@ -145,6 +145,12 @@ defmodule GtBridge.Eval do
   end
 
   @impl true
+  def handle_info(msg, state) do
+    Process.put(:_mailbox, [msg | Process.get(:_mailbox, [])])
+    {:noreply, state}
+  end
+
+  @impl true
   def terminate(_reason, state) do
     GtBridge.ObjectRegistry.remove_all(MapSet.to_list(state.registered_ids))
     :ok
@@ -174,6 +180,22 @@ defmodule GtBridge.Eval do
 
   def h({module, function, arity}),
     do: GtBridge.Documentation.for_function(module, function, arity)
+
+  @doc """
+  I drain and return all messages received by the eval process.
+
+  Like IEx's `flush/0`. Useful when user code subscribes the eval
+  process to event brokers and you want to see what arrived.
+
+      flush()
+  """
+  @spec flush() :: [term()]
+  def flush do
+    case Process.delete(:_mailbox) do
+      nil -> []
+      msgs -> Enum.reverse(msgs)
+    end
+  end
 
   ############################################################
   #                   Private Implementation                 #
