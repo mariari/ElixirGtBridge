@@ -22,14 +22,17 @@ defmodule GtBridge.Completion do
   the cursor. When provided, it is passed through to sub-completers
   that may need surrounding context (e.g. struct field completion).
   """
-  @spec complete(String.t(), Code.binding(), String.t() | nil) :: [String.t()]
-  def complete(code_prefix, bindings \\ [], source \\ nil) do
+  @spec complete(String.t(), Code.binding(), String.t() | nil, Macro.Env.t()) ::
+          [String.t()]
+  def complete(code_prefix, bindings \\ [], source \\ nil, env \\ %Macro.Env{}) do
+    aliases = env.aliases
+
     case Code.Fragment.cursor_context(code_prefix) do
       {:alias, hint} ->
-        complete_alias(List.to_string(hint))
+        complete_alias(List.to_string(hint), aliases)
 
       {:dot, {:alias, mod}, hint} ->
-        complete_dot(resolve_alias(mod), List.to_string(hint))
+        complete_dot(resolve_alias(mod, aliases), List.to_string(hint))
 
       {:dot, {:unquoted_atom, mod}, hint} ->
         complete_erlang_dot(List.to_atom(mod), List.to_string(hint))
@@ -38,13 +41,13 @@ defmodule GtBridge.Completion do
         complete_erlang_module(List.to_string(hint))
 
       {:local_or_var, hint} ->
-        complete_local_or_var(source, List.to_string(hint), bindings)
+        complete_local_or_var(source, List.to_string(hint), bindings, aliases)
 
       {:struct, hint} ->
         complete_struct(List.to_string(hint))
 
       :expr ->
-        complete_local_or_var(source, "", bindings)
+        complete_local_or_var(source, "", bindings, aliases)
 
       _ ->
         []
@@ -55,16 +58,26 @@ defmodule GtBridge.Completion do
   #                   Private Implementation                 #
   ############################################################
 
-  defp complete_alias(hint) do
+  defp complete_alias(hint, aliases) do
     depth = length(String.split(hint, "."))
 
-    for {module, _} <- :code.all_loaded(),
-        name = Atom.to_string(module),
-        String.starts_with?(name, "Elixir."),
-        short = String.replace_prefix(name, "Elixir.", ""),
-        String.starts_with?(short, hint) do
-      short |> String.split(".") |> Enum.take(depth) |> Enum.join(".")
-    end
+    loaded =
+      for {module, _} <- :code.all_loaded(),
+          name = Atom.to_string(module),
+          String.starts_with?(name, "Elixir."),
+          short = String.replace_prefix(name, "Elixir.", ""),
+          String.starts_with?(short, hint) do
+        short |> String.split(".") |> Enum.take(depth) |> Enum.join(".")
+      end
+
+    aliased =
+      for {short, _full} <- aliases,
+          name = short |> Atom.to_string() |> String.replace_prefix("Elixir.", ""),
+          String.starts_with?(name, hint) do
+        name
+      end
+
+    (loaded ++ aliased)
     |> Enum.uniq()
     |> Enum.sort()
   end
@@ -142,7 +155,7 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(source, hint, bindings) do
+  defp complete_local_or_var(source, hint, bindings, aliases) do
     struct_fields = struct_fields_for(source, hint)
 
     if struct_fields != [] do
@@ -165,7 +178,7 @@ defmodule GtBridge.Completion do
           name <> "/" <> Integer.to_string(arity)
         end
 
-      root_modules = complete_alias(hint)
+      root_modules = complete_alias(hint, aliases)
 
       (vars ++ kernel_funs ++ root_modules)
       |> Enum.uniq()
@@ -234,8 +247,9 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp resolve_alias(charlist) do
-    Module.concat([List.to_string(charlist)])
+  defp resolve_alias(charlist, aliases) do
+    module = Module.concat([List.to_string(charlist)])
+    Keyword.get(aliases, module, module)
   end
 
   defp function_signatures(module) do
