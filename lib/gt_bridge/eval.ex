@@ -163,23 +163,32 @@ defmodule GtBridge.Eval do
   @doc """
   I return documentation for a module, function, or type.
 
-  Bound as `h` in every eval session. Returns a `Documentation`
-  struct whose Phlow views render the docs in GT's inspector.
+  Bound as `h` in every eval session. Because I am a macro, I can
+  parse dot-syntax like `h(Enum.map)` and `h(Enum.map/2)`.
 
-      h.(Enum)
-      h.({Enum, :map})
-      h.({Enum, :map, 2})
+      h(Enum)
+      h(Enum.map)
+      h(Enum.map/2)
+      h({Enum, :map})
+      h({Enum, :map, 2})
   """
-  @spec h(module() | {module(), atom()} | {module(), atom(), non_neg_integer()}) ::
-          GtBridge.Documentation.t()
-  def h(module) when is_atom(module),
-    do: GtBridge.Documentation.for_module(module)
+  defmacro h({:/, _, [{{:., _, [mod, fun]}, _, _}, arity]}) do
+    quote do: GtBridge.Documentation.for_function(unquote(mod), unquote(fun), unquote(arity))
+  end
 
-  def h({module, function}),
-    do: GtBridge.Documentation.for_function(module, function)
+  defmacro h({{:., _, [mod, fun]}, _, _}) do
+    quote do: GtBridge.Documentation.for_function(unquote(mod), unquote(fun))
+  end
 
-  def h({module, function, arity}),
-    do: GtBridge.Documentation.for_function(module, function, arity)
+  defmacro h(other) do
+    quote do
+      case unquote(other) do
+        m when is_atom(m) -> GtBridge.Documentation.for_module(m)
+        {m, f} -> GtBridge.Documentation.for_function(m, f)
+        {m, f, a} -> GtBridge.Documentation.for_function(m, f, a)
+      end
+    end
+  end
 
   @doc """
   I drain and return all messages received by the eval process.
