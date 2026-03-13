@@ -46,6 +46,19 @@ Gt4beamSessionLifecycleExamples >> completeModuleDot [
 ]
 
 { #category : 'examples - completion' }
+Gt4beamSessionLifecycleExamples >> completeAliasDot [
+	"I complete 'Enum.fl' via an alias and verify the prefix uses the alias name.
+	Proves alias dot-completion returns Enum.flat_map, not the full module path."
+	<gtExample>
+	| results |
+	self target bindAndExecuteRaw: 'alias Enum, as: E' sessionId: self sessionId.
+	results := self completionStrategy fetchCompletionsFor: 'E.fl'.
+	self assert: (results anySatisfy: [ :r | r beginsWith: 'E.flat_map' ]).
+	self assert: (results noneSatisfy: [ :r | r beginsWith: 'Enum.' ]).
+	^ results
+]
+
+{ #category : 'examples - completion' }
 Gt4beamSessionLifecycleExamples >> completeWithBindings [
 	"I complete a variable prefix using session bindings.
 	The target has my_val bound; completing 'my_' finds it."

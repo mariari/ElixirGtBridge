@@ -32,7 +32,7 @@ defmodule GtBridge.Completion do
         complete_alias(List.to_string(hint), aliases)
 
       {:dot, {:alias, mod}, hint} ->
-        complete_dot(resolve_alias(mod, aliases), List.to_string(hint))
+        complete_dot(resolve_alias(mod, aliases), List.to_string(hint), List.to_string(mod))
 
       {:dot, {:unquoted_atom, mod}, hint} ->
         complete_erlang_dot(List.to_atom(mod), List.to_string(hint))
@@ -82,8 +82,8 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_dot(module, hint) do
-    prefix = inspect(module) <> "."
+  defp complete_dot(module, hint, display_name) do
+    prefix = display_name <> "."
     sigs = function_signatures(module)
 
     funs =
