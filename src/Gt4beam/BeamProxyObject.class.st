@@ -59,7 +59,9 @@ BeamProxyObject >> attributeAt: name [
 			ifTrue: [ '"', name, '"' ]
 			ifFalse: [ (name respondsTo: #resolve)
 				ifTrue: [ name resolve ]
-				ifFalse: [ name asString ] ] ].
+				ifFalse: [ (name isKindOf: ByteArray)
+					ifTrue: [ '<<', (', ' join: (name asArray collect: #asString)), '>>' ]
+					ifFalse: [ name asString ] ] ] ].
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', resolvedName, ')'
 ]
