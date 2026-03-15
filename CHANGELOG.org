@@ -1,5 +1,23 @@
 * Changelog
 
+** v0.15.1
+
+*** Features
+
+- ~h/1~ now supports dot-syntax — ~h(Enum.count)~ and
+  ~h(Enum.map/2)~ work like in IEx. ~h/1~ is now a macro that
+  inspects the AST instead of evaluating the argument
+
+*** Bug Fixes
+
+- Fix alias dot-completion prefix — typing ~ENarwhal.si~ after
+  aliasing now returns ~ENarwhal.sign_a_block~ instead of the
+  fully-qualified ~Anoma.Node.Examples.ENarwhal.sign_a_block~
+- Fix raw view crash on maps with binary keys — ~ByteArray~ map keys
+  (e.g. cryptographic signatures) are now serialized as
+  ~<<byte1, byte2, ...>>~ instead of dumping raw bytes into the
+  expression string, which caused ~SmaCCParserError~
+
 ** v0.15.0
 
 *** Features
