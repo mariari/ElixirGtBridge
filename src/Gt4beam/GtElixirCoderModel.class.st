@@ -174,12 +174,15 @@ GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFai
 { #category : 'private' }
 GtElixirCoderModel >> reifyBindingValue: aValue [
 	"Proxy references carry exid+exclass; reify as BeamProxyObject.
+	Base64-tagged arrays carry non-UTF-8 binaries; decode as ByteArray.
 	Everything else passes through as a primitive."
 	(aValue isDictionary and: [ aValue includesKey: 'exid' ])
 		ifTrue: [
 			^ (BeamProxyObject elixirClass: (aValue at: 'exclass'))
 				elixirVar: (aValue at: 'exid');
 				application: application ].
+	(aValue isArray and: [ aValue size = 2 and: [ aValue first = '__base64__' ] ])
+		ifTrue: [ ^ (ZnBase64Encoder new decode: aValue second) asByteArray ].
 	^ aValue
 ]
 
