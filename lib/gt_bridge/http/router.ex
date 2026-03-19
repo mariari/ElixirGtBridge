@@ -77,8 +77,10 @@ defmodule GtBridge.Http.Router do
     eval = resolve_eval(conn, body)
     bindings = Eval.get_bindings(eval)
 
+    {:ok, json} = GtBridge.Serializer.to_json(bindings)
+
     conn
-    |> send_resp(200, Jason.encode!(bindings))
+    |> send_resp(200, json)
   end
 
   # Get view specifications for an object
