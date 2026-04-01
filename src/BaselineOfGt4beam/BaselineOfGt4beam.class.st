@@ -27,6 +27,13 @@ BaselineOfGt4beam class >> loadLepiter [
 BaselineOfGt4beam >> baseline: spec [
 	<baseline>
 		^ spec for: #common do: [
-			spec package: 'Gt4beam'
+			spec package: 'Gt4beam'.
+			spec postLoadDoIt: #postLoad:
 		]
+]
+
+{ #category : 'loading' }
+BaselineOfGt4beam >> postLoad: loader [
+	LeJsonV4 cleanUp.
+	LeLogicalDatabase allInstancesDo: #fullReload
 ]
