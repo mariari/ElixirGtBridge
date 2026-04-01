@@ -141,7 +141,18 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 		views: (viewDecls collect: [ :decl | self viewFromDeclaration: decl ])
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'accessing' }
+BeamProxyObject >> functionLines [
+	"I return {startLine. endLine} for a function-scoped Documentation, or nil."
+	| result |
+	result := self
+		evaluateAndWait:
+			'GtBridge.Resolve.function_lines(' , self resolve , ')'.
+	result ifNil: [ ^ nil ].
+	^ { result itemAt: 0. result itemAt: 1 }
+]
+
+{ #category : 'gt-views' }
 BeamProxyObject >> gtSourceFor: aView [
 	<gtView>
 	| file |
@@ -153,11 +164,29 @@ BeamProxyObject >> gtSourceFor: aView [
 		title: 'Source';
 		priority: 110;
 		stencil: [
-			| pane |
+			| pane lineRange |
+			lineRange := [ self functionLines ] on: Error do: [ nil ].
 			pane := file gtEditorView.
 			pane childNamed: #editor ifFound: [ :editor |
+				| aText |
 				editor aptitude: BrGlamorousCodeEditorAptitude.
-				editor editor styler: ElixirParser gtStyler ].
+				aText := editor text.
+				lineRange ifNotNil: [
+					| startChar endChar lines |
+					lines := aText asString lines.
+					startChar := 0.
+					1 to: lineRange first - 1 do: [ :i |
+						startChar := startChar + (lines at: i) size + 1 ].
+					endChar := startChar.
+					lineRange first to: (lineRange second min: lines size) do: [ :i |
+						endChar := endChar + (lines at: i) size + 1 ].
+					(aText from: startChar + 1 to: endChar)
+						attributes: { BlTextDecorationAttribute new underline
+							beNotOverwritableByStyler;
+							color: BrGlamorousColors textHighlightColor } ].
+				editor editor styler: ElixirParser gtStyler.
+				lineRange ifNotNil: [
+					editor scrollToPosition: lineRange first ] ].
 			pane ]
 ]
 
