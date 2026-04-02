@@ -143,13 +143,7 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 
 { #category : 'accessing' }
 BeamProxyObject >> functionLines [
-	"I return {startLine. endLine} for a function-scoped Documentation, or nil."
-	| result |
-	result := self
-		evaluateAndWait:
-			'GtBridge.Resolve.function_lines(' , self resolve , ')'.
-	result ifNil: [ ^ nil ].
-	^ { result itemAt: 0. result itemAt: 1 }
+	^ nil
 ]
 
 { #category : 'gt-views' }

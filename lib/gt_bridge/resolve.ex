@@ -47,7 +47,9 @@ defmodule GtBridge.Resolve do
     function_lines(module, name, arity)
   end
 
-  def function_lines(%GtBridge.Documentation{}), do: nil
+  def function_lines(module) when is_atom(module), do: nil
+  def function_lines(%{__struct__: _}), do: nil
+  def function_lines(_), do: nil
 
   def function_lines(module, name, arity) do
     with path when is_binary(path) <- source_file(module),
