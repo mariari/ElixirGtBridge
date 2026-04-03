@@ -36,37 +36,15 @@ BeamPIDObject >> gtInformationFor: aView [
 BeamPIDObject >> gtSupervisionView: aView [
 	<gtView>
 	self isSupervisor ifFalse: [ ^ aView empty ].
-
 	^ aView mondrian
 		title: 'Supervision View';
 		priority: 9;
-		painting: [ :aMondrian | 
-			| children childrenMap |
-			children := self childrenTree asList.
-			childrenMap := children
-					collect: [ :tup | 
-						(tup itemAt: 0)
-							-> {tup itemAt: 1.
-									(tup itemAt: 2) asList} ]
-					as: Dictionary.
-			aMondrian nodes
-				stencil: [ :node | 
-					BrHorizontalPane new
-						geometry: (BlRoundedRectangleGeometry cornerRadius: 2);
-						border: (BlBorder paint: Color black width: 2);
-						background: Color white;
-						padding: (BlInsets all: 5);
-						addChild: (BlTextElement new
-								text: (childrenMap at: node at: 1) asRopedText;
-								constraintsDo: [ :c | 
-									c horizontal fitContent.
-									c vertical fitContent ]);
-						constraintsDo: [ :c | 
-							c horizontal fitContent.
-							c vertical fitContent ] ];
-				with: (children collect: [ :tup | tup itemAt: 0 ]).
-			aMondrian edges connectToAll: [ :each | childrenMap at: each at: 2 ].
-			aMondrian layout horizontalTree ]
+		painting: [ :aMondrian |
+			| tree |
+			tree := self evaluateAndWait:
+				'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+			BeamMondrianHelpers
+				supervisionTreeOn: aMondrian from: tree poolThreshold: 12 ]
 ]
 
 { #category : 'as yet unclassified' }
