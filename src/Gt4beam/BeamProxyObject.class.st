@@ -54,7 +54,7 @@ BeamProxyObject >> asList [
 BeamProxyObject >> attributeAt: name [
 	| resolvedName |
 	resolvedName := name isSymbol
-		ifTrue: [ ':', name ]
+		ifTrue: [ self elixirAtomFor: name asString ]
 		ifFalse: [ name isString
 			ifTrue: [ '"', name, '"' ]
 			ifFalse: [ (name respondsTo: #resolve)
@@ -62,6 +62,14 @@ BeamProxyObject >> attributeAt: name [
 				ifFalse: [ name asString ] ] ].
 	^ self
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', resolvedName, ')'
+]
+
+{ #category : 'private' }
+BeamProxyObject >> elixirAtomFor: aString [
+	"I return an Elixir atom literal, quoted if the name contains non-identifier characters."
+	(aString allSatisfy: [ :c | c isAlphaNumeric or: [ c = $_ ] ])
+		ifTrue: [ ^ ':', aString ].
+	^ ':"', aString, '"'
 ]
 
 { #category : 'as yet unclassified' }
