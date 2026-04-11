@@ -9,7 +9,7 @@ Class {
 BaselineOfGt4beam class >> loadLepiter [
 	IceRepository registry  
 		detect: [ :aRepository |
-			aRepository name = 'ElixirGtBridge' ]
+			aRepository name = 'gt4beam' ]
 		ifFound: [ :aRepository | 
 			| defaultDatabase currentProperties |
 			defaultDatabase := LeDatabasesRegistry defaultLogicalDatabase.
