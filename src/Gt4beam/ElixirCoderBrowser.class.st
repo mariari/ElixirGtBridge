@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'application',
 		'sidebar',
-		'content'
+		'content',
+		'scopedApplicationName'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -16,6 +17,20 @@ ElixirCoderBrowser class >> forApplication: anApp [
 	"I return an unscoped browser showing every loaded application
 	 on the BEAM as the top level of the sidebar tree."
 	^ self new application: anApp; yourself
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser class >> forApplicationAnalysis: anElixirApplicationAnalysis [
+	"I return a browser scoped to a single Elixir application. The
+	 sidebar hides the application-level wrapper and shows the app's
+	 modules grouped by namespace at the top level.
+	 Uses name symbol (not asString) because BeamAtomObject's asString
+	 goes through printOn: which decorates the string — we need the
+	 raw symbol to build a valid :atom literal on the bridge side."
+	^ self new
+		scopedApplicationName: anElixirApplicationAnalysis name symbol;
+		application: anElixirApplicationAnalysis application;
+		yourself
 ]
 
 { #category : 'as yet unclassified' }
@@ -66,7 +81,15 @@ ElixirCoderBrowser >> applicationNames [
 
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> applicationNodes [
-	"I return tree nodes for all applications with nested module namespaces."
+	"I return the sidebar's top-level tree nodes. When scoped to a
+	 single application, I skip the app wrapper and return the module
+	 namespace groups directly. Otherwise I return one node per loaded
+	 application with modules nested underneath."
+	scopedApplicationName ifNotNil: [
+		| modules |
+		modules := [ self moduleInfoForApplication: scopedApplicationName ]
+			on: Error do: [ #() ].
+		^ self groupModulesByNamespace: modules ].
 	^ self applicationNames collect: [ :appName |
 		self appNode: appName ]
 ]
@@ -214,4 +237,16 @@ ElixirCoderBrowser >> modulesForApplication: anAppName [
 		'GtBridge.Analysis.module_details(:', anAppName, ')') asList
 			collect: [ :m | (m attributeAt: #name) asString ] ]
 		on: Error do: [ #() ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> scopedApplicationName [
+	^ scopedApplicationName
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> scopedApplicationName: aString [
+	"I set the scope to a single application name. Must be called
+	 before #application: since the setter triggers sidebar build."
+	scopedApplicationName := aString
 ]
