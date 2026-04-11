@@ -145,12 +145,19 @@ GtElixirCoderModel >> initializeApplication [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
+	"I add Ctrl-D DoIt, Ctrl-G DoItAndInspect, and Ctrl-S Save.
+	 The save shortcut fires GtSourceCoderViewModelSaveRequested on
+	 the view model; consumers that know how to save (e.g. the module
+	 coder's Source tab) subscribe to that announcement. Lepiter
+	 snippets leave it unconsumed, falling back to the base class's
+	 no-op save."
 	super initializeShortcuts: addOns.
 
 	elixirLinkApplicationStrategy
 		ifNotNil: [ addOns
 				addShortcut: GtSourceCoderDoItShortcut new;
-				addShortcut: GtSourceCoderDoItAndInspectShortcut new ]
+				addShortcut: GtSourceCoderDoItAndInspectShortcut new;
+				addShortcut: GtSourceCoderSaveShortcut new ]
 ]
 
 { #category : 'accessing' }
