@@ -132,6 +132,101 @@ BeamProxyObject >> evaluateAndWait: string [
 		sendAndWait
 ]
 
+{ #category : 'gt-extensions' }
+BeamProxyObject >> filterLocalProxyViews: localViews [
+	"I remove views tagged <gtProxyView> from the Remote tab list so
+	 they appear only under Proxy mode."
+	^ localViews reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtProxyView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtDefaultInspectorTool [
+	"I return a composite tool with a Remote / Proxy toggle at the top,
+	 mirroring GT's Python bridge (PBProxyObject >> gtDefaultInspectorTool).
+
+	 - Remote shows Elixir-side views: Coder, Source, the playground
+	   snippet, raw attribute tree, and any remote view declarations
+	   registered via GtBridge.GtViewedObject.
+	 - Proxy shows the Smalltalk BeamProxyObject wrapper itself — its
+	   ivars (elixirClass, elixirVar, rawData, application) plus any
+	   local <gtView> also tagged <gtProxyView>.
+
+	 Skipping GT's third Runtime tool — the BeamLinkApplication is
+	 available directly from the Elixir side inspector and duplicating
+	 it here adds no value for single-application bridges."
+	^ GtPhlowCompositeTool new
+		addTool: (self gtRemoteSideInspectorTool
+			name: 'Remote';
+			withLabelAndIconAptitude);
+		addTool: (super gtDefaultInspectorTool
+			name: 'Proxy';
+			withLabelAndIconAptitude)
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteInspectorContentFor: aView [
+	<return: #GtPhlowLabelledView>
+	"I build the Remote tab's labelled content by collecting views via
+	 #gtViewsForRemoteSideInContext: and wrapping them with a title."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForRemoteSideInContext:;
+		titleComputation: [
+			elixirClass
+				ifNil: [ '<anonymous>' ]
+				ifNotNil: [ :cls |
+					String streamContents: [ :stream |
+						stream
+							<< (cls first isVowel ifTrue: [ 'an ' ] ifFalse: [ 'a ' ]);
+							<< cls ] ] ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteSideInspectorTool [
+	"I return the inspector tool for the Remote tab — a GtInspectorTool
+	 that routes view collection through gtRemoteInspectorContentFor:."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtRemoteInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtViewsForRemoteSideInContext: aContext [
+	"I collect views for the Remote tab: all local <gtView> methods that
+	 are NOT tagged <gtProxyView>, plus any server-side view declarations
+	 registered via GtBridge.GtViewedObject on the remote object."
+	| localViews collectedViews |
+	localViews := super gtViewsInContext: aContext.
+	collectedViews := OrderedCollection new
+		addAll: (self filterLocalProxyViews: localViews);
+		addAll: (self remoteViewsInContext: aContext);
+		yourself.
+	GtPhlowUtility sortByPriority: collectedViews.
+	^ collectedViews
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> remoteClass [
+	"I return my Elixir class — used by GT's proxy-side playground
+	 strategy and inspector page keys."
+	^ elixirClass
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> remoteViewsInContext: aContext [
+	"I return the server-side declarative views for this proxy — one
+	 GtPhlowView per view declaration registered on the remote object.
+	 Empty if the bridge can't reach the server or the object has no
+	 declared views."
+	^ [ self viewDeclarations asList
+		collect: [ :decl | self viewFromDeclaration: decl ] ]
+		on: Error do: [ #() ]
+]
+
 { #category : 'gt-actions' }
 BeamProxyObject >> gtActionApplicationFor: anAction [
 	<gtAction>
@@ -186,9 +281,12 @@ BeamProxyObject >> gtElixirRawFor: aView [
 
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtRemoteViewsFor: aView [
-	"Create a composite view with all remote views"
-
+	"I show all server-side declared views as a single composite.
+	 Tagged <gtProxyView> so I only appear under the Proxy mode — the
+	 Remote mode already shows each remote view as its own top-level
+	 tab via gtViewsForRemoteSideInContext:."
 	<gtView>
+	<gtProxyView>
 	| viewDecls |
 	viewDecls := self viewDeclarations asList.
 
