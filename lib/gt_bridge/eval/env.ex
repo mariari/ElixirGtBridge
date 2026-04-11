@@ -13,10 +13,8 @@ defmodule GtBridge.Eval.Env do
          module: nil,
          file: "nofile",
          line: 1,
-         functions:
-           [{GtBridge.Eval, [{:flush, 0}]} | __ENV__.functions],
-         macros:
-           [{GtBridge.Eval, [{:h, 1}]} | __ENV__.macros]
+         functions: [{GtBridge.Eval, [{:flush, 0}]} | __ENV__.functions],
+         macros: [{GtBridge.Eval, [{:h, 1}]} | __ENV__.macros]
        })
 
   @spec env() :: Macro.Env.t()

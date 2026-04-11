@@ -116,8 +116,7 @@ defmodule GtBridge.Eval do
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
 
-      {:reply, term,
-       collect_registered(%__MODULE__{state | bindings: unique_keys, env: new_env})}
+      {:reply, term, collect_registered(%__MODULE__{state | bindings: unique_keys, env: new_env})}
     catch
       kind, e ->
         error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
