@@ -8,7 +8,8 @@ Class {
 		'moduleName',
 		'application',
 		'focusLine',
-		'sessionId'
+		'sessionId',
+		'selfObject'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -415,6 +416,16 @@ IEx.Helpers.recompile()');
 { #category : 'accessing' }
 ElixirModuleCoder >> sourceCode [
 	^ sourcePath asFileReference contents
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> selfObject [
+	^ selfObject
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> selfObject: anObject [
+	selfObject := anObject
 ]
 
 { #category : 'accessing' }

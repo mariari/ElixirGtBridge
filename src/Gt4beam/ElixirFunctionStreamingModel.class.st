@@ -39,8 +39,12 @@ ElixirFunctionStreamingModel >> newCoderCacheKeyFor: anEntry [
 
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newCoderFor: anEntry [
-	"I create an ElixirFunctionCoder for a function entry."
-	^ ElixirFunctionCoder forEntry: anEntry moduleCoder: moduleCoder
+	"I create an ElixirFunctionCoder for a function entry, 
+	 propagating selfObject so single-arity functions can Run with it."
+	| coder |
+	coder := ElixirFunctionCoder forEntry: anEntry moduleCoder: moduleCoder.
+	coder selfObject: moduleCoder selfObject.
+	^ coder
 ]
 
 { #category : 'streaming' }

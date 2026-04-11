@@ -6,7 +6,8 @@ Class {
 		'functionName',
 		'arity',
 		'startLine',
-		'endLine'
+		'endLine',
+		'selfObject'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -65,14 +66,23 @@ ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
-	arity = 0 ifFalse: [ ^ self ].
+	"Run 0-arity functions directly, or 1-arity functions with
+	 selfObject piped in as the first argument."
+	| canRun callExpr |
+	arity = 0 ifTrue: [
+		callExpr := moduleCoder moduleName, '.', functionName, '()'.
+		canRun := true ].
+	(arity = 1 and: [ selfObject notNil ]) ifTrue: [
+		callExpr := moduleCoder moduleName, '.', functionName, '(', selfObject resolve, ')'.
+		canRun := true ].
+	(canRun ifNil: [ false ]) ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Run' translated
 		icon: BrGlamorousVectorIcons play
 		action: [ :aCoderVM :anElement |
 			anElement phlow spawnObject:
 				(moduleCoder application newCommandFactory
-					<< (moduleCoder moduleName, '.', functionName, '()');
+					<< callExpr;
 					sendAndWait) ]
 ]
 
@@ -243,6 +253,14 @@ ElixirFunctionCoder >> refreshLinesAfterSwap [
 { #category : 'accessing' }
 ElixirFunctionCoder >> selector [
 	^ functionName asSymbol
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> selfObject [ ^ selfObject
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> selfObject: anObject [ selfObject := anObject
 ]
 
 { #category : 'accessing' }
