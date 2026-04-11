@@ -261,6 +261,46 @@ ElixirApplicationAnalysis >> gtReverseDepsFor: aView [
 				color: (Color fromHexString: '#f0e8fe') ]
 ]
 
+{ #category : 'gt-search' }
+ElixirApplicationAnalysis >> gtSearchFunctionsFor: aSearch [
+	<gtSearch>
+	| docForFn |
+	docForFn := [ :f |
+		self application evaluateAndWait:
+			'GtBridge.Documentation.for_function(',
+			(f attributeAt: #module), ', :',
+			(f attributeAt: #name), ', ',
+			(f attributeAt: #arity) asString, ')' ].
+	^ aSearch explicit
+		title: 'Functions';
+		priority: 20;
+		search: [ :ctx |
+			| query |
+			query := ctx searchQuery.
+			(self application evaluateAndWait:
+				'GtBridge.Analysis.search_functions(', self name resolve, ', "',
+				(query copyReplaceAll: '"' with: '\"'), '")') asList ];
+		itemName: [ :f |
+			((f attributeAt: #module) copyReplaceAll: 'Elixir.' with: ''),
+			'.', (f attributeAt: #name), '/', (f attributeAt: #arity) asString ];
+		previewObject: docForFn;
+		send: docForFn
+]
+
+{ #category : 'gt-search' }
+ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
+	<gtSearch>
+	^ aSearch list
+		title: 'Modules';
+		priority: 10;
+		items: [ (self modules asList collect: [ :m | m symbol asString ]) sorted ];
+		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		filterBySubstring;
+		send: [ :modName |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(', modName, ')' ]
+]
+
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtSupervisionTreeFor: aView [
 	<gtView>

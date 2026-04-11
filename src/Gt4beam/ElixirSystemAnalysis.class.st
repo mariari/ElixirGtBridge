@@ -11,6 +11,25 @@ Class {
 	#tag : 'Analysis'
 }
 
+{ #category : 'spotter' }
+ElixirSystemAnalysis class >> beamSearchFor: aSearch queryFn: fnName send: sendBlock [
+	"I create an explicit spotter search that delegates to a BEAM-side
+	 GtBridge.Analysis function. The function is called with the search
+	 query string and must return a list of strings."
+	| app |
+	app := BeamLinkApplication allInstances
+		detect: [ :each | each isRunning ]
+		ifNone: [ ^ aSearch empty ].
+	^ aSearch explicit
+		search: [ :ctx |
+			(app evaluateAndWait:
+				'GtBridge.Analysis.', fnName, '("',
+				(ctx searchQuery copyReplaceAll: '"' with: '\"'), '")') asList
+					collect: [ :m | m asString ] ];
+		previewObject: [ :each | sendBlock value: each value: app ];
+		send: [ :each | sendBlock value: each value: app ]
+]
+
 { #category : 'instance creation' }
 ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication [
 	^ self new
@@ -227,6 +246,43 @@ ElixirSystemAnalysis >> gtProblemsFor: aView [
 		send: [ :each |
 			self application evaluateAndWait:
 				'GtBridge.Documentation.for_module(', each first, ')' ]
+]
+
+{ #category : 'gt-search' }
+ElixirSystemAnalysis >> gtSearchApplicationsFor: aSearch [
+	<gtSearch>
+	^ aSearch explicit
+		title: 'Applications';
+		priority: 10;
+		search: [ :ctx |
+			| query |
+			query := ctx searchQuery.
+			(self application evaluateAndWait:
+				'GtBridge.Analysis.search_apps("', (query copyReplaceAll: '"' with: '\"'), '")') asList
+					collect: [ :m | m asString ] ];
+		itemName: [ :appName | appName ];
+		send: [ :appName |
+			self applications
+				detect: [ :a | a name symbol asString = appName ]
+				ifNone: [ appName ] ]
+]
+
+{ #category : 'gt-search' }
+ElixirSystemAnalysis >> gtSearchModulesFor: aSearch [
+	<gtSearch>
+	^ aSearch explicit
+		title: 'Modules';
+		priority: 20;
+		search: [ :ctx |
+			| query |
+			query := ctx searchQuery.
+			(self application evaluateAndWait:
+				'GtBridge.Analysis.search_modules("', (query copyReplaceAll: '"' with: '\"'), '")') asList
+					collect: [ :m | m asString ] ];
+		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		send: [ :modName |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(', modName, ')' ]
 ]
 
 { #category : 'testing' }
