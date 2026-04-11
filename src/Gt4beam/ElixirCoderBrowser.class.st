@@ -5,7 +5,9 @@ Class {
 		'application',
 		'sidebar',
 		'content',
-		'scopedApplicationName'
+		'scopedApplicationName',
+		'filterText',
+		'rawNodes'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -81,17 +83,68 @@ ElixirCoderBrowser >> applicationNames [
 
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> applicationNodes [
-	"I return the sidebar's top-level tree nodes. When scoped to a
-	 single application, I skip the app wrapper and return the module
-	 namespace groups directly. Otherwise I return one node per loaded
-	 application with modules nested underneath."
-	scopedApplicationName ifNotNil: [
-		| modules |
-		modules := [ self moduleInfoForApplication: scopedApplicationName ]
-			on: Error do: [ #() ].
-		^ self groupModulesByNamespace: modules ].
-	^ self applicationNames collect: [ :appName |
-		self appNode: appName ]
+	"I return the sidebar's top-level tree nodes, filtered by
+	 filterText when it's non-empty. The raw (unfiltered) nodes are
+	 cached in rawNodes so filter rebuilds don't re-fetch from the
+	 BEAM — the fetch happens once per browser instance, filtering is
+	 pure Smalltalk after that."
+	^ self filterNodes: self rawNodes
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> rawNodes [
+	"I lazily fetch and cache the unfiltered top-level nodes. When
+	 scoped to a single application, I skip the app wrapper and
+	 return the module namespace groups directly. Otherwise I return
+	 one node per loaded application with modules nested underneath."
+	^ rawNodes ifNil: [ rawNodes := scopedApplicationName
+		ifNotNil: [
+			| modules |
+			modules := [ self moduleInfoForApplication: scopedApplicationName ]
+				on: Error do: [ #() ].
+			self groupModulesByNamespace: modules ]
+		ifNil: [
+			self applicationNames collect: [ :appName | self appNode: appName ] ] ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> filterNodes: nodes [
+	"I return nodes filtered by filterText. A branch is kept if its
+	 label matches or any descendant matches. A leaf is kept if its
+	 label or its full #module name matches. Empty filterText means
+	 pass everything through unchanged."
+	(filterText isNil or: [ filterText isEmpty ])
+		ifTrue: [ ^ nodes ].
+	^ nodes
+		collect: [ :node | self filterNode: node ]
+		thenSelect: [ :node | node notNil ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> filterNode: aNode [
+	"I return a filtered copy of aNode, or nil when neither the node
+	 nor any descendant matches filterText. Matches are substring,
+	 case-insensitive, against the node's label and module name."
+	| lowerFilter children filteredChildren labelMatches nameMatches selfMatches copy |
+	lowerFilter := filterText asLowercase.
+	labelMatches := ((aNode at: #label ifAbsent: [ '' ]) asString asLowercase
+		includesSubstring: lowerFilter).
+	nameMatches := (aNode at: #module ifAbsent: [ nil ])
+		ifNil: [ false ]
+		ifNotNil: [ :name | name asLowercase includesSubstring: lowerFilter ].
+	selfMatches := labelMatches or: [ nameMatches ].
+	children := (aNode at: #children ifAbsent: [ #() ]) asArray.
+	filteredChildren := selfMatches
+		ifTrue: [ children ]
+		ifFalse: [
+			(children collect: [ :c | self filterNode: c ])
+				select: [ :c | c notNil ] ].
+	(selfMatches or: [ filteredChildren notEmpty ]) ifFalse: [ ^ nil ].
+	copy := Dictionary new.
+	aNode associationsDo: [ :assoc |
+		copy at: assoc key put: assoc value ].
+	copy at: #children put: filteredChildren asArray.
+	^ copy
 ]
 
 { #category : 'as yet unclassified' }
@@ -129,21 +182,76 @@ ElixirCoderBrowser >> buildNamespaceNode: label from: entries depth: depth [
 ]
 
 { #category : 'as yet unclassified' }
+ElixirCoderBrowser >> buildFilterInput [
+	"I build a bordered live-filter input. Every keystroke refreshes
+	 the sidebar tree, running filterNodes: against the already-cached
+	 rawNodes — no bridge round-trip per character, so this stays
+	 snappy on large applications."
+	| input container |
+	input := BrEditor new
+		aptitude: BrGlamorousEditorAptitude new;
+		text: (filterText ifNil: [ '' ]) asRopedText;
+		hMatchParent;
+		vFitContent.
+	input editor
+		when: BrTextEditorModifiedEvent
+		do: [ :anEvent |
+			filterText := input text asString.
+			self refreshSidebarTree ].
+	container := BlElement new
+		layout: BlLinearLayout horizontal;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical fitContent ];
+		background: Color white;
+		border: (BlBorder paint: (Color gray alpha: 0.5) width: 1);
+		padding: (BlInsets top: 4 left: 6 bottom: 4 right: 6);
+		margin: (BlInsets all: 4);
+		addChild: (BrLabel new
+			aptitude: (BrGlamorousLabelAptitude new
+				foreground: (Color gray alpha: 0.7);
+				fontSize: 10);
+			text: 'Filter';
+			margin: (BlInsets right: 6));
+		addChild: input;
+		yourself.
+	^ container
+]
+
+{ #category : 'as yet unclassified' }
 ElixirCoderBrowser >> buildSidebar [
-	"I build a nested tree: applications -> namespace-grouped modules.
-	 Fully expanded by default so users see the whole structure at once."
+	"I build the sidebar: a vertical container with a filter input
+	 on top and a namespace tree below. Keeping the input and tree
+	 as separate children so the tree can be rebuilt in isolation
+	 when the filter changes without tearing down the input."
+	| container |
+	container := BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical matchParent ];
+		addChild: self buildFilterInput;
+		addChild: self buildSidebarTree;
+		yourself.
+	^ container
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> buildSidebarTree [
+	"I build just the tree element (no filter input, no container).
+	 Used on initial build and on filter-triggered rebuilds."
 	| view element |
 	view := GtPhlowColumnedTreeView new
 		items: [ self applicationNodes ];
 		children: [ :node | node at: #children ];
 		expandUpTo: 10;
-		column: 'Name' text: [ :node | 
+		column: 'Name' text: [ :node |
 			(node at: #label) asString ];
-		column: 'Fns' text: [ :node | 
-			(node at: #functions ifAbsent: [ nil ]) 
-				ifNil: [ '' ] 
+		column: 'Fns' text: [ :node |
+			(node at: #functions ifAbsent: [ nil ])
+				ifNil: [ '' ]
 				ifNotNil: [ :n | n asString ] ] width: 40;
-		column: 'Docs' text: [ :node | 
+		column: 'Docs' text: [ :node |
 			(node at: #has_doc ifAbsent: [ nil ])
 				ifNil: [ '' ]
 				ifNotNil: [ :hd | hd ifTrue: [ '✓' ] ifFalse: [ 'Δ' ] ] ] width: 40;
@@ -237,6 +345,19 @@ ElixirCoderBrowser >> modulesForApplication: anAppName [
 		'GtBridge.Analysis.module_details(:', anAppName, ')') asList
 			collect: [ :m | (m attributeAt: #name) asString ] ]
 		on: Error do: [ #() ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> refreshSidebarTree [
+	"I replace the sidebar's tree child with a fresh one built from
+	 the current filterText. Called by the filter input on every
+	 keystroke. Only the tree (sidebar's second child) is replaced —
+	 the filter input (first child) stays so its focus and cursor
+	 position are preserved while the user is still typing."
+	sidebar ifNil: [ ^ self ].
+	sidebar children size >= 2 ifTrue: [
+		sidebar children second removeFromParent ].
+	sidebar addChild: self buildSidebarTree
 ]
 
 { #category : 'as yet unclassified' }
