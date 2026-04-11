@@ -23,7 +23,7 @@ defmodule GtBridge.MixProject do
     [
       mod: {GtBridge, []},
       extra_applications:
-        [:logger, :ex_unit, :iex] ++
+        [:logger, :ex_unit, :iex, :tools] ++
           if(Mix.env() == :dev, do: [:observer, :wx], else: [])
     ]
   end
