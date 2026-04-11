@@ -24,22 +24,12 @@ GtElixirCoderModel >> asCoderViewModel [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
-	"I prepend a binding for self and an import of its module (if any)
-	 so users can call the object's module functions unqualified and
-	 use the pipe operator with self as the first argument."
-	| fullSource selfObj isProxy |
-	selfObj := [ aContext requesterObject selfObject ]
-		on: Error do: [ nil ].
-	isProxy := (selfObj isKindOf: BeamProxyObject)
-		or: [ selfObj isKindOf: BeamAtomObject ].
-	fullSource := sourceString.
-	isProxy ifTrue: [
-		"Import the object's module so its functions are unqualified"
-		selfObj elixirClass ifNotNil: [ :modName |
-			fullSource := 'import ', modName, String cr, fullSource ].
-		"Bind self"
-		fullSource := 'self = ', selfObj resolve, String cr, fullSource ].
-	^ self bindAndExecuteRaw: fullSource sessionId: sid
+	"I prepend a binding for self (and an import of its module if any)
+	 so snippets can call the object's functions unqualified and use
+	 the pipe operator with self as the first argument."
+	^ self
+		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: (self selfObjectFor: aContext))
+		sessionId: sid
 ]
 
 { #category : 'accessing' }
@@ -210,10 +200,36 @@ GtElixirCoderModel >> reifyBindingValue: aValue [
 	^ aValue
 ]
 
+{ #category : 'private' }
+GtElixirCoderModel >> selfObjectFor: aContext [
+	"I return the inspector selfObject from aContext's requester, or nil
+	 if the snippet isn't in an inspector playground."
+	| req |
+	req := aContext requesterObject.
+	^ (req notNil and: [ req respondsTo: #selfObject ])
+		ifTrue: [ req selfObject ]
+		ifFalse: [ nil ]
+]
+
 { #category : 'accessing' }
 GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
 	"Answer the modified source to return the declared variables"
 	^ String
 		streamContents: [ :stream |
 			stream << trimmedSourceString ]
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> wrapSource: sourceString withSelf: selfObj [
+	"I prepend `self = <resolve>` and (when available) `import <Module>`
+	 so snippets can reference self and call its functions unqualified."
+	(selfObj notNil and: [ selfObj respondsTo: #resolve ])
+		ifFalse: [ ^ sourceString ].
+	^ String streamContents: [ :s |
+		(selfObj respondsTo: #elixirClass) ifTrue: [
+			selfObj elixirClass ifNotNil: [ :modName |
+				s nextPutAll: 'import '; nextPutAll: modName; nextPut: Character lf ] ].
+		s
+			nextPutAll: 'self = '; nextPutAll: selfObj resolve; nextPut: Character lf;
+			nextPutAll: sourceString ]
 ]
