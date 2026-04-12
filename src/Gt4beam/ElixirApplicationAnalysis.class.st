@@ -302,7 +302,13 @@ ElixirApplicationAnalysis >> gtSupervisionTreeFor: aView [
 	| supPid |
 	supPid := [ self application evaluateAndWait:
 		'case Application.spec(', self name resolve, ', :mod) do
-			{mod, _} -> Process.whereis(Module.concat(mod, Supervisor)) || Process.whereis(mod)
+			{mod, _} ->
+				Process.whereis(Module.concat(mod, Supervisor))
+				|| Process.whereis(mod)
+				|| (case :application_controller.get_master(', self name resolve, ') do
+					pid when is_pid(pid) -> elem(:application_master.get_child(pid), 0)
+					_ -> nil
+				end)
 			_ -> nil
 		end' ]
 		on: Error do: [ nil ].
