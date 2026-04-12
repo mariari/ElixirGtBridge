@@ -33,10 +33,11 @@ BeamLinkApplication class >> start [
 { #category : 'as yet unclassified' }
 BeamLinkApplication >> gtCoderBrowserFor: aView [
 	<gtView>
+	<gtBeamView>
 	self isRunning ifFalse: [ ^ aView empty ].
 	^ aView explicit
-		title: 'Coder';
-		priority: 15;
+		title: 'Meta';
+		priority: 199;
 		stencil: [ ElixirCoderBrowser forApplication: self ]
 ]
 

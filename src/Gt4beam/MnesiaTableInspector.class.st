@@ -28,6 +28,7 @@ MnesiaTableInspector >> eval: aString [
 { #category : 'gt-views' }
 MnesiaTableInspector >> gtRecordsFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Records';
 		priority: 10;
@@ -48,6 +49,7 @@ MnesiaTableInspector >> gtRecordsFor: aView [
 { #category : 'gt-views' }
 MnesiaTableInspector >> gtSchemaFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Schema';
 		priority: 5;

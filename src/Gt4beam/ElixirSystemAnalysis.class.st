@@ -82,6 +82,7 @@ ElixirSystemAnalysis >> gitRepository: aGitRepository [
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtAppDependenciesFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView mondrian
 		title: 'App dependencies';
 		priority: 15;
@@ -97,6 +98,7 @@ ElixirSystemAnalysis >> gtAppDependenciesFor: aView [
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtApplicationsFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Applications';
 		priority: 10;
@@ -109,15 +111,17 @@ ElixirSystemAnalysis >> gtApplicationsFor: aView [
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtCoderBrowserFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView explicit
-		title: 'Coder';
-		priority: 4;
+		title: 'Meta';
+		priority: 199;
 		stencil: [ ElixirCoderBrowser forApplication: self application ]
 ]
 
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtDashboardFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Dashboard';
 		priority: 3;
@@ -137,6 +141,7 @@ ElixirSystemAnalysis >> gtDashboardFor: aView [
 ElixirSystemAnalysis >> gtDocCoverageFor: aView [
 	"I show documentation coverage per application as a nested heatmap."
 	<gtView>
+	<gtBeamView>
 	^ aView mondrian
 		title: 'Doc coverage';
 		priority: 8;
@@ -196,6 +201,7 @@ ElixirSystemAnalysis >> gtDocCoverageFor: aView [
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtMnesiaTablesFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Mnesia tables';
 		priority: 25;
@@ -214,6 +220,7 @@ ElixirSystemAnalysis >> gtMnesiaTablesFor: aView [
 { #category : 'gt views' }
 ElixirSystemAnalysis >> gtOverviewFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Overview';
 		priority: 5;
@@ -241,6 +248,7 @@ ElixirSystemAnalysis >> gtOverviewFor: aView [
 ElixirSystemAnalysis >> gtProblemsFor: aView [
 	"I show undocumented modules across all applications."
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Problems';
 		priority: 12;

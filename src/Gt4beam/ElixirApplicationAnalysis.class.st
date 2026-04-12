@@ -97,6 +97,7 @@ ElixirApplicationAnalysis >> gtActionSystemOverviewFor: anAction [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtDependencyGraphFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView mondrian
 		title: 'Dependencies';
 		priority: 20;
@@ -117,6 +118,7 @@ ElixirApplicationAnalysis >> gtDisplayOn: aStream [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView mondrian
 		title: 'Doc coverage';
 		priority: 18;
@@ -183,6 +185,7 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtModuleTreeFor: aView [
 	<gtView>
+	<gtBeamView>
 	"I show a Pharo-style system browser scoped to this application:
 	 module namespace tree on the left with function counts and doc
 	 status columns, module coder on the right that swaps to show the
@@ -197,6 +200,7 @@ ElixirApplicationAnalysis >> gtModuleTreeFor: aView [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtOverviewFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Overview';
 		priority: 5;
@@ -214,6 +218,7 @@ ElixirApplicationAnalysis >> gtOverviewFor: aView [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtProblemsFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Problems';
 		priority: 12;
@@ -237,6 +242,7 @@ ElixirApplicationAnalysis >> gtProblemsFor: aView [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtReverseDepsFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView mondrian
 		title: 'Dependents';
 		priority: 21;
@@ -292,6 +298,7 @@ ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtSupervisionTreeFor: aView [
 	<gtView>
+	<gtBeamView>
 	| supPid |
 	supPid := [ self application evaluateAndWait:
 		'case Application.spec(', self name resolve, ', :mod) do

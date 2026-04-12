@@ -17,6 +17,7 @@ BeamLinkBeamProcess >> commandLineString [
 { #category : 'gtViews' }
 BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 	<gtView>
+	<gtBeamView>
 	^ composite columnedList
 		title: 'Details';
 		priority: 40;
