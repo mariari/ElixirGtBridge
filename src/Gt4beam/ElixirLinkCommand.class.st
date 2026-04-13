@@ -27,6 +27,7 @@ ElixirLinkCommand >> codeForRemote [
 { #category : 'visualization' }
 ElixirLinkCommand >> gtViewCodeForRemoteFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView textEditor
 		aptitude: BrGlamorousCodeEditorAptitude;
 		styler: (BrRBTextStyler new

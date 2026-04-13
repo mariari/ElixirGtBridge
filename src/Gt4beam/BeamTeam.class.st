@@ -14,6 +14,7 @@ BeamTeam class >> elixirClass [
 { #category : 'as yet unclassified' }
 BeamTeam >> gtTeamViewFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView list
 		title: 'Team';
 		items: [ (self attributeAt: 'members') asList ];

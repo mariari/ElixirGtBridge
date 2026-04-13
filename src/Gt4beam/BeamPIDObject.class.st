@@ -35,9 +35,30 @@ BeamPIDObject >> childrenTree [
 		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> gtDefaultInspectorTool [
+	"I return a dual-strip inspector: Pid / State main toggles
+	 with R/P sub-toggle. Each tab uses remote-side tools (filtered
+	 views); P shows the proxy (all views)."
+	| state composite |
+	state := [ self process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifTrue: [ ^ super gtDefaultInspectorTool ].
+	composite := BeamProxyToggleCompositeTool new
+		proxyObject: self;
+		yourself.
+	composite addTool: (self gtRemoteSideInspectorTool
+		name: 'Pid';
+		withLabelAndIconAptitude).
+	composite addTool: (state gtRemoteSideInspectorTool
+		name: 'State';
+		withLabelAndIconAptitude).
+	^ composite
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtInformationFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Information';
 		priority: 10;
@@ -53,6 +74,7 @@ BeamPIDObject >> gtInformationFor: aView [
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtSupervisionView: aView [
 	<gtView>
+	<gtBeamView>
 	self isSupervisor ifFalse: [ ^ aView empty ].
 	^ aView composite
 		title: 'Supervision View';
@@ -112,15 +134,3 @@ BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
 
-{ #category : 'as yet unclassified' }
-BeamPIDObject >> stateView: aView [
-	<gtView>
-	| inspect |
-	inspect := self process_state.
-	inspect isError ifTrue: [ ^ aView empty ].
-
-	^ aView composite
-		title: 'State View';
-		priority: 1;
-		views: (inspect gtViewsInCurrentContext)
-]

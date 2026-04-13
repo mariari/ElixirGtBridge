@@ -10,6 +10,11 @@ Class {
 }
 
 { #category : 'as yet unclassified' }
+BeamAtomObject class >> leProxyTypeForPlaygroundPage [
+	^ BeamAtomObject
+]
+
+{ #category : 'as yet unclassified' }
 BeamAtomObject class >> new: aSymbol [
 	^ self new symbol: aSymbol
 ]
@@ -50,6 +55,12 @@ BeamAtomObject >> elixirClass [
 	^ self isModuleAtom ifTrue: [ symbol ]
 ]
 
+{ #category : 'accessing' }
+BeamAtomObject >> remoteClass [
+	"I return the atom's module name for playground page keys."
+	^ self elixirClass ifNil: [ symbol ]
+]
+
 { #category : 'as yet unclassified' }
 BeamAtomObject >> evaluateAndWait: aString [
 	"I'm unsure how this works when we have multiple beam instances... Since this isn't related to any personal data"
@@ -73,8 +84,138 @@ BeamAtomObject >> gtActionApplicationFor: anAction [
 ]
 
 { #category : 'views' }
+BeamAtomObject >> gtBeamPrintFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the Elixir inspect() output for this atom."
+	^ aView textEditor
+		title: 'Print';
+		priority: 115;
+		aptitude: BrGlamorousCodeEditorAptitude;
+		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ]
+]
+
+{ #category : 'views' }
+BeamAtomObject >> gtCoderFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the module coder for module atoms. Elixir modules get
+	 the Elixir. prefix; Erlang modules use the bare atom name."
+	| modName |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	modName := symbol first isUppercase
+		ifTrue: [ (symbol beginsWith: 'Elixir.')
+			ifTrue: [ symbol ]
+			ifFalse: [ 'Elixir.' , symbol ] ]
+		ifFalse: [ ':' , symbol ].
+	^ aView explicit
+		title: 'Meta';
+		priority: 199;
+		stencil: [
+			| coder |
+			coder := ElixirModuleCoder
+				forModule: modName
+				application: BeamLinkApplication uniqueInstance.
+			coder selfObject: self.
+			coder asCoderViewModel asElement ]
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtDefaultInspectorTool [
+	"I return a dual-strip inspector: Atom / Pid / State main
+	 toggles with R/P sub-toggle. Each main tab uses its remote-
+	 side tool (filtered views), while P shows the proxy (all views
+	 including Raw/Print/Meta)."
+	| pid state composite |
+	pid := [ self determinePID ] on: Error do: [ nil ].
+	(pid isNil or: [ pid isError ]) ifTrue: [ ^ super gtDefaultInspectorTool ].
+	composite := BeamProxyToggleCompositeTool new
+		proxyObject: pid;
+		yourself.
+	composite addTool: (self gtRemoteSideInspectorTool
+		name: 'Atom';
+		withLabelAndIconAptitude).
+	composite addTool: (pid gtRemoteSideInspectorTool
+		name: 'Pid';
+		withLabelAndIconAptitude).
+	state := [ pid process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifFalse: [
+		composite addTool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			withLabelAndIconAptitude) ].
+	^ composite
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtProxyInspectorContentFor: aView [
+	"I build the Proxy tab's labelled content — generic GT views
+	 only, no BEAM data views."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForProxySideInContext:;
+		titleComputation: [ self symbol ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtProxySideInspectorTool [
+	"I return an inspector tool showing only GT wrapper views."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtProxyInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtRemoteInspectorContentFor: aView [
+	"I build the Remote tab's labelled content by collecting views
+	 via gtViewsForRemoteSideInContext: — atom-specific views only,
+	 no generic GT wrapper views (Raw, Print, Meta)."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForRemoteSideInContext:;
+		titleComputation: [ self symbol ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtRemoteSideInitialPlaygroundSnippet [
+	^ LeElixirSnippet new
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtRemoteSideInspectorTool [
+	"I return an inspector tool showing only atom-specific views
+	 (Documentation, Playground) without generic GT wrapper views."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtRemoteInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtViewsForProxySideInContext: aContext [
+	"I collect views for Proxy mode — all views EXCEPT those
+	 tagged <gtBeamView>. Shows Raw, Print, Meta."
+	^ (self gtViewsInContext: aContext) reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtViewsForRemoteSideInContext: aContext [
+	"I collect views for Remote mode — only views tagged
+	 <gtBeamView> (BEAM data views). Generic GT views (Raw,
+	 Print, Meta) are excluded since they lack the pragma."
+	^ (self gtViewsInContext: aContext) select: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
+]
+
+{ #category : 'views' }
 BeamAtomObject >> gtModuleDocsView: aView [
 	<gtView>
+	<gtBeamView>
 	| sections page |
 	self isModuleAtom ifFalse: [ ^ aView empty ].
 	sections := self evaluateAndWait:
@@ -93,18 +234,6 @@ BeamAtomObject >> gtModuleDocsView: aView [
 		stencil: [ page asPreviewElement vMatchParent ]
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtPIDView: aView [
-	<gtView>
-	| pid |
-	pid := self determinePID.
-	pid ifNil: [ ^ aView empty ].
-	^ aView composite
-		title: 'PID View';
-		priority: 2;
-		views: pid gtViewsInCurrentContext
-]
-
 { #category : 'comparing' }
 BeamAtomObject >> hash [
 	^ self symbol hash hashMultiply
@@ -112,7 +241,15 @@ BeamAtomObject >> hash [
 
 { #category : 'testing' }
 BeamAtomObject >> isModuleAtom [
-	^ symbol notEmpty and: [ symbol first isUppercase ]
+	"I return true for Elixir modules (uppercase) and Erlang
+	 modules (lowercase, checked via Code.ensure_loaded? on the
+	 BEAM). Erlang modules like :mnesia, :ets, :gen_server are
+	 valid modules even though they start lowercase."
+	symbol isEmpty ifTrue: [ ^ false ].
+	symbol first isUppercase ifTrue: [ ^ true ].
+	^ [ self evaluateAndWait:
+		'Code.ensure_loaded?(:', symbol, ')' ]
+		on: Error do: [ false ]
 ]
 
 { #category : 'as yet unclassified' }

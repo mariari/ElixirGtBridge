@@ -14,6 +14,11 @@ Class {
 }
 
 { #category : 'as yet unclassified' }
+BeamProxyObject class >> leProxyTypeForPlaygroundPage [
+	^ BeamProxyObject
+]
+
+{ #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass [
 	^ self subclassResponsibility
 ]
@@ -132,6 +137,130 @@ BeamProxyObject >> evaluateAndWait: string [
 		sendAndWait
 ]
 
+{ #category : 'gt-extensions' }
+BeamProxyObject >> filterLocalProxyViews: localViews [
+	"I remove views tagged <gtProxyView> from the Remote tab list so
+	 they appear only under Proxy mode."
+	^ localViews reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtProxyView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtDefaultInspectorTool [
+	"I return a composite tool with a Remote / Proxy toggle.
+	 Remote shows BEAM data views (<gtBeamView>), Proxy shows
+	 the GT wrapper views (Raw, Print, Meta)."
+	^ GtPhlowCompositeTool new
+		addTool: (self gtRemoteSideInspectorTool
+			name: 'Remote';
+			withLabelAndIconAptitude);
+		addTool: (self gtProxySideInspectorTool
+			name: 'Proxy';
+			withLabelAndIconAptitude)
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteInspectorContentFor: aView [
+	<return: #GtPhlowLabelledView>
+	"I build the Remote tab's labelled content by collecting views via
+	 #gtViewsForRemoteSideInContext: and wrapping them with a title."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForRemoteSideInContext:;
+		titleComputation: [
+			elixirClass
+				ifNil: [ '<anonymous>' ]
+				ifNotNil: [ :cls |
+					String streamContents: [ :stream |
+						stream
+							<< (cls first isVowel ifTrue: [ 'an ' ] ifFalse: [ 'a ' ]);
+							<< cls ] ] ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteSideInitialPlaygroundSnippet [
+	^ LeElixirSnippet new
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteSideInspectorTool [
+	"I return the inspector tool for the Remote tab — a GtInspectorTool
+	 that routes view collection through gtRemoteInspectorContentFor:."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtRemoteInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtViewsForRemoteSideInContext: aContext [
+	"I collect views for the Remote tab: local views tagged
+	 <gtBeamView> (BEAM data views only, no generic GT views
+	 like Raw/Print/Meta), plus any server-side view declarations
+	 registered via GtBridge.GtViewedObject on the remote object."
+	| localBeamViews collectedViews |
+	localBeamViews := (super gtViewsInContext: aContext) select: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ].
+	collectedViews := OrderedCollection new
+		addAll: localBeamViews;
+		addAll: (self remoteViewsInContext: aContext);
+		yourself.
+	GtPhlowUtility sortByPriority: collectedViews.
+	^ collectedViews
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtViewsForProxySideInContext: aContext [
+	"I collect views for the Proxy tab: all local views EXCEPT
+	 those tagged <gtBeamView>. This shows the GT wrapper views
+	 (Raw, Print, Meta) and any <gtProxyView> views, but hides
+	 BEAM data views which belong in Remote mode."
+	^ (super gtViewsInContext: aContext) reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtProxyInspectorContentFor: aView [
+	"I build the Proxy tab's labelled content — GT wrapper views
+	 only, no BEAM data views."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForProxySideInContext:;
+		titleComputation: [ self class name ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtProxySideInspectorTool [
+	"I return an inspector tool showing only GT wrapper views
+	 (no BEAM data views) — for the Proxy tab."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtProxyInspectorContentFor:
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> remoteClass [
+	"I return my Elixir class — used by GT's proxy-side playground
+	 strategy and inspector page keys."
+	^ elixirClass
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> remoteViewsInContext: aContext [
+	"I return the server-side declarative views for this proxy — one
+	 GtPhlowView per view declaration registered on the remote object.
+	 Empty if the bridge can't reach the server or the object has no
+	 declared views."
+	^ [ self viewDeclarations asList
+		collect: [ :decl | self viewFromDeclaration: decl ] ]
+		on: Error do: [ #() ]
+]
+
 { #category : 'gt-actions' }
 BeamProxyObject >> gtActionApplicationFor: anAction [
 	<gtAction>
@@ -149,6 +278,7 @@ BeamProxyObject >> gtActionApplicationFor: anAction [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtCoderFor: aView [
 	<gtView>
+	<gtBeamView>
 	"I show the Elixir module for this object in a module coder.
 	 The object is passed as selfObject so single-arity functions
 	 can Run with this value piped as their first argument."
@@ -156,8 +286,8 @@ BeamProxyObject >> gtCoderFor: aView [
 	elixirClass isNil ifTrue: [ ^ aView empty ].
 	modName := 'Elixir.', elixirClass.
 	^ aView explicit
-		title: 'Coder';
-		priority: 30;
+		title: 'Meta';
+		priority: 199;
 		stencil: [
 			| coder |
 			coder := ElixirModuleCoder
@@ -170,11 +300,15 @@ BeamProxyObject >> gtCoderFor: aView [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtElixirRawFor: aView [
 	<gtView>
+	<gtBeamView>
+	| attrs |
+	attrs := [ self attributesAndValues ] on: Error do: [ #() ].
+	attrs isEmpty ifTrue: [ ^ aView empty ].
 	^ aView columnedTree
-		title: 'Elixir raw';
+		title: 'Raw';
 		priority: 99;
-		items: [ self attributesAndValues ];
-		children: [ :anItem | 
+		items: [ attrs ];
+		children: [ :anItem |
 			(anItem value isKindOf: BeamProxyObject)
 				ifTrue: [ anItem value attributesAndValues ]
 				ifFalse: [ {} ] ];
@@ -186,9 +320,12 @@ BeamProxyObject >> gtElixirRawFor: aView [
 
 { #category : 'as yet unclassified' }
 BeamProxyObject >> gtRemoteViewsFor: aView [
-	"Create a composite view with all remote views"
-
+	"I show all server-side declared views as a single composite.
+	 Tagged <gtProxyView> so I only appear under the Proxy mode — the
+	 Remote mode already shows each remote view as its own top-level
+	 tab via gtViewsForRemoteSideInContext:."
 	<gtView>
+	<gtProxyView>
 	| viewDecls |
 	viewDecls := self viewDeclarations asList.
 
@@ -209,41 +346,17 @@ BeamProxyObject >> functionLines [
 ]
 
 { #category : 'gt-views' }
-BeamProxyObject >> gtSourceFor: aView [
+BeamProxyObject >> gtBeamPrintFor: aView [
 	<gtView>
-	| file |
-	file := self sourceFile.
-	file isString ifFalse: [ ^ aView empty ].
-	file := file asFileReference.
-	file exists ifFalse: [ ^ aView empty ].
-	^ aView explicit
-		title: 'Source';
-		priority: 110;
-		stencil: [
-			| pane lineRange |
-			lineRange := [ self functionLines ] on: Error do: [ nil ].
-			pane := file gtEditorView.
-			pane childNamed: #editor ifFound: [ :editor |
-				| aText |
-				editor aptitude: BrGlamorousCodeEditorAptitude.
-				aText := editor text.
-				lineRange ifNotNil: [
-					| startChar endChar lines |
-					lines := aText asString lines.
-					startChar := 0.
-					1 to: lineRange first - 1 do: [ :i |
-						startChar := startChar + (lines at: i) size + 1 ].
-					endChar := startChar.
-					lineRange first to: (lineRange second min: lines size) do: [ :i |
-						endChar := endChar + (lines at: i) size + 1 ].
-					(aText from: startChar + 1 to: endChar)
-						attributes: { BlTextDecorationAttribute new underline
-							beNotOverwritableByStyler;
-							color: BrGlamorousColors textHighlightColor } ].
-				editor editor styler: ElixirParser gtStyler.
-				lineRange ifNotNil: [
-					editor scrollToPosition: lineRange first ] ].
-			pane ]
+	<gtBeamView>
+	"I show the Elixir inspect() output for this object in
+	 monospace, matching GT's standard Print view style."
+	^ aView textEditor
+		title: 'Print';
+		priority: 115;
+		aptitude: BrGlamorousCodeEditorAptitude;
+		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ];
+		actionUpdateButton
 ]
 
 { #category : 'comparing' }
