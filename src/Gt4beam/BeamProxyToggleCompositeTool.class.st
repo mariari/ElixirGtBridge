@@ -65,8 +65,10 @@ BeamProxyToggleCompositeTool >> installProxyToggle [
 	| rBtn pBtn |
 	rBtn := self buildToggleButton: 'R' active: true
 		action: [ subState := 'Remote'. self onProxyModeChanged ].
+	rBtn id: 'beam-toggle-R'.
 	pBtn := self buildToggleButton: 'P' active: false
 		action: [ subState := 'Proxy'. self onProxyModeChanged ].
+	pBtn id: 'beam-toggle-P'.
 	rpBox := BlElement new
 		layout: (BlLinearLayout horizontal cellSpacing: 0);
 		constraintsDo: [ :c |

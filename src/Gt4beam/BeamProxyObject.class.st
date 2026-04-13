@@ -24,11 +24,6 @@ BeamProxyObject class >> elixirClass [
 ]
 
 { #category : 'as yet unclassified' }
-BeamProxyObject class >> leProxyTypeForPlaygroundPage [
-	^ BeamProxyObject
-]
-
-{ #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass: aClass [
 	| proxyClass proxyClasses |
 	proxyClasses := (self allSubclasses
