@@ -147,16 +147,35 @@ BeamProxyObject >> filterLocalProxyViews: localViews [
 
 { #category : 'gt-extensions' }
 BeamProxyObject >> gtDefaultInspectorTool [
-	"I return a composite tool with a Remote / Proxy toggle.
-	 Remote shows BEAM data views (<gtBeamView>), Proxy shows
-	 the GT wrapper views (Raw, Print, Meta)."
-	^ GtPhlowCompositeTool new
-		addTool: (self gtRemoteSideInspectorTool
-			name: 'Remote';
-			withLabelAndIconAptitude);
-		addTool: (self gtProxySideInspectorTool
-			name: 'Proxy';
-			withLabelAndIconAptitude)
+	"I collect inspector modes via <gtInspectorMode> pragmas.
+	 Self mode is always included. R/P toggle shows even with
+	 a single mode for consistent Proxy access."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> inspectorModeName [
+	"I return my display name for the inspector mode tab.
+	 Subclasses override for type-specific names."
+	^ 'Remote'
 ]
 
 { #category : 'gt-extensions' }

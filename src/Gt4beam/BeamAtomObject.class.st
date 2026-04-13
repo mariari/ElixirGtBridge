@@ -122,28 +122,48 @@ BeamAtomObject >> gtCoderFor: aView [
 
 { #category : 'gt-extensions' }
 BeamAtomObject >> gtDefaultInspectorTool [
-	"I return a dual-strip inspector: Atom / Pid / State main
-	 toggles with R/P sub-toggle. Each main tab uses its remote-
-	 side tool (filtered views), while P shows the proxy (all views
-	 including Raw/Print/Meta)."
-	| pid state composite |
+	"I collect inspector modes — self (Atom) is implicit, declared
+	 modes follow references transitively. R/P toggle always shows."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> inspectorModeName [
+	^ 'Atom'
+]
+
+{ #category : 'inspector-modes' }
+BeamAtomObject >> gtPidMode: aMode [
+	<gtInspectorMode>
+	| pid |
 	pid := [ self determinePID ] on: Error do: [ nil ].
-	(pid isNil or: [ pid isError ]) ifTrue: [ ^ super gtDefaultInspectorTool ].
-	composite := BeamProxyToggleCompositeTool new
-		proxyObject: pid;
-		yourself.
-	composite addTool: (self gtRemoteSideInspectorTool
-		name: 'Atom';
-		withLabelAndIconAptitude).
-	composite addTool: (pid gtRemoteSideInspectorTool
+	(pid isNil or: [ pid isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
 		name: 'Pid';
-		withLabelAndIconAptitude).
-	state := [ pid process_state ] on: Error do: [ nil ].
-	(state isNil or: [ state isError ]) ifFalse: [
-		composite addTool: (state gtRemoteSideInspectorTool
-			name: 'State';
-			withLabelAndIconAptitude) ].
-	^ composite
+		priority: 10;
+		object: pid;
+		tool: (pid gtRemoteSideInspectorTool
+			name: 'Pid';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
 ]
 
 { #category : 'gt-extensions' }
@@ -259,7 +279,10 @@ BeamAtomObject >> printOn: aStream [
 
 { #category : 'elixir - resolution' }
 BeamAtomObject >> resolve [
-	^ (symbol at: 1) = (symbol at: 1) asUppercase
+	"I return the Elixir literal for this atom. Module atoms
+	 (uppercase letter) are bare names; all others (including
+	 underscore-prefixed like __meta__) get the : prefix."
+	^ symbol first isUppercase
 		ifTrue: [ symbol ]
 		ifFalse: [ ':' , symbol ]
 ]
