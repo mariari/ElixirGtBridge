@@ -114,6 +114,27 @@ BeamProxyObject >> evaluateAndWait: string [
 ]
 
 { #category : 'as yet unclassified' }
+BeamProxyObject >> gtCoderFor: aView [
+	<gtView>
+	"I show the Elixir module for this object in a module coder.
+	 The object is passed as selfObject so single-arity functions
+	 can Run with this value piped as their first argument."
+	| modName |
+	elixirClass isNil ifTrue: [ ^ aView empty ].
+	modName := 'Elixir.', elixirClass.
+	^ aView explicit
+		title: 'Coder';
+		priority: 30;
+		stencil: [
+			| coder |
+			coder := ElixirModuleCoder
+				forModule: modName
+				application: application.
+			coder selfObject: self.
+			coder asCoderViewModel asElement ]
+]
+
+{ #category : 'as yet unclassified' }
 BeamProxyObject >> gtElixirRawFor: aView [
 	<gtView>
 	^ aView columnedTree
