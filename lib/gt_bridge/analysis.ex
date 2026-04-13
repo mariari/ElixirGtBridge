@@ -1,4 +1,7 @@
+# credo:disable-for-this-file
 defmodule GtBridge.Analysis do
+  # mnesia is an optional runtime dependency — not available at compile time
+  @compile {:no_warn_undefined, [:mnesia]}
   @moduledoc """
   I provide static analysis data for GT visualization.
 
@@ -167,6 +170,7 @@ defmodule GtBridge.Analysis do
       lines = String.split(source, "\n")
 
       extract_functions(ast)
+      |> merge_clauses()
       |> Enum.map(fn f ->
         start = walk_back_annotations(lines, f.start)
         source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
@@ -175,6 +179,21 @@ defmodule GtBridge.Analysis do
     else
       _ -> []
     end
+  end
+
+  defp merge_clauses(entries) do
+    # Merge consecutive entries with the same name/arity/kind
+    # into a single entry spanning all clauses.
+    Enum.reduce(Enum.reverse(entries), [], fn entry, acc ->
+      case acc do
+        [prev | rest]
+        when prev.name == entry.name and prev.arity == entry.arity and prev.kind == entry.kind ->
+          [%{entry | end_line: prev.end_line} | rest]
+
+        _ ->
+          [entry | acc]
+      end
+    end)
   end
 
   defp walk_back_annotations(lines, def_start) do
@@ -275,23 +294,55 @@ defmodule GtBridge.Analysis do
   """
   @spec editor_session(module(), String.t()) :: String.t()
   def editor_session(mod, sid) do
+    # Create the session if it doesn't exist — safe for module
+    # coder sessions which use synchronous eval (no port needed)
     pid = GtBridge.EvalRegistry.get_or_create(sid)
-    state = :sys.get_state(pid)
-
-    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-         {:ok, source} <- File.read(path) do
-      new_env =
-        source
-        |> preamble_directives()
-        |> Enum.reduce(state.env, &eval_into_env/2)
-
-      :sys.replace_state(pid, fn s -> %{s | env: new_env} end)
-    end
-
+    load_imports(mod, pid)
     sid
   end
 
-  @preamble_starts ["use ", "import ", "alias ", "require "]
+  @doc """
+  I load module imports into an existing eval session. Unlike
+  editor_session/2, I never create the session — if it doesn't
+  exist, I return nil. Use this for snippet sessions where the
+  session must be created by the HTTP handler (with the port
+  for async result callbacks).
+  """
+  @spec preload_imports(module(), String.t()) :: String.t() | nil
+  def preload_imports(mod, sid) do
+    case Registry.lookup(GtBridge.EvalRegistry, sid) do
+      [{pid, _}] when is_pid(pid) ->
+        if Process.alive?(pid) do
+          load_imports(mod, pid)
+          sid
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp load_imports(mod, pid) do
+    state = :sys.get_state(pid)
+
+    base_env = eval_into_env("import #{inspect(mod)}", state.env)
+
+    new_env =
+      with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
+           {:ok, source} <- File.read(path) do
+        source
+        |> preamble_directives()
+        |> Enum.reduce(base_env, &eval_into_env/2)
+      else
+        _ -> base_env
+      end
+
+    :sys.replace_state(pid, fn s -> %{s | env: new_env} end)
+  end
+
+  # Skip "use " — it requires a module context and crashes in
+  # eval env (e.g. "use TypedStruct" triggers __meta__ errors)
+  @preamble_starts ["import ", "alias ", "require "]
 
   defp preamble_directives(source) do
     source
@@ -306,10 +357,19 @@ defmodule GtBridge.Analysis do
   end
 
   defp eval_into_env(line, env) do
-    {_, _, new_env} = Code.eval_quoted_with_env(Code.string_to_quoted!(line), [], env)
-    new_env
-  rescue
-    _ -> env
+    # Suppress compiler diagnostics (e.g. Ecto's __meta__ warnings)
+    # during preamble eval — they're harmless but noisy in the terminal
+    old = Code.get_compiler_option(:no_warn_undefined)
+    Code.put_compiler_option(:no_warn_undefined, :all)
+
+    try do
+      {_, _, new_env} = Code.eval_quoted_with_env(Code.string_to_quoted!(line), [], env)
+      new_env
+    rescue
+      _ -> env
+    after
+      Code.put_compiler_option(:no_warn_undefined, old)
+    end
   end
 
   @doc "I return exported functions matching a query within an app."
@@ -669,9 +729,9 @@ defmodule GtBridge.Analysis do
   end
 
   defp beam_path(app) do
-    case :code.lib_dir(app, :ebin) do
+    case :code.lib_dir(app) do
       {:error, _} -> nil
-      path -> path
+      path -> Path.join(path, "ebin")
     end
   end
 end
