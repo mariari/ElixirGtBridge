@@ -399,25 +399,36 @@ defmodule GtBridge.Analysis do
   @doc "I return root applications — apps not depended on by any other loaded app."
   @spec root_apps() :: [atom()]
   def root_apps do
-    edges = app_dep_edges()
-    loaded = edges |> Enum.map(&elem(&1, 0)) |> MapSet.new()
-    depended_on = edges |> Enum.map(&elem(&1, 1)) |> MapSet.new()
+    skip = @infrastructure_apps
+
+    loaded =
+      for {a, _, _} <- Application.loaded_applications(),
+          a not in skip,
+          into: MapSet.new(),
+          do: a
+
+    depended_on =
+      for {a, _, _} <- Application.loaded_applications(),
+          a not in skip,
+          dep <- Application.spec(a, :applications) || [],
+          dep not in skip,
+          into: MapSet.new(),
+          do: dep
 
     loaded
     |> MapSet.difference(depended_on)
-    |> MapSet.difference(@infrastructure_apps)
     |> MapSet.to_list()
     |> Enum.sort()
   end
 
-  # I return {app, dep} pairs for every loaded application's filtered deps,
-  # plus self-edges so apps with no deps still appear as a "loaded" set.
+  # I return {app, dep} pairs for every loaded application's
+  # filtered deps. No self-edges.
   defp app_dep_edges do
     skip = @infrastructure_apps
 
     for {a, _, _} <- Application.loaded_applications(),
         a not in skip,
-        dep <- [a | Application.spec(a, :applications) || []],
+        dep <- Application.spec(a, :applications) || [],
         dep not in skip,
         do: {a, dep}
   end
@@ -462,36 +473,48 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  @doc "I return mnesia table info for the table list."
+  @doc "I return mnesia table info for the table list.
+  Returns an empty list when mnesia is not started."
   @spec mnesia_tables() :: [map()]
   def mnesia_tables do
-    :mnesia.system_info(:tables)
-    |> Enum.reject(&(&1 == :schema))
-    |> Enum.map(fn t ->
-      %{
-        name: Atom.to_string(t),
-        size: :mnesia.table_info(t, :size),
-        type: Atom.to_string(:mnesia.table_info(t, :type)),
-        attrs: Enum.map_join(:mnesia.table_info(t, :attributes), ", ", &Atom.to_string/1)
-      }
-    end)
-    |> Enum.sort_by(& &1.name)
+    if Code.ensure_loaded?(:mnesia) and :mnesia.system_info(:is_running) == :yes do
+      :mnesia.system_info(:tables)
+      |> Enum.reject(&(&1 == :schema))
+      |> Enum.map(fn t ->
+        %{
+          name: Atom.to_string(t),
+          size: :mnesia.table_info(t, :size),
+          type: Atom.to_string(:mnesia.table_info(t, :type)),
+          attrs:
+            Enum.map_join(:mnesia.table_info(t, :attributes), ", ", &Atom.to_string/1)
+        }
+      end)
+      |> Enum.sort_by(& &1.name)
+    else
+      []
+    end
   end
 
-  @doc "I return schema info for a mnesia table."
+  @doc "I return schema info for a mnesia table.
+  Returns an empty map when mnesia is not running."
   @spec mnesia_schema(atom()) :: map()
   def mnesia_schema(table) do
-    %{
-      type: :mnesia.table_info(table, :type),
-      size: :mnesia.table_info(table, :size),
-      memory: :mnesia.table_info(table, :memory),
-      storage: :mnesia.table_info(table, :storage_type),
-      record_name: :mnesia.table_info(table, :record_name),
-      attributes: Enum.map_join(:mnesia.table_info(table, :attributes), ", ", &Atom.to_string/1),
-      indexes: inspect(:mnesia.table_info(table, :index)),
-      access_mode: :mnesia.table_info(table, :access_mode),
-      load_order: :mnesia.table_info(table, :load_order)
-    }
+    if Code.ensure_loaded?(:mnesia) and :mnesia.system_info(:is_running) == :yes do
+      %{
+        type: :mnesia.table_info(table, :type),
+        size: :mnesia.table_info(table, :size),
+        memory: :mnesia.table_info(table, :memory),
+        storage: :mnesia.table_info(table, :storage_type),
+        record_name: :mnesia.table_info(table, :record_name),
+        attributes:
+          Enum.map_join(:mnesia.table_info(table, :attributes), ", ", &Atom.to_string/1),
+        indexes: inspect(:mnesia.table_info(table, :index)),
+        access_mode: :mnesia.table_info(table, :access_mode),
+        load_order: :mnesia.table_info(table, :load_order)
+      }
+    else
+      %{}
+    end
   end
 
   @doc "I return records from a mnesia table."
