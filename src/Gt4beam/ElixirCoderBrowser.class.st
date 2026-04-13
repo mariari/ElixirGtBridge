@@ -296,10 +296,11 @@ ElixirCoderBrowser >> buildUI [
 
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> openModule: aDocObject [
-	"I render a BeamDocumentationObject inline in the content pane."
+	"I render a BeamDocumentationObject inline in the content pane
+	 using the composite inspector tool with R|P toggle."
 	| element |
 	aDocObject ifNil: [ ^ self ].
-	element := (GtPhlowTool default object: aDocObject)
+	element := aDocObject gtDefaultInspectorTool
 		asElementDo: [ :e | e matchParent ].
 	content removeChildren.
 	content addChild: element
