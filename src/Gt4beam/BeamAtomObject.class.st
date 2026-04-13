@@ -259,7 +259,10 @@ BeamAtomObject >> printOn: aStream [
 
 { #category : 'elixir - resolution' }
 BeamAtomObject >> resolve [
-	^ (symbol at: 1) = (symbol at: 1) asUppercase
+	"I return the Elixir literal for this atom. Module atoms
+	 (uppercase letter) are bare names; all others (including
+	 underscore-prefixed like __meta__) get the : prefix."
+	^ symbol first isUppercase
 		ifTrue: [ symbol ]
 		ifFalse: [ ':' , symbol ]
 ]
