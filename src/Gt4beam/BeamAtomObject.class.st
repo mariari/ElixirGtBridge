@@ -27,6 +27,14 @@ BeamAtomObject >> determinePID [
 	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
 ]
 
+{ #category : 'accessing' }
+BeamAtomObject >> elixirClass [
+	"I return the Elixir module name for module atoms, or nil otherwise.
+	 Used by GtElixirCoderModel's wrapSource:withSelf: to prepend
+	 `import <Module>` to snippets that reference a module atom as self."
+	^ self isModuleAtom ifTrue: [ symbol ]
+]
+
 { #category : 'as yet unclassified' }
 BeamAtomObject >> evaluateAndWait: aString [
 	"I'm unsure how this works when we have multiple beam instances... Since this isn't related to any personal data"
