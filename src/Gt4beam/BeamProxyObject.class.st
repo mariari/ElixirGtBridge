@@ -163,6 +163,20 @@ BeamProxyObject >> gtDefaultInspectorTool [
 ]
 
 { #category : 'gt-extensions' }
+BeamProxyObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
 BeamProxyObject >> inspectorModeName [
 	"I return my display name for the inspector mode tab.
 	 Subclasses override for type-specific names."
