@@ -45,6 +45,25 @@ BeamProxyObject >> application: anObject [
 	application := anObject
 ]
 
+{ #category : 'accessing' }
+BeamProxyObject >> applicationAnalysis [
+	"I return the ElixirApplicationAnalysis for the application that
+	 defines my Elixir class, or nil if my class isn't loaded or
+	 doesn't belong to any tracked application. Subclasses that wrap
+	 something other than their elixirClass (e.g. BeamDocumentationObject
+	 wraps a Documentation struct whose documented module differs from
+	 GtBridge.Documentation) override this."
+	| appAtom sys |
+	elixirClass ifNil: [ ^ nil ].
+	appAtom := self evaluateAndWait:
+		'Application.get_application(', elixirClass, ')'.
+	appAtom ifNil: [ ^ nil ].
+	sys := ElixirSystemAnalysis onApplication: self application.
+	^ sys applications
+		detect: [ :each | each name symbol = appAtom symbol ]
+		ifNone: [ nil ]
+]
+
 { #category : 'as yet unclassified' }
 BeamProxyObject >> asList [
 	^ (1 to: self length) collect: [ :anIndex | self itemAt: anIndex - 1 ]
@@ -111,6 +130,20 @@ BeamProxyObject >> evaluateAndWait: string [
 	^ self application newCommandFactory
 		<< string;
 		sendAndWait
+]
+
+{ #category : 'gt-actions' }
+BeamProxyObject >> gtActionApplicationFor: anAction [
+	<gtAction>
+	"I add a toolbar button that spawns the ElixirApplicationAnalysis
+	 for the application that defines my class. Silently no-ops when
+	 the class doesn't belong to a tracked application."
+	^ anAction button
+		icon: BrGlamorousVectorIcons hierarchy;
+		label: 'Application';
+		action: [ :aButton |
+			self applicationAnalysis ifNotNil: [ :app |
+				aButton phlow spawnObject: app ] ]
 ]
 
 { #category : 'as yet unclassified' }

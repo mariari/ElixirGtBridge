@@ -22,6 +22,21 @@ BeamAtomObject >> = aSymbol [
 	^ self symbol = aSymbol symbol
 ]
 
+{ #category : 'accessing' }
+BeamAtomObject >> applicationAnalysis [
+	"I return the ElixirApplicationAnalysis for my module, or nil."
+	| appAtom sys |
+	self isModuleAtom ifFalse: [ ^ nil ].
+	appAtom := [ self evaluateAndWait:
+		'Application.get_application(', self resolve, ')' ]
+		on: Error do: [ nil ].
+	appAtom ifNil: [ ^ nil ].
+	sys := ElixirSystemAnalysis onApplication: BeamLinkApplication uniqueInstance.
+	^ sys applications
+		detect: [ :each | each name symbol = appAtom symbol ]
+		ifNone: [ nil ]
+]
+
 { #category : 'as yet unclassified' }
 BeamAtomObject >> determinePID [
 	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
@@ -42,6 +57,19 @@ BeamAtomObject >> evaluateAndWait: aString [
 	^ BeamLinkApplication uniqueInstance newCommandFactory
 		<< aString;
 		sendAndWait
+]
+
+{ #category : 'gt-actions' }
+BeamAtomObject >> gtActionApplicationFor: anAction [
+	<gtAction>
+	"I add a toolbar button to open the Application analysis.
+	 Only for module atoms that belong to a tracked application."
+	^ anAction button
+		icon: BrGlamorousVectorIcons hierarchy;
+		label: 'Application';
+		action: [ :aButton |
+			self applicationAnalysis ifNotNil: [ :app |
+				aButton phlow spawnObject: app ] ]
 ]
 
 { #category : 'views' }

@@ -11,6 +11,24 @@ BeamPIDObject class >> elixirClass [
 	^ 'PID'
 ]
 
+{ #category : 'accessing' }
+BeamPIDObject >> applicationAnalysis [
+	"I find my application by PID (not by module name like proxies
+	 do) using Erlang's :application.get_application/1."
+	| appAtom sys |
+	appAtom := [ self evaluateAndWait:
+		'case :application.get_application(', self resolve, ') do
+			{:ok, app} -> app
+			_ -> nil
+		end' ]
+		on: Error do: [ nil ].
+	appAtom ifNil: [ ^ nil ].
+	sys := ElixirSystemAnalysis onApplication: self application.
+	^ sys applications
+		detect: [ :each | each name symbol = appAtom symbol ]
+		ifNone: [ nil ]
+]
+
 { #category : 'views - helpers' }
 BeamPIDObject >> childrenTree [
 	^ self
