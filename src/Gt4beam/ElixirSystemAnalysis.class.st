@@ -107,6 +107,15 @@ ElixirSystemAnalysis >> gtApplicationsFor: aView [
 ]
 
 { #category : 'gt views' }
+ElixirSystemAnalysis >> gtCoderBrowserFor: aView [
+	<gtView>
+	^ aView explicit
+		title: 'Coder';
+		priority: 4;
+		stencil: [ ElixirCoderBrowser forApplication: self application ]
+]
+
+{ #category : 'gt views' }
 ElixirSystemAnalysis >> gtDashboardFor: aView [
 	<gtView>
 	^ aView columnedList

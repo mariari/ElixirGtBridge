@@ -183,27 +183,15 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtModuleTreeFor: aView [
 	<gtView>
-	^ aView columnedTree
+	"I show a Pharo-style system browser scoped to this application:
+	 module namespace tree on the left with function counts and doc
+	 status columns, module coder on the right that swaps to show the
+	 selected module. Replaces the previous columned-tree-only view —
+	 the browser is a superset that adds the inline coder pane."
+	^ aView explicit
 		title: 'Module tree';
 		priority: 6;
-		items: [ self moduleTreeRoots ];
-		children: [ :node | node at: #children ];
-		column: 'Name' text: [ :node | node at: #label ];
-		column: 'Fns' text: [ :node |
-			(node at: #module)
-				ifNil: [ '' ]
-				ifNotNil: [ (node at: #functions) asString ] ] width: 40;
-		column: 'Docs' text: [ :node |
-			(node at: #module)
-				ifNil: [ '' ]
-				ifNotNil: [ (node at: #has_doc)
-					ifTrue: [ '✓' ] ifFalse: [ 'Δ' ] ] ] width: 40;
-		send: [ :node |
-			(node at: #module)
-				ifNotNil: [ :modName |
-					self application evaluateAndWait:
-						'GtBridge.Documentation.for_module(', modName, ')' ]
-				ifNil: [ self ] ]
+		stencil: [ ElixirCoderBrowser forApplicationAnalysis: self ]
 ]
 
 { #category : 'gt-views' }

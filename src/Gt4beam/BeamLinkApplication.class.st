@@ -30,6 +30,16 @@ BeamLinkApplication class >> start [
 	^ self startWith: LanguageLinkSettings elixirDefaultSettings
 ]
 
+{ #category : 'as yet unclassified' }
+BeamLinkApplication >> gtCoderBrowserFor: aView [
+	<gtView>
+	self isRunning ifFalse: [ ^ aView empty ].
+	^ aView explicit
+		title: 'Coder';
+		priority: 15;
+		stencil: [ ElixirCoderBrowser forApplication: self ]
+]
+
 { #category : 'initialization' }
 BeamLinkApplication >> initializeHandlers [
 	loggingHandler := LanguageLinkLoggingHandler application: self.
