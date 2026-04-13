@@ -1,5 +1,48 @@
 * Changelog
 
+** v0.16.0
+
+*** Features
+
+- Elixir module coder :: Each function is a first-class
+  ~GtSourceCoder~ with Elixir syntax highlighting via
+  ~ElixirParser~, save/delete/move/run/help action buttons
+  following GT's method coder pattern. Functions display in
+  source order with multi-clause merging.
+
+- Code browser :: Namespace-grouped module tree with live
+  substring filter, function counts, and doc status columns.
+  Clicking a module opens its inspector inline with R|P toggle.
+  Available as "Code Browser" tab on system and application views.
+
+- System and application analysis :: ~GtBridge.Analysis~ provides
+  xref dependency graphs, doc coverage mondrian views, supervision
+  tree visualization with worker pool collapsing, and mnesia table
+  inspection. ~ElixirSystemAnalysis~ and ~ElixirApplicationAnalysis~
+  expose these as inspectable GT views.
+
+- R|P inspector toggle :: Dual-strip Remote/Proxy mode switcher
+  on all BEAM types. Remote shows ~<gtBeamView>~ tagged views,
+  Proxy shows GT wrapper views (Raw, Print, Meta). Dynamic mode
+  registration via ~<gtInspectorMode>~ pragma: atoms show
+  Atom/Pid/State tabs, PIDs show Pid/State tabs.
+
+- Spotter integration :: Search BEAM applications and modules
+  directly from the global spotter.
+
+- Import-aware completion :: Module's own functions available from
+  first keypress in module coders. Aliases resolve for
+  dot-completion.
+
+- Lepiter Elixir snippets :: Bottom-of-inspector playground with
+  ~self~ bound to the inspected object and its module imported.
+
+*** Bug Fixes
+
+- Fix atom resolve for underscore-prefixed names (~__meta__~ etc.)
+  where ~$_ asUppercase = $_~ caused missing ~:~ prefix
+- Fix ~attributeAt:~ crash on atom names containing dots
+
 ** v0.15.1
 
 *** Features
