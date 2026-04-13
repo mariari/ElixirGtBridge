@@ -37,22 +37,33 @@ BeamPIDObject >> childrenTree [
 
 { #category : 'gt-extensions' }
 BeamPIDObject >> gtDefaultInspectorTool [
-	"I return a dual-strip inspector: Pid / State main toggles
-	 with R/P sub-toggle. Each tab uses remote-side tools (filtered
-	 views); P shows the proxy (all views)."
-	| state composite |
+	"I collect inspector modes via <gtInspectorMode> pragmas."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
+]
+
+{ #category : 'inspector-modes' }
+BeamPIDObject >> gtStateMode: aMode [
+	<gtInspectorMode>
+	| state |
 	state := [ self process_state ] on: Error do: [ nil ].
-	(state isNil or: [ state isError ]) ifTrue: [ ^ super gtDefaultInspectorTool ].
-	composite := BeamProxyToggleCompositeTool new
-		proxyObject: self;
-		yourself.
-	composite addTool: (self gtRemoteSideInspectorTool
-		name: 'Pid';
-		withLabelAndIconAptitude).
-	composite addTool: (state gtRemoteSideInspectorTool
+	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
 		name: 'State';
-		withLabelAndIconAptitude).
-	^ composite
+		priority: 20;
+		object: state;
+		tool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
 ]
 
 { #category : 'as yet unclassified' }

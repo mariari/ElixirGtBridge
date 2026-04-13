@@ -14,6 +14,16 @@ Class {
 	#tag : 'Serialization'
 }
 
+{ #category : 'instance creation' }
+BeamProxyToggleCompositeTool class >> fromModes: modes [
+	"I build a composite tool from collected inspector modes."
+	| composite |
+	composite := self new.
+	modes do: [ :mode | composite addTool: mode tool ].
+	composite proxyObject: modes first object.
+	^ composite
+]
+
 { #category : 'initialization' }
 BeamProxyToggleCompositeTool >> initialize [
 	super initialize.
