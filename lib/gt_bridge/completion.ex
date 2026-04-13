@@ -41,13 +41,13 @@ defmodule GtBridge.Completion do
         complete_erlang_module(List.to_string(hint))
 
       {:local_or_var, hint} ->
-        complete_local_or_var(source, List.to_string(hint), bindings, aliases)
+        complete_local_or_var(source, List.to_string(hint), bindings, aliases, env)
 
       {:struct, hint} ->
         complete_struct(List.to_string(hint))
 
       :expr ->
-        complete_local_or_var(source, "", bindings, aliases)
+        complete_local_or_var(source, "", bindings, aliases, env)
 
       _ ->
         []
@@ -155,7 +155,7 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(source, hint, bindings, aliases) do
+  defp complete_local_or_var(source, hint, bindings, aliases, env \\ %Macro.Env{}) do
     struct_fields = struct_fields_for(source, hint)
 
     if struct_fields != [] do
@@ -178,9 +178,19 @@ defmodule GtBridge.Completion do
           name <> "/" <> Integer.to_string(arity)
         end
 
+      imported_funs =
+        for {mod, funs} <- env.functions ++ env.macros,
+            mod != Kernel,
+            {fun, arity} <- funs,
+            name = Atom.to_string(fun),
+            String.starts_with?(name, hint),
+            not String.starts_with?(name, "__") do
+          name <> "/" <> Integer.to_string(arity)
+        end
+
       root_modules = complete_alias(hint, aliases)
 
-      (vars ++ kernel_funs ++ root_modules)
+      (vars ++ kernel_funs ++ imported_funs ++ root_modules)
       |> Enum.uniq()
       |> Enum.sort()
     end

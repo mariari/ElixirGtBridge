@@ -24,13 +24,21 @@ GtElixirCoderModel >> asCoderViewModel [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
-	| fullSource selfObj |
+	"I prepend a binding for self and an import of its module (if any)
+	 so users can call the object's module functions unqualified and
+	 use the pipe operator with self as the first argument."
+	| fullSource selfObj isProxy |
 	selfObj := [ aContext requesterObject selfObject ]
 		on: Error do: [ nil ].
-	fullSource := ((selfObj isKindOf: BeamProxyObject)
-		or: [ selfObj isKindOf: BeamAtomObject ])
-		ifTrue: [ 'self = ' , selfObj resolve , String cr , sourceString ]
-		ifFalse: [ sourceString ].
+	isProxy := (selfObj isKindOf: BeamProxyObject)
+		or: [ selfObj isKindOf: BeamAtomObject ].
+	fullSource := sourceString.
+	isProxy ifTrue: [
+		"Import the object's module so its functions are unqualified"
+		selfObj elixirClass ifNotNil: [ :modName |
+			fullSource := 'import ', modName, String cr, fullSource ].
+		"Bind self"
+		fullSource := 'self = ', selfObj resolve, String cr, fullSource ].
 	^ self bindAndExecuteRaw: fullSource sessionId: sid
 ]
 
