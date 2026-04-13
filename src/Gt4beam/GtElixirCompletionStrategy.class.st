@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'coderModel',
 		'coderViewModel',
-		'sessionId'
+		'sessionId',
+		'sessionImportsLoaded'
 	],
 	#category : 'Gt4beam-Completion',
 	#package : 'Gt4beam',
@@ -54,9 +55,32 @@ GtElixirCompletionStrategy >> completionActionStreamFor: aText at: positionInteg
 ]
 
 { #category : 'private' }
+GtElixirCompletionStrategy >> ensureSessionImports [
+	"I preload module imports into the eval session. Fallback for
+	 cases where the snippet element didn't preload (e.g. no self
+	 object at element creation time)."
+	sessionImportsLoaded == true ifTrue: [ ^ self ].
+	[ | selfObj modName sid |
+		selfObj := (coderViewModel respondsTo: #selfObject)
+			ifTrue: [ coderViewModel selfObject ]
+			ifFalse: [ nil ].
+		selfObj ifNil: [ ^ self ].
+		modName := (selfObj respondsTo: #elixirClass)
+			ifTrue: [ selfObj elixirClass ]
+			ifFalse: [ nil ].
+		modName ifNil: [ ^ self ].
+		sid := sessionId ifNil: [ 'default' ].
+		BeamLinkApplication uniqueInstance evaluateAndWait:
+			'GtBridge.Analysis.editor_session(' , modName , ', "' , sid , '")'.
+		sessionImportsLoaded := true ]
+		on: Error do: [ "retry next time" ]
+]
+
+{ #category : 'private' }
 GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	| application serverAddress url response payload |
 	coderModel ifNil: [ ^ #() ].
+	self ensureSessionImports.
 	application := coderModel initializeApplication.
 	application ifNil: [ ^ #() ].
 	serverAddress := application settings serverSocketAddress.
@@ -68,8 +92,6 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	coderViewModel sourceText ifNotNil: [ :src |
 		| srcString sepIdx |
 		srcString := src asString.
-		"sourceText may lag one keystroke; rebuild tail from aString.
-		 Find the last separator before cursor and append aString."
 		sepIdx := srcString findLast: [ :c | self isSeparatorCharacter: c ].
 		payload at: 'source' put: (srcString first: sepIdx) , aString ].
 	response := ZnClient new
