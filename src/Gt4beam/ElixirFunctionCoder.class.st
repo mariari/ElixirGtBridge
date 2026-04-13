@@ -22,19 +22,22 @@ ElixirFunctionCoder class >> forEntry: anEntry moduleCoder: anElixirModuleCoder 
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
-	"I remove this function's lines from the module source and recompile.
-	 spliceFunction:fromLine:toLine: calls saveAndCompile: which fires
-	 GtCoderSourceCodeChanged — the streaming model sees that and drops
-	 me from the list. Splicing empty text leaves zero lines where the
-	 function was; mix format collapses any resulting blank-line pileup."
+	"I remove this function with a confirmation dropdown, matching
+	 GT's method coder delete pattern."
 	anAddOns
-		addMainAction: 'Delete' translated
-		icon: BrGlamorousVectorIcons remove
-		action: [ :aCoderVM :anElement |
+		addDropDownWithPreviewAction: 'Remove' translated
+		icon: BrGlamorousVectorIcons bin
+		action: [ :aButtonElement :aButtonModel :anEvent |
 			moduleCoder
 				spliceFunction: ''
 				fromLine: startLine
 				toLine: endLine ]
+		stencil: [ :anElement |
+			BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: 'Remove ', self signature;
+				margin: (BlInsets all: 10) ]
+		id: #elixirFunctionRemoveAction
 ]
 
 { #category : 'add-ons' }
@@ -48,6 +51,7 @@ ElixirFunctionCoder >> addHelpAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 				(moduleCoder application evaluateAndWait:
 					'GtBridge.Documentation.for_function(',
 						moduleCoder moduleName, ', :', functionName, ', ', arity asString, ')') ]
+		id: #elixirFunctionHelpAction
 ]
 
 { #category : 'add-ons' }
@@ -56,17 +60,19 @@ ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 	anAddOns
 		addMainAction: 'Move up' translated
 		icon: BrGlamorousVectorIcons up
-		action: [ :aCoderVM :anElement | self moveUp ].
+		action: [ :aCoderVM :anElement | self moveUp ]
+		id: #elixirFunctionMoveUpAction.
 	anAddOns
 		addMainAction: 'Move down' translated
 		icon: BrGlamorousVectorIcons down
 		action: [ :aCoderVM :anElement | self moveDown ]
+		id: #elixirFunctionMoveDownAction
 ]
 
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
-	"Run 0-arity functions directly, or 1-arity functions with
+	"I run 0-arity functions directly, or 1-arity functions with
 	 selfObject piped in as the first argument."
 	| canRun callExpr |
 	arity = 0 ifTrue: [
@@ -84,6 +90,7 @@ ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel
 				(moduleCoder application newCommandFactory
 					<< callExpr;
 					sendAndWait) ]
+		id: #elixirFunctionRunAction
 ]
 
 { #category : 'add-ons' }
@@ -97,6 +104,7 @@ ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 				spliceFunction: aCoderVM coderModel currentSourceString
 				fromLine: startLine
 				toLine: endLine) ]
+		id: #elixirFunctionSaveAction
 ]
 
 { #category : 'accessing' }
