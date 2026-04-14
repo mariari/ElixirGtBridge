@@ -11,7 +11,7 @@ GtBeamMondrianViewDeclaration class >> remoteName [
 	^ 'GtPhlowMondrianViewSpecification'
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'rendering' }
 GtBeamMondrianViewDeclaration >> treatView: view [
 	| nodes adjacency layoutName items |
 	nodes := (self rawData attributeAt: #nodes) asList.
@@ -21,20 +21,29 @@ GtBeamMondrianViewDeclaration >> treatView: view [
 	view painting: [ :aMondrian |
 		aMondrian nodes
 			stencil: [ :anItem |
-				| idx label |
+				| idx label colorHex color el |
 				idx := items identityIndexOf: anItem.
 				label := ((nodes at: idx) attributeAt: #label) asString.
-				BrHorizontalPane new
+				colorHex := [ ((nodes at: idx) attributeAt: #color) asString ]
+					on: Error do: [ nil ].
+				color := (colorHex notNil and: [ colorHex ~= 'nil' ])
+					ifTrue: [ Color fromHexString: colorHex ]
+					ifFalse: [ Color white ].
+				el := BrHorizontalPane new
 					geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
-					border: (BlBorder paint: Color lightGray width: 1);
-					background: Color white;
+					border: (BlBorder paint: color darker width: 1);
+					background: color;
 					padding: (BlInsets all: 5);
 					addChild: (BrLabel new
 						text: label;
 						aptitude: BrGlamorousLabelAptitude);
 					constraintsDo: [ :c |
 						c horizontal fitContent.
-						c vertical fitContent ] ];
+						c vertical fitContent ].
+				el addEventHandlerOn: BlClickEvent do: [ :evt |
+					evt consumed: true.
+					evt currentTarget phlow spawnObject: anItem ].
+				el ];
 			with: items.
 		aMondrian edges
 			connectToAll: [ :anItem |

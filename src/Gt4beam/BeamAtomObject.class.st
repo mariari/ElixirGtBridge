@@ -55,12 +55,6 @@ BeamAtomObject >> elixirClass [
 	^ self isModuleAtom ifTrue: [ symbol ]
 ]
 
-{ #category : 'accessing' }
-BeamAtomObject >> remoteClass [
-	"I return the atom's module name for playground page keys."
-	^ self elixirClass ifNil: [ symbol ]
-]
-
 { #category : 'as yet unclassified' }
 BeamAtomObject >> evaluateAndWait: aString [
 	"I'm unsure how this works when we have multiple beam instances... Since this isn't related to any personal data"
@@ -131,23 +125,26 @@ BeamAtomObject >> gtDefaultInspectorTool [
 	^ BeamProxyToggleCompositeTool fromModes: modes
 ]
 
-{ #category : 'gt-extensions' }
-BeamAtomObject >> gtSpotterActDefaultFrom: aSpotterElement [
-	"I open my composite inspector tool in a pager instead of
-	 the default plain GtInspector, preserving the R|P toggle."
-	| tool |
-	tool := self gtDefaultInspectorTool.
-	BlSpace new
-		inPager: tool;
-		title: tool name;
-		icon: tool icon;
-		withSceneDriller;
-		showFrom: aSpotterElement
-]
-
-{ #category : 'gt-extensions' }
-BeamAtomObject >> inspectorModeName [
-	^ 'Atom'
+{ #category : 'views' }
+BeamAtomObject >> gtModuleDocsView: aView [
+	<gtView>
+	<gtBeamView>
+	| sections page |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	sections := self evaluateAndWait:
+		'GtBridge.Documentation.to_sections('
+		, 'GtBridge.Documentation.for_module('
+		, self resolve , '))'.
+	sections isString ifFalse: [ ^ aView empty ].
+	page := LePage named: self symbol.
+	LeDatabase new addPage: page.
+	(sections splitOn: '__SECTION__') do: [ :s |
+		s trimBoth isEmpty ifFalse: [
+			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
+	^ aView explicit
+		title: 'Documentation';
+		priority: 3;
+		stencil: [ page asPreviewElement vMatchParent ]
 ]
 
 { #category : 'inspector-modes' }
@@ -216,6 +213,20 @@ BeamAtomObject >> gtRemoteSideInspectorTool [
 ]
 
 { #category : 'gt-extensions' }
+BeamAtomObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
 BeamAtomObject >> gtViewsForProxySideInContext: aContext [
 	"I collect views for Proxy mode — all views EXCEPT those
 	 tagged <gtBeamView>. Shows Raw, Print, Meta."
@@ -232,31 +243,14 @@ BeamAtomObject >> gtViewsForRemoteSideInContext: aContext [
 		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtModuleDocsView: aView [
-	<gtView>
-	<gtBeamView>
-	| sections page |
-	self isModuleAtom ifFalse: [ ^ aView empty ].
-	sections := self evaluateAndWait:
-		'GtBridge.Documentation.to_sections('
-		, 'GtBridge.Documentation.for_module('
-		, self resolve , '))'.
-	sections isString ifFalse: [ ^ aView empty ].
-	page := LePage named: self symbol.
-	LeDatabase new addPage: page.
-	(sections splitOn: '__SECTION__') do: [ :s |
-		s trimBoth isEmpty ifFalse: [
-			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
-	^ aView explicit
-		title: 'Documentation';
-		priority: 3;
-		stencil: [ page asPreviewElement vMatchParent ]
-]
-
 { #category : 'comparing' }
 BeamAtomObject >> hash [
 	^ self symbol hash hashMultiply
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> inspectorModeName [
+	^ 'Atom'
 ]
 
 { #category : 'testing' }
@@ -275,6 +269,12 @@ BeamAtomObject >> isModuleAtom [
 { #category : 'as yet unclassified' }
 BeamAtomObject >> printOn: aStream [
 	self symbol printOn: aStream
+]
+
+{ #category : 'accessing' }
+BeamAtomObject >> remoteClass [
+	"I return the atom's module name for playground page keys."
+	^ self elixirClass ifNil: [ symbol ]
 ]
 
 { #category : 'elixir - resolution' }

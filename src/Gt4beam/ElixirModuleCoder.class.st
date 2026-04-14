@@ -80,6 +80,65 @@ ElixirModuleCoder >> asCoderViewModel [
 ]
 
 { #category : 'private' }
+ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
+	"I insert a draft editor pane immediately after addRow. The draft
+	 uses my editor session so completion sees my imports/aliases.
+	 Save splices the draft via addFunction: and removes the pane;
+	 the source-change announcement refreshes the streaming list.
+	 Cancel just removes the pane."
+	| vm editor draftPane header existing |
+	existing := container children detect: [ :c | c == addRow ] ifNone: [ nil ].
+	existing ifNil: [ ^ self ].
+	"Bail if a draft is already open — addRow is always at index 1 and
+	 if there's a draft it sits at index 2; we don't want two drafts."
+	container children size > 2 ifTrue: [ ^ self ].
+	vm := self coderModelForSource:
+		'def new_function do', String lf, '  :ok', String lf, 'end'.
+	vm
+		when: GtSourceCoderViewModelSaveRequested
+		do: [ :ann |
+			self addFunction: vm coderModel currentSourceString.
+			draftPane removeFromParent.
+			ann consumed: true ].
+	editor := vm asElement matchParent.
+	header := BrHorizontalPane new
+		hMatchParent;
+		vFitContent;
+		alignCenterLeft;
+		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
+		addChild: (BrLabel new
+			aptitude: (BrGlamorousLabelAptitude new glamorousCodeFont; fontSize: 12);
+			text: 'New function');
+		addChild: (BrFrame new hMatchParent vFitContent);
+		addChild: (BrButton new
+			aptitude: BrGlamorousButtonWithIconAptitude;
+			icon: BrGlamorousVectorIcons accept;
+			beSmallSize;
+			label: 'Add & compile';
+			action: [ :btn |
+				self addFunction: vm coderModel currentSourceString.
+				draftPane removeFromParent ]);
+		addChild: (BrButton new
+			aptitude: BrGlamorousButtonWithIconAptitude;
+			icon: BrGlamorousVectorIcons cancel;
+			beSmallSize;
+			label: 'Cancel';
+			action: [ :btn | draftPane removeFromParent ]);
+		yourself.
+	draftPane := BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical exact: 220 ];
+		padding: (BlInsets all: 4);
+		border: (BlBorder paint: (Color gray alpha: 0.4) width: 1);
+		addChild: header;
+		addChild: editor;
+		yourself.
+	container addChild: draftPane at: 2
+]
+
+{ #category : 'private' }
 ElixirModuleCoder >> buildExampleMapElement [
 	"I build a Mondrian graph of example dependencies."
 	| mondrian data edges nodes app modName |
@@ -149,83 +208,6 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 ]
 
 { #category : 'private' }
-ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
-	"I insert a draft editor pane immediately after addRow. The draft
-	 uses my editor session so completion sees my imports/aliases.
-	 Save splices the draft via addFunction: and removes the pane;
-	 the source-change announcement refreshes the streaming list.
-	 Cancel just removes the pane."
-	| vm editor draftPane header existing |
-	existing := container children detect: [ :c | c == addRow ] ifNone: [ nil ].
-	existing ifNil: [ ^ self ].
-	"Bail if a draft is already open — addRow is always at index 1 and
-	 if there's a draft it sits at index 2; we don't want two drafts."
-	container children size > 2 ifTrue: [ ^ self ].
-	vm := self coderModelForSource:
-		'def new_function do', String lf, '  :ok', String lf, 'end'.
-	vm
-		when: GtSourceCoderViewModelSaveRequested
-		do: [ :ann |
-			self addFunction: vm coderModel currentSourceString.
-			draftPane removeFromParent.
-			ann consumed: true ].
-	editor := vm asElement matchParent.
-	header := BrHorizontalPane new
-		hMatchParent;
-		vFitContent;
-		alignCenterLeft;
-		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new glamorousCodeFont; fontSize: 12);
-			text: 'New function');
-		addChild: (BrFrame new hMatchParent vFitContent);
-		addChild: (BrButton new
-			aptitude: BrGlamorousButtonWithIconAptitude;
-			icon: BrGlamorousVectorIcons accept;
-			beSmallSize;
-			label: 'Add & compile';
-			action: [ :btn |
-				self addFunction: vm coderModel currentSourceString.
-				draftPane removeFromParent ]);
-		addChild: (BrButton new
-			aptitude: BrGlamorousButtonWithIconAptitude;
-			icon: BrGlamorousVectorIcons cancel;
-			beSmallSize;
-			label: 'Cancel';
-			action: [ :btn | draftPane removeFromParent ]);
-		yourself.
-	draftPane := BlElement new
-		layout: BlLinearLayout vertical;
-		constraintsDo: [ :c |
-			c horizontal matchParent.
-			c vertical exact: 220 ];
-		padding: (BlInsets all: 4);
-		border: (BlBorder paint: (Color gray alpha: 0.4) width: 1);
-		addChild: header;
-		addChild: editor;
-		yourself.
-	container addChild: draftPane at: 2
-]
-
-{ #category : 'private' }
-ElixirModuleCoder >> coderModelForSource: sourceText [
-	"I return a GtElixirCoderModel view model wired to my editor
-	 session so completion sees my imports/aliases."
-	| coderModel vm |
-	coderModel := GtElixirCoderModel new.
-	coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
-	coderModel sourceCode: (GtCoderExplicitStringSource new source: sourceText).
-	vm := coderModel asCoderViewModel.
-	vm expanded: true.
-	self editorSessionId ifNotNil: [ :sid |
-		| bindings |
-		bindings := GtSharedVariablesBindings new.
-		vm viewPharoBindings: bindings.
-		LeElixirSnippetElement sessionMap at: bindings put: sid ].
-	^ vm
-]
-
-{ #category : 'private' }
 ElixirModuleCoder >> buildSourceViewElement [
 	"I build a self-refreshing container for the Source tab. The inner
 	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me
@@ -262,6 +244,24 @@ ElixirModuleCoder >> buildSourceViewElement [
 		when: GtCoderSourceCodeChanged
 		do: [ :ann | rebuild value ].
 	^ container
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> coderModelForSource: sourceText [
+	"I return a GtElixirCoderModel view model wired to my editor
+	 session so completion sees my imports/aliases."
+	| coderModel vm |
+	coderModel := GtElixirCoderModel new.
+	coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
+	coderModel sourceCode: (GtCoderExplicitStringSource new source: sourceText).
+	vm := coderModel asCoderViewModel.
+	vm expanded: true.
+	self editorSessionId ifNotNil: [ :sid |
+		| bindings |
+		bindings := GtSharedVariablesBindings new.
+		vm viewPharoBindings: bindings.
+		LeElixirSnippetElement sessionMap at: bindings put: sid ].
+	^ vm
 ]
 
 { #category : 'accessing' }
@@ -414,11 +414,6 @@ IEx.Helpers.recompile()');
 ]
 
 { #category : 'accessing' }
-ElixirModuleCoder >> sourceCode [
-	^ sourcePath asFileReference contents
-]
-
-{ #category : 'accessing' }
 ElixirModuleCoder >> selfObject [
 	^ selfObject
 ]
@@ -426,6 +421,11 @@ ElixirModuleCoder >> selfObject [
 { #category : 'accessing' }
 ElixirModuleCoder >> selfObject: anObject [
 	selfObject := anObject
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> sourceCode [
+	^ sourcePath asFileReference contents
 ]
 
 { #category : 'accessing' }
