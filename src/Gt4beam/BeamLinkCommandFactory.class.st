@@ -9,6 +9,14 @@ Class {
 	#tag : 'Execution'
 }
 
+{ #category : 'building' }
+BeamLinkCommandFactory >> buildCommand [
+	| cmd |
+	cmd := super buildCommand.
+	cmd sessionId: sessionId.
+	^ cmd
+]
+
 { #category : 'accessing' }
 BeamLinkCommandFactory >> sessionId [
 	^ sessionId
@@ -17,14 +25,6 @@ BeamLinkCommandFactory >> sessionId [
 { #category : 'accessing' }
 BeamLinkCommandFactory >> sessionId: aString [
 	sessionId := aString
-]
-
-{ #category : 'building' }
-BeamLinkCommandFactory >> buildCommand [
-	| cmd |
-	cmd := super buildCommand.
-	cmd sessionId: sessionId.
-	^ cmd
 ]
 
 { #category : 'initalization' }

@@ -6,11 +6,6 @@ Class {
 	#tag : 'Serialization'
 }
 
-{ #category : 'defaults' }
-BeamInspectorModeCollector >> defaultPragmaNames [
-	^ #( gtInspectorMode )
-]
-
 { #category : 'collecting' }
 BeamInspectorModeCollector >> buildSelfMode [
 	"I create the implicit self mode for the inspected object."
@@ -62,4 +57,9 @@ BeamInspectorModeCollector >> collectDeclared [
 			on: Error do: [ :e | mode ].
 		mode ].
 	^ modes reject: [ :m | m isEmpty ]
+]
+
+{ #category : 'defaults' }
+BeamInspectorModeCollector >> defaultPragmaNames [
+	^ #( gtInspectorMode )
 ]
