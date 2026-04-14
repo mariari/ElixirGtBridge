@@ -183,3 +183,15 @@ BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 			self evaluateAndWait:
 				'GtBridge.Documentation.for_function(', each first, ', :', each second, ', ', each third asString, ')' ]
 ]
+
+{ #category : 'accessing' }
+BeamDocumentationObject >> elixirClass [
+	"I return the documented module name, not the struct type.
+	 This ensures snippets import the right module and load
+	 its preamble (aliases, requires)."
+	^ [ | name |
+		name := self evaluateAndWait:
+			'inspect(elem(', self resolve, '.query, 1))'.
+		name isString ifTrue: [ name ] ifFalse: [ super elixirClass ] ]
+		on: Error do: [ super elixirClass ]
+]
