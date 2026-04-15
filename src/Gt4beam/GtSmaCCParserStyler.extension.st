@@ -17,6 +17,11 @@ GtSmaCCParserStyler class >> elixirStyler: aParserClass [
 					nodeClassName: #ElixirTrueNode
 					styleBlock: [ :styler :node :text | (text from: node startPosition to: node stopPosition) foreground: Color orange ].
 				GtSmaCCNodeStylerRule
+					nodeClassName: #ElixirMatchedExprNode
+					styleBlock: [ :styler :node :text |
+						(node ops isNotEmpty and: [ node ops first value = '@' ])
+							ifTrue: [ (text from: node startPosition to: node expressions first identifier stopPosition) foreground: Color orange ] ].
+				GtSmaCCNodeStylerRule
 					nodeClassName: #ElixirNilNode
 					styleBlock: [ :styler :node :text | (text from: node startPosition to: node stopPosition) foreground: Color orange ].
 				GtSmaCCNodeStylerRule
