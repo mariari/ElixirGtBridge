@@ -100,10 +100,7 @@ ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 		addMainAction: 'Save' translated
 		icon: BrGlamorousVectorIcons accept
 		action: [ :aCoderVM :anElement |
-			anElement phlow spawnObject: (moduleCoder
-				spliceFunction: aCoderVM coderModel currentSourceString
-				fromLine: startLine
-				toLine: endLine) ]
+			anElement phlow spawnObject: self saveFunction ]
 		id: #elixirFunctionSaveAction
 ]
 
@@ -142,6 +139,31 @@ ElixirFunctionCoder >> initializeAddOns: addOns [
 	super initializeAddOns: addOns.
 	addOns
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler)
+]
+
+{ #category : 'actions' }
+ElixirFunctionCoder >> saveFunction [
+	"I splice my current source text into the module file at
+	 my function's position (found by name/arity) and recompile.
+	 Then reset my source to the formatted result from disk."
+	| src |
+	src := self currentSourceString.
+	moduleCoder
+		spliceFunction: src
+		forFunction: functionName
+		arity: arity.
+	[ | entries match freshSource |
+	  entries := [ (moduleCoder application evaluateAndWait:
+		'GtBridge.Analysis.all_functions(', moduleCoder moduleName, ')') asList ]
+		on: Error do: [ #() ].
+	  match := entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ nil ].
+	  match ifNotNil: [
+		freshSource := (match attributeAt: #source) asString.
+		self sourceCode: (GtCoderExplicitStringSource new source: freshSource) ] ]
+		on: Error do: [ ]
 ]
 
 { #category : 'add-ons' }

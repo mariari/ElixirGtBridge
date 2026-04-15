@@ -9,7 +9,8 @@ Class {
 		'application',
 		'focusLine',
 		'sessionId',
-		'selfObject'
+		'selfObject',
+		'saving'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -404,10 +405,7 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		normalized := normalized , ending ].
 	b64 := ZnBase64Encoder new encode: normalized utf8Encoded.
 	result := application newCommandFactory
-		<< ('content = Base.decode64!("', b64, '")
-File.write!("', sourcePath, '", content)
-Mix.Tasks.Format.run(["', sourcePath, '"])
-IEx.Helpers.recompile()');
+		<< ('GtBridge.Analysis.hot_reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
 	self announceFunctionsChanged.
 	^ result
@@ -439,14 +437,27 @@ ElixirModuleCoder >> sourcePath: aString [
 ]
 
 { #category : 'actions' }
-ElixirModuleCoder >> spliceFunction: newText fromLine: startLine toLine: endLine [
-	"I replace lines startLine..endLine in the source with newText, save, and compile."
-	| lines newLines |
+ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
+	"I find the function's current position in the file by name/arity,
+	 splice the new text in, and save. Skips if a save is already running."
+	| entries match lines newLines st en |
+	saving == true ifTrue: [ ^ self ].
+	saving := true.
+	[ entries := [ (application evaluateAndWait:
+		'GtBridge.Analysis.all_functions(', moduleName, ')') asList ]
+		on: Error do: [ #() ].
+	match := entries
+		detect: [ :e | (e attributeAt: #name) asString = aName
+			and: [ (e attributeAt: #arity) = anArity ] ]
+		ifNone: [ ^ self ].
+	st := match attributeAt: #start.
+	en := match attributeAt: #end_line.
 	lines := self sourceCode lines.
-	newLines := (lines copyFrom: 1 to: startLine - 1) asOrderedCollection.
+	newLines := (lines copyFrom: 1 to: st - 1) asOrderedCollection.
 	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: endLine + 1 to: lines size).
-	^ self saveAndCompile: (String lf join: newLines)
+	newLines addAll: (lines copyFrom: en + 1 to: lines size).
+	self saveAndCompile: (String lf join: newLines) ]
+	ensure: [ saving := false ]
 ]
 
 { #category : 'actions' }
