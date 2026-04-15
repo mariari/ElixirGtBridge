@@ -407,7 +407,15 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		<< ('content = Base.decode64!("', b64, '")
 File.write!("', sourcePath, '", content)
 Mix.Tasks.Format.run(["', sourcePath, '"])
-IEx.Helpers.recompile()');
+for {mod, binary} <- Code.compile_file("', sourcePath, '") do
+  app = Application.get_application(mod)
+  if app do
+    ebin = Application.app_dir(app, "ebin")
+    beam = Path.join(ebin, "#{mod}.beam")
+    File.write!(beam, binary)
+  end
+end
+:ok');
 		sendAndWait.
 	self announceFunctionsChanged.
 	^ result
