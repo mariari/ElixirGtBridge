@@ -31,6 +31,19 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
+{ #category : 'dependency-tree' }
+BeamMondrianHelpers class >> flattenDepTree: node into: nodes edges: edges [
+	"I walk a server-side dependency tree and collect unique node names
+	 plus the direct parent→child edges between them."
+	| nodeName |
+	nodeName := (node attributeAt: #name) asString.
+	(nodes includes: nodeName) ifTrue: [ ^ self ].
+	nodes add: nodeName.
+	(node attributeAt: #children) asList do: [ :child |
+		edges add: nodeName -> (child attributeAt: #name) asString.
+		self flattenDepTree: child into: nodes edges: edges ]
+]
+
 { #category : 'stencils' }
 BeamMondrianHelpers class >> edgeStencil [
 	^ BlParabollaArcElement new
@@ -43,17 +56,22 @@ BeamMondrianHelpers class >> edgeStencil [
 			border: (BlBorder paint: (Color gray alpha: 0.4) width: 1))
 ]
 
-{ #category : 'dependency-tree' }
-BeamMondrianHelpers class >> flattenDepTree: node into: nodes edges: edges [
-	"I walk a server-side dependency tree and collect unique node names
-	 plus the direct parent→child edges between them."
-	| nodeName |
-	nodeName := (node attributeAt: #name) asString.
-	(nodes includes: nodeName) ifTrue: [ ^ self ].
-	nodes add: nodeName.
-	(node attributeAt: #children) asList do: [ :child |
-		edges add: nodeName -> (child attributeAt: #name) asString.
-		self flattenDepTree: child into: nodes edges: edges ]
+{ #category : 'stencils' }
+BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock [
+	^ BrHorizontalPane new
+		geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
+		border: (BlBorder paint: aColor darker width: 1);
+		background: aColor;
+		padding: (BlInsets all: 4);
+		addChild: (BlTextElement new
+			text: aString asRopedText glamorousRegularSmallSize;
+			constraintsDo: [ :c |
+				c horizontal fitContent.
+				c vertical fitContent ]);
+		when: BlClickEvent do: [ :evt | evt consumed: true. aBlock value: evt ];
+		constraintsDo: [ :c |
+			c horizontal fitContent.
+			c vertical fitContent ]
 ]
 
 { #category : 'supervision' }
@@ -87,24 +105,6 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 		self flattenTree: child into: nodes edges: edges poolThreshold: threshold.
 		childEntry := nodes detect: [ :n | (n at: #id) = (child attributeAt: #pid) ].
 		edges add: entry -> childEntry ]
-]
-
-{ #category : 'stencils' }
-BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock [
-	^ BrHorizontalPane new
-		geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
-		border: (BlBorder paint: aColor darker width: 1);
-		background: aColor;
-		padding: (BlInsets all: 4);
-		addChild: (BlTextElement new
-			text: aString asRopedText glamorousRegularSmallSize;
-			constraintsDo: [ :c |
-				c horizontal fitContent.
-				c vertical fitContent ]);
-		when: BlClickEvent do: [ :evt | evt consumed: true. aBlock value: evt ];
-		constraintsDo: [ :c |
-			c horizontal fitContent.
-			c vertical fitContent ]
 ]
 
 { #category : 'supervision' }

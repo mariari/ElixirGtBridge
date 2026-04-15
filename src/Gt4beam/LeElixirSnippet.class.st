@@ -14,18 +14,6 @@ LeElixirSnippet class >> contextMenuItemSpecification [
 		title: 'Elixir'
 ]
 
-{ #category : 'lepiter-store' }
-LeElixirSnippet class >> leJsonV3Name [
-
-	^ 'elixirSnippet'
-]
-
-{ #category : 'lepiter-store' }
-LeElixirSnippet class >> leJsonV4Name [
-
-	^ 'elixirSnippet'
-]
-
 { #category : 'instance creation' }
 LeElixirSnippet class >> playgroundFor: anObject [
 	"I build a fresh snippet element pre-bound to anObject as self,
@@ -40,10 +28,21 @@ LeElixirSnippet class >> playgroundFor: anObject [
 	^ vm asSnippetElement matchParent
 ]
 
-{ #category : 'visiting' }
-LeElixirSnippet >> acceptVisitor: aVisitor [
+{ #category : 'lepiter-store' }
+LeElixirSnippet class >> leJsonV3Name [
 
-	^ aVisitor visitElixirSnippet: self
+	^ 'elixirSnippet'
+]
+
+{ #category : 'lepiter-store' }
+LeElixirSnippet class >> leJsonV4Name [
+
+	^ 'elixirSnippet'
+]
+
+{ #category : 'accessing' }
+LeElixirSnippet >> newCoder [
+	^ GtElixirCoderModel new
 ]
 
 { #category : 'converting' }
@@ -52,7 +51,8 @@ LeElixirSnippet >> asSnippetViewModel [
 	^ LeElixirSnippetViewModel new snippetModel: self
 ]
 
-{ #category : 'accessing' }
-LeElixirSnippet >> newCoder [
-	^ GtElixirCoderModel new
+{ #category : 'visiting' }
+LeElixirSnippet >> acceptVisitor: aVisitor [
+
+	^ aVisitor visitElixirSnippet: self
 ]

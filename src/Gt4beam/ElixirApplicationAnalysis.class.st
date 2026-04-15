@@ -29,52 +29,6 @@ ElixirApplicationAnalysis >> application [
 	^ systemAnalysis application
 ]
 
-{ #category : 'private' }
-ElixirApplicationAnalysis >> buildTreeNode: aLabel from: entries [
-	"I build a tree node by consuming the namespace path.
-	 entries is a list of {info, remainingParts} pairs.
-	 A single leaf at this level merges its module info into the branch
-	 node itself; multiple leaves become separate child leaf nodes."
-	| leaves branches groups info leafChildren branchChildren |
-	leaves := entries select: [ :e | e second isEmpty ].
-	branches := entries reject: [ :e | e second isEmpty ].
-	groups := branches groupedBy: [ :e | e second first ].
-	info := leaves size = 1
-		ifTrue: [ self moduleInfoEntriesFor: leaves first first ]
-		ifFalse: [ { #module -> nil. #functions -> nil. #has_doc -> nil } ].
-	leafChildren := leaves size > 1
-		ifTrue: [ leaves collect: [ :e | self leafNodeFor: e first ] ]
-		ifFalse: [ #() ].
-	branchChildren := groups keys sorted collect: [ :k |
-		self buildTreeNode: k
-			from: ((groups at: k) collect: [ :e | { e first. e second allButFirst } ]) ].
-	^ ({
-		#label -> aLabel.
-		#children -> (leafChildren , branchChildren) asArray }
-		, info) asDictionary
-]
-
-{ #category : 'private' }
-ElixirApplicationAnalysis >> moduleInfoEntriesFor: aModuleInfo [
-	"I return the module/functions/has_doc associations from a module info object.
-	 Used to merge a single leaf's metadata into its parent branch node."
-	^ {
-		#module -> (aModuleInfo attributeAt: #name).
-		#functions -> (aModuleInfo attributeAt: #functions).
-		#has_doc -> (aModuleInfo attributeAt: #has_doc) }
-]
-
-{ #category : 'private' }
-ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
-	"I return a leaf tree node dictionary for a fully-qualified module."
-	| parts |
-	parts := $. split: ((aModuleInfo attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
-	^ ({
-		#label -> parts last.
-		#children -> #() }
-		, (self moduleInfoEntriesFor: aModuleInfo)) asDictionary
-]
-
 { #category : 'accessing' }
 ElixirApplicationAnalysis >> description [
 	^ description
@@ -85,6 +39,77 @@ ElixirApplicationAnalysis >> description: aDescription [
 	description := aDescription
 ]
 
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> gtDisplayOn: aStream [
+	aStream nextPutAll: self name asString
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> moduleInfo [
+	"I return per-module metadata from the BEAM for the modules view."
+	^ self application evaluateAndWait:
+		'GtBridge.Analysis.module_details(', self name resolve, ')'
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> modules [
+	^ self application
+		evaluateAndWait:
+			'Application.spec(', self name resolve, ', :modules)'
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> moduleTreeRoots [
+	"I return a tree of module info grouped by namespace prefix."
+	| entries groups |
+	entries := self moduleInfo asList collect: [ :each |
+		{ each. ($. split: ((each attributeAt: #name) copyReplaceAll: 'Elixir.' with: '')) } ].
+	groups := entries groupedBy: [ :e | e second first ].
+	^ (groups keys sorted collect: [ :key |
+		self buildTreeNode: key
+			from: ((groups at: key) collect: [ :e | { e first. e second allButFirst } ]) ]) asArray
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> name [
+	^ name
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> name: aName [
+	name := aName
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> systemAnalysis [
+	^ systemAnalysis
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> systemAnalysis: anElixirSystemAnalysis [
+	systemAnalysis := anElixirSystemAnalysis
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> tuple [
+	^ tuple
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> tuple: aTuple [
+	tuple := aTuple
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> version [
+	^ version
+]
+
+{ #category : 'accessing' }
+ElixirApplicationAnalysis >> version: aVersion [
+	version := aVersion
+]
+
 { #category : 'gt-actions' }
 ElixirApplicationAnalysis >> gtActionSystemOverviewFor: anAction [
 	<gtAction>
@@ -92,6 +117,46 @@ ElixirApplicationAnalysis >> gtActionSystemOverviewFor: anAction [
 		icon: BrGlamorousVectorIcons hierarchy;
 		label: 'System Overview';
 		action: [ :aButton | aButton phlow spawnObject: systemAnalysis ]
+]
+
+{ #category : 'gt-search' }
+ElixirApplicationAnalysis >> gtSearchFunctionsFor: aSearch [
+	<gtSearch>
+	| docForFn |
+	docForFn := [ :f |
+		self application evaluateAndWait:
+			'GtBridge.Documentation.for_function(',
+			(f attributeAt: #module), ', :',
+			(f attributeAt: #name), ', ',
+			(f attributeAt: #arity) asString, ')' ].
+	^ aSearch explicit
+		title: 'Functions';
+		priority: 20;
+		search: [ :ctx |
+			| query |
+			query := ctx searchQuery.
+			(self application evaluateAndWait:
+				'GtBridge.Analysis.search_functions(', self name resolve, ', "',
+				(query copyReplaceAll: '"' with: '\"'), '")') asList ];
+		itemName: [ :f |
+			((f attributeAt: #module) copyReplaceAll: 'Elixir.' with: ''),
+			'.', (f attributeAt: #name), '/', (f attributeAt: #arity) asString ];
+		previewObject: docForFn;
+		send: docForFn
+]
+
+{ #category : 'gt-search' }
+ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
+	<gtSearch>
+	^ aSearch list
+		title: 'Modules';
+		priority: 10;
+		items: [ (self modules asList collect: [ :m | m symbol asString ]) sorted ];
+		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		filterBySubstring;
+		send: [ :modName |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(', modName, ')' ]
 ]
 
 { #category : 'gt-views' }
@@ -108,11 +173,6 @@ ElixirApplicationAnalysis >> gtDependencyGraphFor: aView [
 					'GtBridge.Analysis.app_dep_tree(', self name resolve, ')' }
 				apps: systemAnalysis appsByName
 				color: (Color fromHexString: '#e8f0fe') ]
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> gtDisplayOn: aStream [
-	aStream nextPutAll: self name asString
 ]
 
 { #category : 'gt-views' }
@@ -255,46 +315,6 @@ ElixirApplicationAnalysis >> gtReverseDepsFor: aView [
 				color: (Color fromHexString: '#f0e8fe') ]
 ]
 
-{ #category : 'gt-search' }
-ElixirApplicationAnalysis >> gtSearchFunctionsFor: aSearch [
-	<gtSearch>
-	| docForFn |
-	docForFn := [ :f |
-		self application evaluateAndWait:
-			'GtBridge.Documentation.for_function(',
-			(f attributeAt: #module), ', :',
-			(f attributeAt: #name), ', ',
-			(f attributeAt: #arity) asString, ')' ].
-	^ aSearch explicit
-		title: 'Functions';
-		priority: 20;
-		search: [ :ctx |
-			| query |
-			query := ctx searchQuery.
-			(self application evaluateAndWait:
-				'GtBridge.Analysis.search_functions(', self name resolve, ', "',
-				(query copyReplaceAll: '"' with: '\"'), '")') asList ];
-		itemName: [ :f |
-			((f attributeAt: #module) copyReplaceAll: 'Elixir.' with: ''),
-			'.', (f attributeAt: #name), '/', (f attributeAt: #arity) asString ];
-		previewObject: docForFn;
-		send: docForFn
-]
-
-{ #category : 'gt-search' }
-ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
-	<gtSearch>
-	^ aSearch list
-		title: 'Modules';
-		priority: 10;
-		items: [ (self modules asList collect: [ :m | m symbol asString ]) sorted ];
-		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
-		filterBySubstring;
-		send: [ :modName |
-			self application evaluateAndWait:
-				'GtBridge.Documentation.for_module(', modName, ')' ]
-]
-
 { #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtSupervisionTreeFor: aView [
 	<gtView>
@@ -316,6 +336,60 @@ ElixirApplicationAnalysis >> gtSupervisionTreeFor: aView [
 	^ supPid gtSupervisionView: aView
 ]
 
+{ #category : 'printing' }
+ElixirApplicationAnalysis >> printOn: aStream [
+	aStream
+		nextPutAll: 'ElixirApplicationAnalysis(';
+		nextPutAll: self name asString;
+		nextPut: $)
+]
+
+{ #category : 'private' }
+ElixirApplicationAnalysis >> buildTreeNode: aLabel from: entries [
+	"I build a tree node by consuming the namespace path.
+	 entries is a list of {info, remainingParts} pairs.
+	 A single leaf at this level merges its module info into the branch
+	 node itself; multiple leaves become separate child leaf nodes."
+	| leaves branches groups info leafChildren branchChildren |
+	leaves := entries select: [ :e | e second isEmpty ].
+	branches := entries reject: [ :e | e second isEmpty ].
+	groups := branches groupedBy: [ :e | e second first ].
+	info := leaves size = 1
+		ifTrue: [ self moduleInfoEntriesFor: leaves first first ]
+		ifFalse: [ { #module -> nil. #functions -> nil. #has_doc -> nil } ].
+	leafChildren := leaves size > 1
+		ifTrue: [ leaves collect: [ :e | self leafNodeFor: e first ] ]
+		ifFalse: [ #() ].
+	branchChildren := groups keys sorted collect: [ :k |
+		self buildTreeNode: k
+			from: ((groups at: k) collect: [ :e | { e first. e second allButFirst } ]) ].
+	^ ({
+		#label -> aLabel.
+		#children -> (leafChildren , branchChildren) asArray }
+		, info) asDictionary
+]
+
+{ #category : 'private' }
+ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
+	"I return a leaf tree node dictionary for a fully-qualified module."
+	| parts |
+	parts := $. split: ((aModuleInfo attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
+	^ ({
+		#label -> parts last.
+		#children -> #() }
+		, (self moduleInfoEntriesFor: aModuleInfo)) asDictionary
+]
+
+{ #category : 'private' }
+ElixirApplicationAnalysis >> moduleInfoEntriesFor: aModuleInfo [
+	"I return the module/functions/has_doc associations from a module info object.
+	 Used to merge a single leaf's metadata into its parent branch node."
+	^ {
+		#module -> (aModuleInfo attributeAt: #name).
+		#functions -> (aModuleInfo attributeAt: #functions).
+		#has_doc -> (aModuleInfo attributeAt: #has_doc) }
+]
+
 { #category : 'testing' }
 ElixirApplicationAnalysis >> hasModules [
 	^ [ self modules isNotNil ]
@@ -326,78 +400,4 @@ ElixirApplicationAnalysis >> hasModules [
 { #category : 'testing' }
 ElixirApplicationAnalysis >> hasTuple [
 	^ tuple isNotNil
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> moduleInfo [
-	"I return per-module metadata from the BEAM for the modules view."
-	^ self application evaluateAndWait:
-		'GtBridge.Analysis.module_details(', self name resolve, ')'
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> moduleTreeRoots [
-	"I return a tree of module info grouped by namespace prefix."
-	| entries groups |
-	entries := self moduleInfo asList collect: [ :each |
-		{ each. ($. split: ((each attributeAt: #name) copyReplaceAll: 'Elixir.' with: '')) } ].
-	groups := entries groupedBy: [ :e | e second first ].
-	^ (groups keys sorted collect: [ :key |
-		self buildTreeNode: key
-			from: ((groups at: key) collect: [ :e | { e first. e second allButFirst } ]) ]) asArray
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> modules [
-	^ self application
-		evaluateAndWait:
-			'Application.spec(', self name resolve, ', :modules)'
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> name [
-	^ name
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> name: aName [
-	name := aName
-]
-
-{ #category : 'printing' }
-ElixirApplicationAnalysis >> printOn: aStream [
-	aStream
-		nextPutAll: 'ElixirApplicationAnalysis(';
-		nextPutAll: self name asString;
-		nextPut: $)
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> systemAnalysis [
-	^ systemAnalysis
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> systemAnalysis: anElixirSystemAnalysis [
-	systemAnalysis := anElixirSystemAnalysis
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> tuple [
-	^ tuple
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> tuple: aTuple [
-	tuple := aTuple
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> version [
-	^ version
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> version: aVersion [
-	version := aVersion
 ]

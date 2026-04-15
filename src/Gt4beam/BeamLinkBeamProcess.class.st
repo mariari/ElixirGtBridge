@@ -14,6 +14,11 @@ BeamLinkBeamProcess >> commandLineString [
 	^ process commandLineString
 ]
 
+{ #category : 'as yet unclassified' }
+BeamLinkBeamProcess >> workingDirectory [
+	^ application settings workingDirectory
+]
+
 { #category : 'gtViews' }
 BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 	<gtView>
@@ -35,16 +40,18 @@ BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 		actionUpdateButton
 ]
 
-{ #category : 'testing' }
-BeamLinkBeamProcess >> hasProcess [
-	"Answer a boolean indicating whether the receiver has a process object"
-
-	^ process isNotNil
-]
-
-{ #category : 'testing' }
-BeamLinkBeamProcess >> isRunning [
-	^ process notNil and: [ process isRunning ]
+{ #category : 'http' }
+BeamLinkBeamProcess >> startHTTPAt: server andClient: client [
+	process stdinStream
+		nextPutAll: (String
+				streamContents: [ :stream | 
+					stream
+						nextPutAll: 'GtBridge.Http.Supervisor.start_listener(';
+						nextPutAll: server;
+						nextPut: $,;
+						nextPutAll: client;
+						nextPut: $);
+						lf ])
 ]
 
 { #category : 'private' }
@@ -83,18 +90,11 @@ BeamLinkBeamProcess >> start [
 		andClient: self application settings clientSocketAddress port asString
 ]
 
-{ #category : 'http' }
-BeamLinkBeamProcess >> startHTTPAt: server andClient: client [
-	process stdinStream
-		nextPutAll: (String
-				streamContents: [ :stream | 
-					stream
-						nextPutAll: 'GtBridge.Http.Supervisor.start_listener(';
-						nextPutAll: server;
-						nextPut: $,;
-						nextPutAll: client;
-						nextPut: $);
-						lf ])
+{ #category : 'start-stop' }
+BeamLinkBeamProcess >> stop [
+	process ifNil: [ ^ self ].
+	process terminate.
+	process := nil
 ]
 
 { #category : 'tcp' }
@@ -109,14 +109,14 @@ BeamLinkBeamProcess >> startTCPAt: socket [
 						lf ])
 ]
 
-{ #category : 'start-stop' }
-BeamLinkBeamProcess >> stop [
-	process ifNil: [ ^ self ].
-	process terminate.
-	process := nil
+{ #category : 'testing' }
+BeamLinkBeamProcess >> hasProcess [
+	"Answer a boolean indicating whether the receiver has a process object"
+
+	^ process isNotNil
 ]
 
-{ #category : 'as yet unclassified' }
-BeamLinkBeamProcess >> workingDirectory [
-	^ application settings workingDirectory
+{ #category : 'testing' }
+BeamLinkBeamProcess >> isRunning [
+	^ process notNil and: [ process isRunning ]
 ]

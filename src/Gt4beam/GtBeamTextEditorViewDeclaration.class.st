@@ -11,9 +11,18 @@ GtBeamTextEditorViewDeclaration class >> remoteName [
 	^ 'GtPhlowTextEditorViewSpecification'
 ]
 
-{ #category : 'testing' }
-GtBeamTextEditorViewDeclaration >> isMarkdown [
-	^ (self rawData attributeAt: #markdown) = true
+{ #category : 'as yet unclassified' }
+GtBeamTextEditorViewDeclaration >> treatView: view [
+	self isMarkdown
+		ifTrue: [ self treatMarkdownView: view ]
+		ifFalse: [ self treatTextView: view ]
+]
+
+{ #category : 'as yet unclassified' }
+GtBeamTextEditorViewDeclaration >> viewName [
+	self isMarkdown
+		ifTrue: [ ^ #explicit ]
+		ifFalse: [ ^ #textEditor ]
 ]
 
 { #category : 'private' }
@@ -42,16 +51,7 @@ GtBeamTextEditorViewDeclaration >> treatTextView: view [
 		text ]
 ]
 
-{ #category : 'as yet unclassified' }
-GtBeamTextEditorViewDeclaration >> treatView: view [
-	self isMarkdown
-		ifTrue: [ self treatMarkdownView: view ]
-		ifFalse: [ self treatTextView: view ]
-]
-
-{ #category : 'as yet unclassified' }
-GtBeamTextEditorViewDeclaration >> viewName [
-	self isMarkdown
-		ifTrue: [ ^ #explicit ]
-		ifFalse: [ ^ #textEditor ]
+{ #category : 'testing' }
+GtBeamTextEditorViewDeclaration >> isMarkdown [
+	^ (self rawData attributeAt: #markdown) = true
 ]

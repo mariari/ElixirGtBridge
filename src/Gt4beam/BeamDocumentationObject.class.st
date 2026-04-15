@@ -46,6 +46,39 @@ BeamDocumentationObject >> gtActionApplicationFor: anAction [
 				aButton phlow spawnObject: app ] ]
 ]
 
+{ #category : 'gt-extensions' }
+BeamDocumentationObject >> remoteViewsInContext: aContext [
+	"I return empty — remote view declarations (Module Doc,
+	 Functions, Types) are redundant as top-level tabs since the
+	 Coder's Help tab already shows them. They're still accessible
+	 via gtRemoteViewsFor: inside the Help tab."
+	^ #()
+]
+
+{ #category : 'gt-search' }
+BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
+	<gtSearch>
+	^ aSearch list
+		title: 'Functions';
+		priority: 10;
+		wantsToDisplayOnEmptyQuery: true;
+		items: [
+			| mod |
+			mod := [ self evaluateAndWait:
+				'inspect(elem(', self resolve, '.query, 1))' ]
+				on: Error do: [ nil ].
+			mod isString
+				ifTrue: [ (self evaluateAndWait:
+					'GtBridge.Analysis.exported_functions(', mod, ')') asList
+						collect: [ :f | { mod. (f attributeAt: #name) asString. (f attributeAt: #arity) } ] ]
+				ifFalse: [ #() ] ];
+		itemName: [ :each | each second, '/', each third asString ];
+		filterBySubstring;
+		send: [ :each |
+			self evaluateAndWait:
+				'GtBridge.Documentation.for_function(', each first, ', :', each second, ', ', each third asString, ')' ]
+]
+
 { #category : 'gt-views' }
 BeamDocumentationObject >> gtApplicationFor: aView [
 	<gtView>
@@ -190,37 +223,4 @@ BeamDocumentationObject >> gtSourceFor: aView [
 	"I override to hide the Source tab — the Coder tab already
 	 has Source as an internal tab."
 	^ aView empty
-]
-
-{ #category : 'gt-extensions' }
-BeamDocumentationObject >> remoteViewsInContext: aContext [
-	"I return empty — remote view declarations (Module Doc,
-	 Functions, Types) are redundant as top-level tabs since the
-	 Coder's Help tab already shows them. They're still accessible
-	 via gtRemoteViewsFor: inside the Help tab."
-	^ #()
-]
-
-{ #category : 'gt-search' }
-BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
-	<gtSearch>
-	^ aSearch list
-		title: 'Functions';
-		priority: 10;
-		wantsToDisplayOnEmptyQuery: true;
-		items: [
-			| mod |
-			mod := [ self evaluateAndWait:
-				'inspect(elem(', self resolve, '.query, 1))' ]
-				on: Error do: [ nil ].
-			mod isString
-				ifTrue: [ (self evaluateAndWait:
-					'GtBridge.Analysis.exported_functions(', mod, ')') asList
-						collect: [ :f | { mod. (f attributeAt: #name) asString. (f attributeAt: #arity) } ] ]
-				ifFalse: [ #() ] ];
-		itemName: [ :each | each second, '/', each third asString ];
-		filterBySubstring;
-		send: [ :each |
-			self evaluateAndWait:
-				'GtBridge.Documentation.for_function(', each first, ', :', each second, ', ', each third asString, ')' ]
 ]

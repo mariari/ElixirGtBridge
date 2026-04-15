@@ -19,14 +19,6 @@ BeamAtomObject class >> new: aSymbol [
 	^ self new symbol: aSymbol
 ]
 
-{ #category : 'comparing' }
-BeamAtomObject >> = aSymbol [
-	"I should probably do this better"
-
-	self class == aSymbol class ifFalse: [ ^ false ].
-	^ self symbol = aSymbol symbol
-]
-
 { #category : 'accessing' }
 BeamAtomObject >> applicationAnalysis [
 	"I return the ElixirApplicationAnalysis for my module, or nil."
@@ -40,11 +32,6 @@ BeamAtomObject >> applicationAnalysis [
 	^ sys applications
 		detect: [ :each | each name symbol = appAtom symbol ]
 		ifNone: [ nil ]
-]
-
-{ #category : 'as yet unclassified' }
-BeamAtomObject >> determinePID [
-	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
 ]
 
 { #category : 'accessing' }
@@ -61,6 +48,21 @@ BeamAtomObject >> remoteClass [
 	^ self elixirClass ifNil: [ symbol ]
 ]
 
+{ #category : 'accessing' }
+BeamAtomObject >> symbol [
+	^ symbol
+]
+
+{ #category : 'accessing' }
+BeamAtomObject >> symbol: anObject [
+	symbol := anObject
+]
+
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> determinePID [
+	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
+]
+
 { #category : 'as yet unclassified' }
 BeamAtomObject >> evaluateAndWait: aString [
 	"I'm unsure how this works when we have multiple beam instances... Since this isn't related to any personal data"
@@ -68,6 +70,34 @@ BeamAtomObject >> evaluateAndWait: aString [
 	^ BeamLinkApplication uniqueInstance newCommandFactory
 		<< aString;
 		sendAndWait
+]
+
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> printOn: aStream [
+	self symbol printOn: aStream
+]
+
+{ #category : 'comparing' }
+BeamAtomObject >> = aSymbol [
+	"I should probably do this better"
+
+	self class == aSymbol class ifFalse: [ ^ false ].
+	^ self symbol = aSymbol symbol
+]
+
+{ #category : 'comparing' }
+BeamAtomObject >> hash [
+	^ self symbol hash hashMultiply
+]
+
+{ #category : 'elixir - resolution' }
+BeamAtomObject >> resolve [
+	"I return the Elixir literal for this atom. Module atoms
+	 (uppercase letter) are bare names; all others (including
+	 underscore-prefixed like __meta__) get the : prefix."
+	^ symbol first isUppercase
+		ifTrue: [ symbol ]
+		ifFalse: [ ':' , symbol ]
 ]
 
 { #category : 'gt-actions' }
@@ -83,43 +113,6 @@ BeamAtomObject >> gtActionApplicationFor: anAction [
 				aButton phlow spawnObject: app ] ]
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtBeamPrintFor: aView [
-	<gtView>
-	<gtBeamView>
-	"I show the Elixir inspect() output for this atom."
-	^ aView textEditor
-		title: 'Print';
-		priority: 115;
-		aptitude: BrGlamorousCodeEditorAptitude;
-		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ]
-]
-
-{ #category : 'views' }
-BeamAtomObject >> gtCoderFor: aView [
-	<gtView>
-	<gtBeamView>
-	"I show the module coder for module atoms. Elixir modules get
-	 the Elixir. prefix; Erlang modules use the bare atom name."
-	| modName |
-	self isModuleAtom ifFalse: [ ^ aView empty ].
-	modName := symbol first isUppercase
-		ifTrue: [ (symbol beginsWith: 'Elixir.')
-			ifTrue: [ symbol ]
-			ifFalse: [ 'Elixir.' , symbol ] ]
-		ifFalse: [ ':' , symbol ].
-	^ aView explicit
-		title: 'Meta';
-		priority: 199;
-		stencil: [
-			| coder |
-			coder := ElixirModuleCoder
-				forModule: modName
-				application: BeamLinkApplication uniqueInstance.
-			coder selfObject: self.
-			coder asCoderViewModel asElement ]
-]
-
 { #category : 'gt-extensions' }
 BeamAtomObject >> gtDefaultInspectorTool [
 	"I collect inspector modes — self (Atom) is implicit, declared
@@ -129,41 +122,6 @@ BeamAtomObject >> gtDefaultInspectorTool [
 		fromObject: self;
 		collect.
 	^ BeamProxyToggleCompositeTool fromModes: modes
-]
-
-{ #category : 'gt-extensions' }
-BeamAtomObject >> gtSpotterActDefaultFrom: aSpotterElement [
-	"I open my composite inspector tool in a pager instead of
-	 the default plain GtInspector, preserving the R|P toggle."
-	| tool |
-	tool := self gtDefaultInspectorTool.
-	BlSpace new
-		inPager: tool;
-		title: tool name;
-		icon: tool icon;
-		withSceneDriller;
-		showFrom: aSpotterElement
-]
-
-{ #category : 'gt-extensions' }
-BeamAtomObject >> inspectorModeName [
-	^ 'Atom'
-]
-
-{ #category : 'inspector-modes' }
-BeamAtomObject >> gtPidMode: aMode [
-	<gtInspectorMode>
-	| pid |
-	pid := [ self determinePID ] on: Error do: [ nil ].
-	(pid isNil or: [ pid isError ]) ifTrue: [ ^ aMode ].
-	^ aMode
-		name: 'Pid';
-		priority: 10;
-		object: pid;
-		tool: (pid gtRemoteSideInspectorTool
-			name: 'Pid';
-			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
-			withLabelAndIconAptitude)
 ]
 
 { #category : 'gt-extensions' }
@@ -216,6 +174,20 @@ BeamAtomObject >> gtRemoteSideInspectorTool [
 ]
 
 { #category : 'gt-extensions' }
+BeamAtomObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
 BeamAtomObject >> gtViewsForProxySideInContext: aContext [
 	"I collect views for Proxy mode — all views EXCEPT those
 	 tagged <gtBeamView>. Shows Raw, Print, Meta."
@@ -230,6 +202,77 @@ BeamAtomObject >> gtViewsForRemoteSideInContext: aContext [
 	 Print, Meta) are excluded since they lack the pragma."
 	^ (self gtViewsInContext: aContext) select: [ :each |
 		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamAtomObject >> inspectorModeName [
+	^ 'Atom'
+]
+
+{ #category : 'inspector-modes' }
+BeamAtomObject >> gtPidMode: aMode [
+	<gtInspectorMode>
+	| pid |
+	pid := [ self determinePID ] on: Error do: [ nil ].
+	(pid isNil or: [ pid isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'Pid';
+		priority: 10;
+		object: pid;
+		tool: (pid gtRemoteSideInspectorTool
+			name: 'Pid';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
+]
+
+{ #category : 'testing' }
+BeamAtomObject >> isModuleAtom [
+	"I return true for Elixir modules (uppercase) and Erlang
+	 modules (lowercase, checked via Code.ensure_loaded? on the
+	 BEAM). Erlang modules like :mnesia, :ets, :gen_server are
+	 valid modules even though they start lowercase."
+	symbol isEmpty ifTrue: [ ^ false ].
+	symbol first isUppercase ifTrue: [ ^ true ].
+	^ [ self evaluateAndWait:
+		'Code.ensure_loaded?(:', symbol, ')' ]
+		on: Error do: [ false ]
+]
+
+{ #category : 'views' }
+BeamAtomObject >> gtBeamPrintFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the Elixir inspect() output for this atom."
+	^ aView textEditor
+		title: 'Print';
+		priority: 115;
+		aptitude: BrGlamorousCodeEditorAptitude;
+		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ]
+]
+
+{ #category : 'views' }
+BeamAtomObject >> gtCoderFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the module coder for module atoms. Elixir modules get
+	 the Elixir. prefix; Erlang modules use the bare atom name."
+	| modName |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	modName := symbol first isUppercase
+		ifTrue: [ (symbol beginsWith: 'Elixir.')
+			ifTrue: [ symbol ]
+			ifFalse: [ 'Elixir.' , symbol ] ]
+		ifFalse: [ ':' , symbol ].
+	^ aView explicit
+		title: 'Meta';
+		priority: 199;
+		stencil: [
+			| coder |
+			coder := ElixirModuleCoder
+				forModule: modName
+				application: BeamLinkApplication uniqueInstance.
+			coder selfObject: self.
+			coder asCoderViewModel asElement ]
 ]
 
 { #category : 'views' }
@@ -252,47 +295,4 @@ BeamAtomObject >> gtModuleDocsView: aView [
 		title: 'Documentation';
 		priority: 3;
 		stencil: [ page asPreviewElement vMatchParent ]
-]
-
-{ #category : 'comparing' }
-BeamAtomObject >> hash [
-	^ self symbol hash hashMultiply
-]
-
-{ #category : 'testing' }
-BeamAtomObject >> isModuleAtom [
-	"I return true for Elixir modules (uppercase) and Erlang
-	 modules (lowercase, checked via Code.ensure_loaded? on the
-	 BEAM). Erlang modules like :mnesia, :ets, :gen_server are
-	 valid modules even though they start lowercase."
-	symbol isEmpty ifTrue: [ ^ false ].
-	symbol first isUppercase ifTrue: [ ^ true ].
-	^ [ self evaluateAndWait:
-		'Code.ensure_loaded?(:', symbol, ')' ]
-		on: Error do: [ false ]
-]
-
-{ #category : 'as yet unclassified' }
-BeamAtomObject >> printOn: aStream [
-	self symbol printOn: aStream
-]
-
-{ #category : 'elixir - resolution' }
-BeamAtomObject >> resolve [
-	"I return the Elixir literal for this atom. Module atoms
-	 (uppercase letter) are bare names; all others (including
-	 underscore-prefixed like __meta__) get the : prefix."
-	^ symbol first isUppercase
-		ifTrue: [ symbol ]
-		ifFalse: [ ':' , symbol ]
-]
-
-{ #category : 'accessing' }
-BeamAtomObject >> symbol [
-	^ symbol
-]
-
-{ #category : 'accessing' }
-BeamAtomObject >> symbol: anObject [
-	symbol := anObject
 ]
