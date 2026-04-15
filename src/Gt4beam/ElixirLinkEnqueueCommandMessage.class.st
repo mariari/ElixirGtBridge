@@ -9,6 +9,12 @@ Class {
 	#tag : 'Execution'
 }
 
+{ #category : 'encoding' }
+ElixirLinkEnqueueCommandMessage >> privateEncode: dict [
+	super privateEncode: dict.
+	sessionId ifNotNil: [ dict at: #sessionId put: sessionId ]
+]
+
 { #category : 'accessing' }
 ElixirLinkEnqueueCommandMessage >> sessionId [
 	^ sessionId
@@ -17,10 +23,4 @@ ElixirLinkEnqueueCommandMessage >> sessionId [
 { #category : 'accessing' }
 ElixirLinkEnqueueCommandMessage >> sessionId: aString [
 	sessionId := aString
-]
-
-{ #category : 'encoding' }
-ElixirLinkEnqueueCommandMessage >> privateEncode: dict [
-	super privateEncode: dict.
-	sessionId ifNotNil: [ dict at: #sessionId put: sessionId ]
 ]
