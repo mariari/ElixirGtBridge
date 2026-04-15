@@ -47,11 +47,6 @@ BeamInspectorMode >> priority: aNumber [
 	priority := aNumber
 ]
 
-{ #category : 'testing' }
-BeamInspectorMode >> isEmpty [
-	^ tool isNil
-]
-
 { #category : 'accessing' }
 BeamInspectorMode >> tool [
 	^ tool
@@ -60,4 +55,9 @@ BeamInspectorMode >> tool [
 { #category : 'accessing' }
 BeamInspectorMode >> tool: aTool [
 	tool := aTool
+]
+
+{ #category : 'testing' }
+BeamInspectorMode >> isEmpty [
+	^ tool isNil
 ]

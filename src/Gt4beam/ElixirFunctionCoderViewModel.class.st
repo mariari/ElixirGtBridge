@@ -11,17 +11,6 @@ ElixirFunctionCoderViewModel >> elementClass [
 	^ GtExpandableSourceCoderElement
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoderViewModel >> newCompletionStrategy [
-	| strategy |
-	strategy := GtElixirCompletionStrategy new
-		coderModel: self coderModel;
-		coderViewModel: self.
-	self coderModel moduleCoder ifNotNil: [ :mc |
-		mc editorSessionId ifNotNil: [ :sid | strategy sessionId: sid ] ].
-	^ strategy
-]
-
 { #category : 'actions' }
 ElixirFunctionCoderViewModel >> save [
 	"I splice the current editor text back into the module source at
@@ -36,4 +25,15 @@ ElixirFunctionCoderViewModel >> save [
 		fromLine: coder startLine
 		toLine: coder endLine.
 	^ true
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoderViewModel >> newCompletionStrategy [
+	| strategy |
+	strategy := GtElixirCompletionStrategy new
+		coderModel: self coderModel;
+		coderViewModel: self.
+	self coderModel moduleCoder ifNotNil: [ :mc |
+		mc editorSessionId ifNotNil: [ :sid | strategy sessionId: sid ] ].
+	^ strategy
 ]

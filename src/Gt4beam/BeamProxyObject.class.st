@@ -14,11 +14,6 @@ Class {
 }
 
 { #category : 'as yet unclassified' }
-BeamProxyObject class >> leProxyTypeForPlaygroundPage [
-	^ BeamProxyObject
-]
-
-{ #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass [
 	^ self subclassResponsibility
 ]
@@ -33,11 +28,8 @@ BeamProxyObject class >> elixirClass: aClass [
 ]
 
 { #category : 'as yet unclassified' }
-BeamProxyObject >> = AnotherObject [
-	^ super = AnotherObject
-		ifFalse: [ self class = AnotherObject class
-				and: [ self asString = AnotherObject asString ] ]
-		ifTrue: [ true ]
+BeamProxyObject class >> leProxyTypeForPlaygroundPage [
+	^ BeamProxyObject
 ]
 
 { #category : 'accessing' }
@@ -69,6 +61,56 @@ BeamProxyObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
+{ #category : 'accessing' }
+BeamProxyObject >> elixirClass [
+	^ elixirClass
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> elixirClass: anObject [
+	elixirClass := anObject
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> elixirVar [
+	^ elixirVar
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> elixirVar: anObject [
+	elixirVar := anObject
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> functionLines [
+	^ nil
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> rawData [
+	^ rawData
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> rawData: anObject [
+	rawData := anObject
+]
+
+{ #category : 'accessing' }
+BeamProxyObject >> remoteClass [
+	"I return my Elixir class — used by GT's proxy-side playground
+	 strategy and inspector page keys."
+	^ elixirClass
+]
+
+{ #category : 'as yet unclassified' }
+BeamProxyObject >> = AnotherObject [
+	^ super = AnotherObject
+		ifFalse: [ self class = AnotherObject class
+				and: [ self asString = AnotherObject asString ] ]
+		ifTrue: [ true ]
+]
+
 { #category : 'as yet unclassified' }
 BeamProxyObject >> asList [
 	^ (1 to: self length) collect: [ :anIndex | self itemAt: anIndex - 1 ]
@@ -90,14 +132,6 @@ BeamProxyObject >> attributeAt: name [
 		evaluateAndWait: 'GtBridge.ObjectRegistry.get_attribute(' , self elixirVar asString , ',', resolvedName, ')'
 ]
 
-{ #category : 'private' }
-BeamProxyObject >> elixirAtomFor: aString [
-	"I return an Elixir atom literal, quoted if the name contains non-identifier characters."
-	(aString allSatisfy: [ :c | c isAlphaNumeric or: [ c = $_ ] ])
-		ifTrue: [ ^ ':', aString ].
-	^ ':"', aString, '"'
-]
-
 { #category : 'as yet unclassified' }
 BeamProxyObject >> attributes [
 	^ self
@@ -110,188 +144,11 @@ BeamProxyObject >> attributesAndValues [
 		collect: [ :anItem | anItem -> (self attributeAt: anItem) ]
 ]
 
-{ #category : 'accessing' }
-BeamProxyObject >> elixirClass [
-	^ elixirClass
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> elixirClass: anObject [
-	elixirClass := anObject
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> elixirVar [
-	^ elixirVar
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> elixirVar: anObject [
-	elixirVar := anObject
-]
-
 { #category : 'as yet unclassified' }
 BeamProxyObject >> evaluateAndWait: string [
 	^ self application newCommandFactory
 		<< string;
 		sendAndWait
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> filterLocalProxyViews: localViews [
-	"I remove views tagged <gtProxyView> from the Remote tab list so
-	 they appear only under Proxy mode."
-	^ localViews reject: [ :each |
-		each definingMethod compiledMethod hasPragmaNamed: #gtProxyView ]
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtDefaultInspectorTool [
-	"I collect inspector modes via <gtInspectorMode> pragmas.
-	 Self mode is always included. R/P toggle shows even with
-	 a single mode for consistent Proxy access."
-	| modes |
-	modes := BeamInspectorModeCollector new
-		fromObject: self;
-		collect.
-	^ BeamProxyToggleCompositeTool fromModes: modes
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtSpotterActDefaultFrom: aSpotterElement [
-	"I open my composite inspector tool in a pager instead of
-	 the default plain GtInspector, preserving the R|P toggle."
-	| tool |
-	tool := self gtDefaultInspectorTool.
-	BlSpace new
-		inPager: tool;
-		title: tool name;
-		icon: tool icon;
-		withSceneDriller;
-		showFrom: aSpotterElement
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> inspectorModeName [
-	"I return my display name for the inspector mode tab.
-	 Subclasses override for type-specific names."
-	^ 'Remote'
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtRemoteInspectorContentFor: aView [
-	<return: #GtPhlowLabelledView>
-	"I build the Remote tab's labelled content by collecting views via
-	 #gtViewsForRemoteSideInContext: and wrapping them with a title."
-	^ GtPhlowLabelledViewBuilder new
-		object: self;
-		view: aView;
-		context: GtPhlowContext new;
-		viewsSelector: #gtViewsForRemoteSideInContext:;
-		titleComputation: [
-			elixirClass
-				ifNil: [ '<anonymous>' ]
-				ifNotNil: [ :cls |
-					String streamContents: [ :stream |
-						stream
-							<< (cls first isVowel ifTrue: [ 'an ' ] ifFalse: [ 'a ' ]);
-							<< cls ] ] ];
-		build
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtRemoteSideInitialPlaygroundSnippet [
-	^ LeElixirSnippet new
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtRemoteSideInspectorTool [
-	"I return the inspector tool for the Remote tab — a GtInspectorTool
-	 that routes view collection through gtRemoteInspectorContentFor:."
-	^ GtInspectorTool
-		forObject: self
-		viewSelector: #gtRemoteInspectorContentFor:
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtViewsForRemoteSideInContext: aContext [
-	"I collect views for the Remote tab: local views tagged
-	 <gtBeamView> (BEAM data views only, no generic GT views
-	 like Raw/Print/Meta), plus any server-side view declarations
-	 registered via GtBridge.GtViewedObject on the remote object."
-	| localBeamViews collectedViews |
-	localBeamViews := (super gtViewsInContext: aContext) select: [ :each |
-		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ].
-	collectedViews := OrderedCollection new
-		addAll: localBeamViews;
-		addAll: (self remoteViewsInContext: aContext);
-		yourself.
-	GtPhlowUtility sortByPriority: collectedViews.
-	^ collectedViews
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtViewsForProxySideInContext: aContext [
-	"I collect views for the Proxy tab: all local views EXCEPT
-	 those tagged <gtBeamView>. This shows the GT wrapper views
-	 (Raw, Print, Meta) and any <gtProxyView> views, but hides
-	 BEAM data views which belong in Remote mode."
-	^ (super gtViewsInContext: aContext) reject: [ :each |
-		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtProxyInspectorContentFor: aView [
-	"I build the Proxy tab's labelled content — GT wrapper views
-	 only, no BEAM data views."
-	^ GtPhlowLabelledViewBuilder new
-		object: self;
-		view: aView;
-		context: GtPhlowContext new;
-		viewsSelector: #gtViewsForProxySideInContext:;
-		titleComputation: [ self class name ];
-		build
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> gtProxySideInspectorTool [
-	"I return an inspector tool showing only GT wrapper views
-	 (no BEAM data views) — for the Proxy tab."
-	^ GtInspectorTool
-		forObject: self
-		viewSelector: #gtProxyInspectorContentFor:
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> remoteClass [
-	"I return my Elixir class — used by GT's proxy-side playground
-	 strategy and inspector page keys."
-	^ elixirClass
-]
-
-{ #category : 'gt-extensions' }
-BeamProxyObject >> remoteViewsInContext: aContext [
-	"I return the server-side declarative views for this proxy — one
-	 GtPhlowView per view declaration registered on the remote object.
-	 Empty if the bridge can't reach the server or the object has no
-	 declared views."
-	^ [ self viewDeclarations asList
-		collect: [ :decl | self viewFromDeclaration: decl ] ]
-		on: Error do: [ #() ]
-]
-
-{ #category : 'gt-actions' }
-BeamProxyObject >> gtActionApplicationFor: anAction [
-	<gtAction>
-	"I add a toolbar button that spawns the ElixirApplicationAnalysis
-	 for the application that defines my class. Silently no-ops when
-	 the class doesn't belong to a tracked application."
-	^ anAction button
-		icon: BrGlamorousVectorIcons hierarchy;
-		label: 'Application';
-		action: [ :aButton |
-			self applicationAnalysis ifNotNil: [ :app |
-				aButton phlow spawnObject: app ] ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -359,35 +216,6 @@ BeamProxyObject >> gtRemoteViewsFor: aView [
 		views: (viewDecls collect: [ :decl | self viewFromDeclaration: decl ])
 ]
 
-{ #category : 'accessing' }
-BeamProxyObject >> functionLines [
-	^ nil
-]
-
-{ #category : 'gt-views' }
-BeamProxyObject >> gtBeamPrintFor: aView [
-	<gtView>
-	<gtBeamView>
-	"I show the Elixir inspect() output for this object in
-	 monospace, matching GT's standard Print view style."
-	^ aView textEditor
-		title: 'Print';
-		priority: 115;
-		aptitude: BrGlamorousCodeEditorAptitude;
-		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ];
-		actionUpdateButton
-]
-
-{ #category : 'comparing' }
-BeamProxyObject >> hash [
-	^ self class hash hashMultiply bitXor: self asString hash hashMultiply
-]
-
-{ #category : 'predicates' }
-BeamProxyObject >> isError [
-	^ false
-]
-
 { #category : 'as yet unclassified' }
 BeamProxyObject >> itemAt: idx [
 	^ self evaluateAndWait: self resolve , '|> Enum.at(' , idx asString , ')'
@@ -401,16 +229,6 @@ BeamProxyObject >> length [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> printOn: str [
 	str << (self evaluateAndWait: self resolve , '|> inspect(pretty: true)')
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> rawData [
-	^ rawData
-]
-
-{ #category : 'accessing' }
-BeamProxyObject >> rawData: anObject [
-	rawData := anObject
 ]
 
 { #category : 'as yet unclassified' }
@@ -434,4 +252,186 @@ BeamProxyObject >> viewDeclarations [
 { #category : 'as yet unclassified' }
 BeamProxyObject >> viewFromDeclaration: aDeclaration [
 	^ (GtBeamViewDeclaration fromRawData: aDeclaration) asView
+]
+
+{ #category : 'comparing' }
+BeamProxyObject >> hash [
+	^ self class hash hashMultiply bitXor: self asString hash hashMultiply
+]
+
+{ #category : 'gt-actions' }
+BeamProxyObject >> gtActionApplicationFor: anAction [
+	<gtAction>
+	"I add a toolbar button that spawns the ElixirApplicationAnalysis
+	 for the application that defines my class. Silently no-ops when
+	 the class doesn't belong to a tracked application."
+	^ anAction button
+		icon: BrGlamorousVectorIcons hierarchy;
+		label: 'Application';
+		action: [ :aButton |
+			self applicationAnalysis ifNotNil: [ :app |
+				aButton phlow spawnObject: app ] ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> filterLocalProxyViews: localViews [
+	"I remove views tagged <gtProxyView> from the Remote tab list so
+	 they appear only under Proxy mode."
+	^ localViews reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtProxyView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtDefaultInspectorTool [
+	"I collect inspector modes via <gtInspectorMode> pragmas.
+	 Self mode is always included. R/P toggle shows even with
+	 a single mode for consistent Proxy access."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtProxyInspectorContentFor: aView [
+	"I build the Proxy tab's labelled content — GT wrapper views
+	 only, no BEAM data views."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForProxySideInContext:;
+		titleComputation: [ self class name ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtProxySideInspectorTool [
+	"I return an inspector tool showing only GT wrapper views
+	 (no BEAM data views) — for the Proxy tab."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtProxyInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteInspectorContentFor: aView [
+	<return: #GtPhlowLabelledView>
+	"I build the Remote tab's labelled content by collecting views via
+	 #gtViewsForRemoteSideInContext: and wrapping them with a title."
+	^ GtPhlowLabelledViewBuilder new
+		object: self;
+		view: aView;
+		context: GtPhlowContext new;
+		viewsSelector: #gtViewsForRemoteSideInContext:;
+		titleComputation: [
+			elixirClass
+				ifNil: [ '<anonymous>' ]
+				ifNotNil: [ :cls |
+					String streamContents: [ :stream |
+						stream
+							<< (cls first isVowel ifTrue: [ 'an ' ] ifFalse: [ 'a ' ]);
+							<< cls ] ] ];
+		build
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteSideInitialPlaygroundSnippet [
+	^ LeElixirSnippet new
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtRemoteSideInspectorTool [
+	"I return the inspector tool for the Remote tab — a GtInspectorTool
+	 that routes view collection through gtRemoteInspectorContentFor:."
+	^ GtInspectorTool
+		forObject: self
+		viewSelector: #gtRemoteInspectorContentFor:
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtSpotterActDefaultFrom: aSpotterElement [
+	"I open my composite inspector tool in a pager instead of
+	 the default plain GtInspector, preserving the R|P toggle."
+	| tool |
+	tool := self gtDefaultInspectorTool.
+	BlSpace new
+		inPager: tool;
+		title: tool name;
+		icon: tool icon;
+		withSceneDriller;
+		showFrom: aSpotterElement
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtViewsForProxySideInContext: aContext [
+	"I collect views for the Proxy tab: all local views EXCEPT
+	 those tagged <gtBeamView>. This shows the GT wrapper views
+	 (Raw, Print, Meta) and any <gtProxyView> views, but hides
+	 BEAM data views which belong in Remote mode."
+	^ (super gtViewsInContext: aContext) reject: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> gtViewsForRemoteSideInContext: aContext [
+	"I collect views for the Remote tab: local views tagged
+	 <gtBeamView> (BEAM data views only, no generic GT views
+	 like Raw/Print/Meta), plus any server-side view declarations
+	 registered via GtBridge.GtViewedObject on the remote object."
+	| localBeamViews collectedViews |
+	localBeamViews := (super gtViewsInContext: aContext) select: [ :each |
+		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ].
+	collectedViews := OrderedCollection new
+		addAll: localBeamViews;
+		addAll: (self remoteViewsInContext: aContext);
+		yourself.
+	GtPhlowUtility sortByPriority: collectedViews.
+	^ collectedViews
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> inspectorModeName [
+	"I return my display name for the inspector mode tab.
+	 Subclasses override for type-specific names."
+	^ 'Remote'
+]
+
+{ #category : 'gt-extensions' }
+BeamProxyObject >> remoteViewsInContext: aContext [
+	"I return the server-side declarative views for this proxy — one
+	 GtPhlowView per view declaration registered on the remote object.
+	 Empty if the bridge can't reach the server or the object has no
+	 declared views."
+	^ [ self viewDeclarations asList
+		collect: [ :decl | self viewFromDeclaration: decl ] ]
+		on: Error do: [ #() ]
+]
+
+{ #category : 'gt-views' }
+BeamProxyObject >> gtBeamPrintFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the Elixir inspect() output for this object in
+	 monospace, matching GT's standard Print view style."
+	^ aView textEditor
+		title: 'Print';
+		priority: 115;
+		aptitude: BrGlamorousCodeEditorAptitude;
+		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ];
+		actionUpdateButton
+]
+
+{ #category : 'predicates' }
+BeamProxyObject >> isError [
+	^ false
+]
+
+{ #category : 'private' }
+BeamProxyObject >> elixirAtomFor: aString [
+	"I return an Elixir atom literal, quoted if the name contains non-identifier characters."
+	(aString allSatisfy: [ :c | c isAlphaNumeric or: [ c = $_ ] ])
+		ifTrue: [ ^ ':', aString ].
+	^ ':"', aString, '"'
 ]

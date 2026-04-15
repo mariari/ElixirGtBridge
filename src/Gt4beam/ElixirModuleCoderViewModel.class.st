@@ -6,14 +6,14 @@ Class {
 	#tag : 'Coder'
 }
 
-{ #category : 'as yet unclassified' }
-ElixirModuleCoderViewModel >> coder [
-	^ self coderModel
-]
-
 { #category : 'accessing' }
 ElixirModuleCoderViewModel >> elementClass [
 	^ ElixirModuleCoderElement
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoderViewModel >> coder [
+	^ self coderModel
 ]
 
 { #category : 'as yet unclassified' }

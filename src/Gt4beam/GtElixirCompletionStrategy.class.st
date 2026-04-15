@@ -32,6 +32,19 @@ GtElixirCompletionStrategy >> coderViewModel: aCoderViewModel [
 	coderViewModel := aCoderViewModel
 ]
 
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> sessionId [
+	^ sessionId ifNil: [
+		coderViewModel ifNotNil: [ :vm |
+			vm viewPharoBindings ifNotNil: [ :bindings |
+				LeElixirSnippetElement sessionIdFor: bindings ] ] ]
+]
+
+{ #category : 'accessing' }
+GtElixirCompletionStrategy >> sessionId: aString [
+	sessionId := aString
+]
+
 { #category : 'completion' }
 GtElixirCompletionStrategy >> completionActionStreamFor: aText at: positionInteger requested: aBoolean [
 	| string first prefix results |
@@ -105,6 +118,18 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 	^ STONJSON fromString: response contents
 ]
 
+{ #category : 'private' }
+GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
+	| text |
+	text := aString asRopedText glamorousCodeFont.
+	(text from: 1 to: searchString size)
+		attributes: { BlTextDecorationAttribute new
+			color: BrGlamorousColors textHighlightColor;
+			thickness: 3;
+			underline }.
+	^ text
+]
+
 { #category : 'testing' }
 GtElixirCompletionStrategy >> hasCompletionEntryFor: aString [
 	^ aString size >= 2
@@ -119,29 +144,4 @@ GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
 GtElixirCompletionStrategy >> isSeparatorCharacter: aCharacter [
 	^ aCharacter isSeparator
 		or: [ '()[]{},;=+-*/<>|#' includes: aCharacter ]
-]
-
-{ #category : 'private' }
-GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
-	| text |
-	text := aString asRopedText glamorousCodeFont.
-	(text from: 1 to: searchString size)
-		attributes: { BlTextDecorationAttribute new
-			color: BrGlamorousColors textHighlightColor;
-			thickness: 3;
-			underline }.
-	^ text
-]
-
-{ #category : 'accessing' }
-GtElixirCompletionStrategy >> sessionId [
-	^ sessionId ifNil: [
-		coderViewModel ifNotNil: [ :vm |
-			vm viewPharoBindings ifNotNil: [ :bindings |
-				LeElixirSnippetElement sessionIdFor: bindings ] ] ]
-]
-
-{ #category : 'accessing' }
-GtElixirCompletionStrategy >> sessionId: aString [
-	sessionId := aString
 ]
