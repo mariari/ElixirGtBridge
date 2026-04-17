@@ -757,4 +757,108 @@ defmodule GtBridge.Analysis do
       path -> Path.join(path, "ebin")
     end
   end
+
+  @doc """
+  I return compile dependency data from the project's manifest.
+
+  Each entry has the source file, its defined modules, and three
+  dependency lists: compile (macro/attribute deps that trigger
+  recompilation), export (struct deps), and runtime (function calls).
+  """
+  @spec compile_deps() :: [map()]
+  def compile_deps do
+    manifest_path = Path.join(Mix.Project.manifest_path(), "compile.elixir")
+    {_modules, sources} = Mix.Compilers.Elixir.read_manifest(manifest_path)
+
+    for {file, entry} <- sources do
+      %{
+        file: file,
+        modules: elem(entry, 11) |> Enum.map(&inspect/1),
+        compile: elem(entry, 4) |> Enum.map(&inspect/1),
+        export: elem(entry, 5) |> Enum.map(&inspect/1),
+        runtime: elem(entry, 6) |> Enum.map(&inspect/1)
+      }
+    end
+    |> Enum.sort_by(& &1.file)
+  end
+
+  @doc """
+  I return the compile dependency graph as {from, to, label} edges.
+
+  Edges represent: changing `to` forces recompilation of `from`.
+  Label is :compile, :export, or :runtime.
+  """
+  @stdlib_modules MapSet.new([
+    Kernel, Kernel.Typespec, Kernel.Utils, Module, Protocol,
+    Application, Supervisor, GenServer, Agent, Task,
+    Enum, String, Map, MapSet, Keyword, List, Atom, Integer,
+    IO, File, Path, Code, Logger
+  ])
+
+  @spec compile_dep_edges(keyword()) :: [map()]
+  def compile_dep_edges(opts \\ []) do
+    manifest_path = Path.join(Mix.Project.manifest_path(), "compile.elixir")
+    {_modules, sources} = Mix.Compilers.Elixir.read_manifest(manifest_path)
+    include_stdlib? = Keyword.get(opts, :stdlib, false)
+    app_filter = Keyword.get(opts, :app, nil)
+
+    app_modules =
+      if app_filter do
+        case :application.get_key(app_filter, :modules) do
+          {:ok, mods} -> MapSet.new(mods)
+          _ -> nil
+        end
+      end
+
+    internal? = Keyword.get(opts, :internal, false)
+
+    for {_file, entry} <- sources,
+        defined = elem(entry, 11),
+        from <- defined,
+        app_modules == nil or MapSet.member?(app_modules, from),
+        {deps, label} <- [
+          {elem(entry, 4), :compile},
+          {elem(entry, 5), :export}
+        ],
+        to <- deps,
+        to not in defined,
+        include_stdlib? or not MapSet.member?(@stdlib_modules, to),
+        not internal? or (app_modules != nil and MapSet.member?(app_modules, to)) do
+      %{from: inspect(from), to: inspect(to), label: label}
+    end
+    |> Enum.uniq()
+    |> Enum.sort_by(&{&1.from, &1.to})
+  end
+
+  @doc """
+  I return compile dependency edges reachable from a specific module.
+
+  Transitively follows edges in both directions: upstream (what
+  would cause this module to recompile) and downstream (what
+  recompiles when this module changes).
+  """
+  @spec compile_dep_edges_for(module()) :: [map()]
+  def compile_dep_edges_for(mod) do
+    mod_name = inspect(mod)
+    edges = compile_dep_edges()
+
+    {up, down} =
+      Enum.reduce(edges, {%{}, %{}}, fn e, {u, d} ->
+        {Map.update(u, e.from, [e.to], &[e.to | &1]),
+         Map.update(d, e.to, [e.from], &[e.from | &1])}
+      end)
+
+    reachable =
+      bfs(MapSet.new([mod_name]), [mod_name], up)
+      |> bfs([mod_name], down)
+
+    Enum.filter(edges, &(MapSet.member?(reachable, &1.from) and MapSet.member?(reachable, &1.to)))
+  end
+
+  defp bfs(visited, [], _adj), do: visited
+
+  defp bfs(visited, frontier, adj) do
+    next = Enum.flat_map(frontier, &Map.get(adj, &1, [])) |> Enum.uniq() |> Enum.reject(&(&1 in visited))
+    bfs(MapSet.union(visited, MapSet.new(next)), next, adj)
+  end
 end
