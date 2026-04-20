@@ -752,10 +752,9 @@ defmodule GtBridge.Analysis do
   end
 
   defp beam_path(app) do
-    case :code.lib_dir(app) do
-      {:error, _} -> nil
-      path -> Path.join(path, "ebin")
-    end
+    Application.app_dir(app, "ebin") |> String.to_charlist()
+  rescue
+    _ -> nil
   end
 
   @doc """
