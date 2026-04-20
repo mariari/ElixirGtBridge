@@ -126,15 +126,20 @@ BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThresho
 					ifTrue: [ Color fromHexString: '#d4e6f1' ]
 					ifFalse: [ Color fromHexString: '#d5f5e3' ] ].
 			el := self nodeLabeled: label color: color onClick: [ :evt | ].
-			el addEventHandlerOn: BlClickEvent do: [ :evt | | pidStr cleaned |
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				| pidStr cleaned expr |
 				evt consumed: true.
 				pidStr := node at: #pid ifAbsent: [ nil ].
 				pidStr ifNotNil: [
-					cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+					expr := (isPool or: [ label beginsWith: '#PID' ])
+						ifTrue: [
+							cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+							'IEx.Helpers.pid("', cleaned, '")' ]
+						ifFalse: [ label first = $:
+							ifTrue: [ label ]
+							ifFalse: [ 'Elixir.', label ] ].
 					evt currentTarget phlow spawnObject:
-						(anApp newCommandFactory
-							<< ('IEx.Helpers.pid("', cleaned, '")');
-							sendAndWait) ] ].
+						(anApp newCommandFactory << expr; sendAndWait) ] ].
 			el ];
 		with: allNodes.
 	aMondrian edges stencil: [ self edgeStencil ];
