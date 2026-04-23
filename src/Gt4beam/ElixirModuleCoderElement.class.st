@@ -11,6 +11,17 @@ Class {
 	#tag : 'Coder'
 }
 
+{ #category : 'accessing' }
+ElixirModuleCoderElement >> coder [
+	^ coderViewModel coder
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoderElement >> coderViewModel: aCoderViewModel [
+	coderViewModel := aCoderViewModel.
+	self buildUI
+]
+
 { #category : 'as yet unclassified' }
 ElixirModuleCoderElement >> buildContentPane [
 	| pane |
@@ -72,17 +83,6 @@ ElixirModuleCoderElement >> buildHeader [
 ElixirModuleCoderElement >> buildUI [
 	self removeChildren.
 	self addChild: self buildContentPane
-]
-
-{ #category : 'accessing' }
-ElixirModuleCoderElement >> coder [
-	^ coderViewModel coder
-]
-
-{ #category : 'accessing' }
-ElixirModuleCoderElement >> coderViewModel: aCoderViewModel [
-	coderViewModel := aCoderViewModel.
-	self buildUI
 ]
 
 { #category : 'initialization' }

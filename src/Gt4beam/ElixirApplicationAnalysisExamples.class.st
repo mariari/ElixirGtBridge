@@ -15,17 +15,6 @@ ElixirApplicationAnalysisExamples >> application [
 	^ application
 ]
 
-{ #category : 'examples' }
-ElixirApplicationAnalysisExamples >> applicationHasModules [
-	<gtExample>
-	| application modules |
-	application := self application.
-	modules := application modules.
-	self assert: modules isNotNil.
-	self assert: modules class name equals: #BeamListObject.
-	^ modules
-]
-
 { #category : 'accessing' }
 ElixirApplicationAnalysisExamples >> applicationHasNameVersionAndDescription [
 	<gtExample>
@@ -38,21 +27,23 @@ ElixirApplicationAnalysisExamples >> applicationHasNameVersionAndDescription [
 ]
 
 { #category : 'examples' }
+ElixirApplicationAnalysisExamples >> applicationHasModules [
+	<gtExample>
+	| application modules |
+	application := self application.
+	modules := application modules.
+	self assert: modules isNotNil.
+	self assert: modules class name equals: #BeamListObject.
+	^ modules
+]
+
+{ #category : 'examples' }
 ElixirApplicationAnalysisExamples >> applicationOverviewIncludesModules [
 	<gtExample>
 	| application |
 	application := self application.
 	self assert: application hasModules.
 	^ application
-]
-
-{ #category : 'examples - views' }
-ElixirApplicationAnalysisExamples >> dependencyGraphView [
-	<gtExample>
-	| view |
-	view := self application gtDependencyGraphFor: GtPhlowEmptyView new.
-	self assert: view notNil.
-	^ view
 ]
 
 { #category : 'examples' }
@@ -63,6 +54,15 @@ ElixirApplicationAnalysisExamples >> moduleTreeRoots [
 	self assert: roots isNotEmpty.
 	self assert: (roots first at: #label) isNotNil.
 	^ roots
+]
+
+{ #category : 'examples - views' }
+ElixirApplicationAnalysisExamples >> dependencyGraphView [
+	<gtExample>
+	| view |
+	view := self application gtDependencyGraphFor: GtPhlowEmptyView new.
+	self assert: view notNil.
+	^ view
 ]
 
 { #category : 'examples - views' }

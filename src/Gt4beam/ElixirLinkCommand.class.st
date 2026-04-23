@@ -10,6 +10,11 @@ Class {
 }
 
 { #category : 'accessing' }
+ElixirLinkCommand >> codeForRemote [
+	^ Character lf join: self instructions
+]
+
+{ #category : 'accessing' }
 ElixirLinkCommand >> sessionId [
 	^ sessionId
 ]
@@ -17,11 +22,6 @@ ElixirLinkCommand >> sessionId [
 { #category : 'accessing' }
 ElixirLinkCommand >> sessionId: aString [
 	sessionId := aString
-]
-
-{ #category : 'accessing' }
-ElixirLinkCommand >> codeForRemote [
-	^ Character lf join: self instructions
 ]
 
 { #category : 'visualization' }

@@ -35,43 +35,6 @@ BeamPIDObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'views - helpers' }
-BeamPIDObject >> childrenTree [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
-]
-
-{ #category : 'gt-extensions' }
-BeamPIDObject >> gtDefaultInspectorTool [
-	"I collect inspector modes via <gtInspectorMode> pragmas."
-	| modes |
-	modes := BeamInspectorModeCollector new
-		fromObject: self;
-		collect.
-	^ BeamProxyToggleCompositeTool fromModes: modes
-]
-
-{ #category : 'gt-extensions' }
-BeamPIDObject >> inspectorModeName [
-	^ 'Pid'
-]
-
-{ #category : 'inspector-modes' }
-BeamPIDObject >> gtStateMode: aMode [
-	<gtInspectorMode>
-	| state |
-	state := [ self process_state ] on: Error do: [ nil ].
-	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
-	^ aMode
-		name: 'State';
-		priority: 20;
-		object: state;
-		tool: (state gtRemoteSideInspectorTool
-			name: 'State';
-			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
-			withLabelAndIconAptitude)
-]
-
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtInformationFor: aView [
 	<gtView>
@@ -135,12 +98,6 @@ BeamPIDObject >> isEvaluatorProcess [
 	^ self evaluateAndWait: self resolve , '== self()'
 ]
 
-{ #category : 'predicates' }
-BeamPIDObject >> isSupervisor [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
-]
-
 { #category : 'as yet unclassified' }
 BeamPIDObject >> printOn: str [
 	str << (self evaluateAndWait: self resolve , '|> inspect()')
@@ -151,3 +108,45 @@ BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> gtDefaultInspectorTool [
+	"I collect inspector modes via <gtInspectorMode> pragmas."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
+]
+
+{ #category : 'inspector-modes' }
+BeamPIDObject >> gtStateMode: aMode [
+	<gtInspectorMode>
+	| state |
+	state := [ self process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'State';
+		priority: 20;
+		object: state;
+		tool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
+]
+
+{ #category : 'predicates' }
+BeamPIDObject >> isSupervisor [
+	^ self
+		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
+]
+
+{ #category : 'views - helpers' }
+BeamPIDObject >> childrenTree [
+	^ self
+		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
+]

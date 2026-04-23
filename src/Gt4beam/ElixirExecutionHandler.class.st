@@ -6,6 +6,21 @@ Class {
 	#tag : 'Global'
 }
 
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> registerObject: aProxyObject [
+	"Don't register the object. Gets a new proxy every time"
+	weakRegistry 
+		registerObject: aProxyObject 
+		finalizer: (LanguageLinkRegistryFinalizer 
+							variable: aProxyObject elixirVar
+							executionHandler: self)
+]
+
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> removeId: aRemoteProxyId [
+	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
+]
+
 { #category : 'initialization' }
 ElixirExecutionHandler >> initializeHandler [
 	commandQueue := LanguageLinkCommandRegistry executionHandler: self.
@@ -33,19 +48,4 @@ ElixirExecutionHandler >> buildMessageFromCommand: command [
 	message addBinding: #pharoCommandId -> (self serialize: command id).
 	message sessionId: command sessionId.
 	^ message
-]
-
-{ #category : 'as yet unclassified' }
-ElixirExecutionHandler >> registerObject: aProxyObject [
-	"Don't register the object. Gets a new proxy every time"
-	weakRegistry 
-		registerObject: aProxyObject 
-		finalizer: (LanguageLinkRegistryFinalizer 
-							variable: aProxyObject elixirVar
-							executionHandler: self)
-]
-
-{ #category : 'as yet unclassified' }
-ElixirExecutionHandler >> removeId: aRemoteProxyId [
-	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
 ]

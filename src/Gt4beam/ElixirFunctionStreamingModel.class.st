@@ -31,6 +31,13 @@ ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 		to: self
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirFunctionStreamingModel >> refreshStream [
+	"I re-query function entries from the module coder and refresh my stream."
+	self refreshItemsStreamDueTo: 'functions reordered'.
+	coders := Dictionary new
+]
+
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newCoderCacheKeyFor: anEntry [
 	"I cache by function name + arity."
@@ -53,11 +60,4 @@ ElixirFunctionStreamingModel >> newItemsStream [
 	^ (moduleCoder functionEntries asList
 		sort: [ :a :b | (a attributeAt: #start) < (b attributeAt: #start) ])
 		asAsyncStream
-]
-
-{ #category : 'as yet unclassified' }
-ElixirFunctionStreamingModel >> refreshStream [
-	"I re-query function entries from the module coder and refresh my stream."
-	self refreshItemsStreamDueTo: 'functions reordered'.
-	coders := Dictionary new
 ]

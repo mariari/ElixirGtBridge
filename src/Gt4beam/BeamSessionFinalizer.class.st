@@ -22,6 +22,11 @@ BeamSessionFinalizer >> application: anApplication [
 	application := anApplication
 ]
 
+{ #category : 'accessing' }
+BeamSessionFinalizer >> sessionId: aString [
+	sessionId := aString
+]
+
 { #category : 'finalization' }
 BeamSessionFinalizer >> finalize [
 	| serverAddress url |
@@ -37,9 +42,4 @@ BeamSessionFinalizer >> finalize [
 			type: ZnMimeType applicationJson);
 		post ]
 		on: Error do: [ "server may be stopped" ]
-]
-
-{ #category : 'accessing' }
-BeamSessionFinalizer >> sessionId: aString [
-	sessionId := aString
 ]

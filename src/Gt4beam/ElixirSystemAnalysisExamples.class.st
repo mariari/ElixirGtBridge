@@ -27,24 +27,6 @@ ElixirSystemAnalysisExamples >> analysisHasLoadedApplications [
 	^ analysis loadedApplicationRecords
 ]
 
-{ #category : 'examples - views' }
-ElixirSystemAnalysisExamples >> applicationsView [
-	<gtExample>
-	| view |
-	view := self analysis gtApplicationsFor: GtPhlowEmptyView new.
-	self assert: view notNil.
-	^ view
-]
-
-{ #category : 'examples - views' }
-ElixirSystemAnalysisExamples >> dashboardView [
-	<gtExample>
-	| view |
-	view := self analysis gtDashboardFor: GtPhlowEmptyView new.
-	self assert: view notNil.
-	^ view
-]
-
 { #category : 'accessing' }
 ElixirSystemAnalysisExamples >> firstApplication [
 	<gtExample>
@@ -61,6 +43,38 @@ ElixirSystemAnalysisExamples >> gitRepository [
 	repository := GtGitRepository forRepoNamed: 'gt4beam'.
 	self assert: repository isNotNil.
 	^ repository
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysisExamples >> runningApplication [
+	<gtExample>
+	| application |
+	application := BeamLinkApplication allInstances
+		detect: [ :each | 
+			((each instVarNamed: 'settings') isNotNil)
+				and: [ each isRunning ] ]
+		ifNone: [ BeamLinkApplication start ].
+	self assert: application isNotNil.
+	self assert: application isRunning.
+	^ application
+]
+
+{ #category : 'examples - views' }
+ElixirSystemAnalysisExamples >> applicationsView [
+	<gtExample>
+	| view |
+	view := self analysis gtApplicationsFor: GtPhlowEmptyView new.
+	self assert: view notNil.
+	^ view
+]
+
+{ #category : 'examples - views' }
+ElixirSystemAnalysisExamples >> dashboardView [
+	<gtExample>
+	| view |
+	view := self analysis gtDashboardFor: GtPhlowEmptyView new.
+	self assert: view notNil.
+	^ view
 ]
 
 { #category : 'examples - views' }
@@ -88,18 +102,4 @@ ElixirSystemAnalysisExamples >> problemsView [
 	view := self analysis gtProblemsFor: GtPhlowEmptyView new.
 	self assert: view notNil.
 	^ view
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysisExamples >> runningApplication [
-	<gtExample>
-	| application |
-	application := BeamLinkApplication allInstances
-		detect: [ :each | 
-			((each instVarNamed: 'settings') isNotNil)
-				and: [ each isRunning ] ]
-		ifNone: [ BeamLinkApplication start ].
-	self assert: application isNotNil.
-	self assert: application isRunning.
-	^ application
 ]

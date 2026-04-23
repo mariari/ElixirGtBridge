@@ -19,6 +19,56 @@ ElixirFunctionCoder class >> forEntry: anEntry moduleCoder: anElixirModuleCoder 
 	^ self new initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder
 ]
 
+{ #category : 'accessing' }
+ElixirFunctionCoder >> arity [
+	^ arity
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> collapsedText [
+	^ self signature asRopedText
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> endLine [
+	^ endLine
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> functionName [
+	^ functionName
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> moduleCoder [
+	^ moduleCoder
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> selector [
+	^ functionName asSymbol
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> signature [
+	^ functionName, '/', arity asString
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> startLine [
+	^ startLine
+]
+
+{ #category : 'actions' }
+ElixirFunctionCoder >> moveDown [
+	self moveBy: 1
+]
+
+{ #category : 'actions' }
+ElixirFunctionCoder >> moveUp [
+	self moveBy: -1
+]
+
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
@@ -107,43 +157,6 @@ ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 		id: #elixirFunctionSaveAction
 ]
 
-{ #category : 'accessing' }
-ElixirFunctionCoder >> arity [
-	^ arity
-]
-
-{ #category : 'converting' }
-ElixirFunctionCoder >> asCoderViewModel [
-	^ ElixirFunctionCoderViewModel new coder: self
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> collapsedText [
-	^ self signature asRopedText
-]
-
-{ #category : 'private' }
-ElixirFunctionCoder >> computeAst: theSourceString [
-	^ ElixirParser parseWithErrors: theSourceString
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> endLine [
-	^ endLine
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> functionName [
-	^ functionName
-]
-
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> initializeAddOns: addOns [
-	super initializeAddOns: addOns.
-	addOns
-		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler)
-]
-
 { #category : 'add-ons' }
 ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
 	super initializeAddOns: addOns viewModel: aViewModel.
@@ -152,6 +165,13 @@ ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
 	self addMoveAddOnsTo: addOns to: aViewModel from: self.
 	self addRunAddOnsTo: addOns to: aViewModel from: self.
 	self addHelpAddOnsTo: addOns to: aViewModel from: self
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> initializeAddOns: addOns [
+	super initializeAddOns: addOns.
+	addOns
+		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler)
 ]
 
 { #category : 'as yet unclassified' }
@@ -174,21 +194,6 @@ ElixirFunctionCoder >> initializeShortcuts: addOns [
 	addOns addShortcut: GtSourceCoderSaveShortcut new
 ]
 
-{ #category : 'initialization' }
-ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
-	moduleCoder := anElixirModuleCoder.
-	functionName := (anEntry attributeAt: #name) asString.
-	arity := anEntry attributeAt: #arity.
-	startLine := anEntry attributeAt: #start.
-	endLine := anEntry attributeAt: #end_line.
-	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> moduleCoder [
-	^ moduleCoder
-]
-
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> moveBy: anOffset [
 	"I swap myself with my neighbor at myIndex + anOffset.
@@ -204,14 +209,34 @@ ElixirFunctionCoder >> moveBy: anOffset [
 	self refreshLinesAfterSwap
 ]
 
-{ #category : 'actions' }
-ElixirFunctionCoder >> moveDown [
-	self moveBy: 1
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> refreshLinesAfterSwap [
+	"After a swap, my startLine/endLine in the file may have changed.
+	 I re-find my entry by name+arity+source contents match."
+	| entries mySource myEntry |
+	mySource := self currentSourceText asString trimmed.
+	entries := moduleCoder functionEntries asList.
+	myEntry := entries detect: [ :e |
+		(e attributeAt: #name) asString = functionName
+			and: [ (e attributeAt: #arity) = arity
+			and: [ ((e attributeAt: #source) asString trimmed) = mySource ] ] ]
+		ifNone: [ nil ].
+	myEntry ifNotNil: [
+		startLine := myEntry attributeAt: #start.
+		endLine := myEntry attributeAt: #end_line ]
 ]
 
-{ #category : 'actions' }
-ElixirFunctionCoder >> moveUp [
-	self moveBy: -1
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> selfObject [ ^ selfObject
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> selfObject: anObject [ selfObject := anObject
+]
+
+{ #category : 'converting' }
+ElixirFunctionCoder >> asCoderViewModel [
+	^ ElixirFunctionCoderViewModel new coder: self
 ]
 
 { #category : 'evaluation' }
@@ -236,47 +261,22 @@ ElixirFunctionCoder >> primitiveEvaluate: aSourceString inContext: aContext onFa
 	^ result
 ]
 
+{ #category : 'initialization' }
+ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
+	moduleCoder := anElixirModuleCoder.
+	functionName := (anEntry attributeAt: #name) asString.
+	arity := anEntry attributeAt: #arity.
+	startLine := anEntry attributeAt: #start.
+	endLine := anEntry attributeAt: #end_line.
+	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
+]
+
 { #category : 'printing' }
 ElixirFunctionCoder >> printOn: aStream [
 	aStream nextPutAll: 'ElixirFunctionCoder('; nextPutAll: self signature; nextPut: $)
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> refreshLinesAfterSwap [
-	"After a swap, my startLine/endLine in the file may have changed.
-	 I re-find my entry by name+arity+source contents match."
-	| entries mySource myEntry |
-	mySource := self currentSourceText asString trimmed.
-	entries := moduleCoder functionEntries asList.
-	myEntry := entries detect: [ :e |
-		(e attributeAt: #name) asString = functionName
-			and: [ (e attributeAt: #arity) = arity
-			and: [ ((e attributeAt: #source) asString trimmed) = mySource ] ] ]
-		ifNone: [ nil ].
-	myEntry ifNotNil: [
-		startLine := myEntry attributeAt: #start.
-		endLine := myEntry attributeAt: #end_line ]
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> selector [
-	^ functionName asSymbol
-]
-
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> selfObject [ ^ selfObject
-]
-
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> selfObject: anObject [ selfObject := anObject
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> signature [
-	^ functionName, '/', arity asString
-]
-
-{ #category : 'accessing' }
-ElixirFunctionCoder >> startLine [
-	^ startLine
+{ #category : 'private' }
+ElixirFunctionCoder >> computeAst: theSourceString [
+	^ ElixirParser parseWithErrors: theSourceString
 ]
