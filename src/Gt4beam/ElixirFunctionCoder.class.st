@@ -30,8 +30,8 @@ ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderMo
 		action: [ :aButtonElement :aButtonModel :anEvent |
 			moduleCoder
 				spliceFunction: ''
-				fromLine: startLine
-				toLine: endLine ]
+				forFunction: functionName
+				arity: arity ]
 		stencil: [ :anElement |
 			BrLabel new
 				aptitude: BrGlamorousLabelAptitude new;

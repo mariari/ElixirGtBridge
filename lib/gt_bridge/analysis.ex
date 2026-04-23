@@ -773,39 +773,46 @@ defmodule GtBridge.Analysis do
     File.write!(path, content)
     Mix.Tasks.Format.run([path])
 
-    files = app_source_files(path)
+    # Ensure clean compiler state — previous compilations may
+    # have left entries in this table.
+    :ets.delete_all_objects(:elixir_modules)
 
-    {:ok, _mods, _} =
-      Kernel.ParallelCompiler.compile(files,
-        each_module: fn _file, mod, binary ->
-          persist_beam(mod, binary)
-        end
-      )
+    abs_path = Path.expand(path)
+    [{mod, _} | _] = Code.compile_file(path)
+    app = Application.get_application(mod)
+
+    if app != Mix.Project.config()[:app] do
+      # Dep: compile siblings for struct caller tracking.
+      # Exclude the changed file and the calling module's file
+      # to avoid triple-loading (which purges the running code).
+      self_path = __ENV__.file |> Path.expand()
+
+      siblings =
+        app_source_files(app)
+        |> Enum.reject(&(&1 in [abs_path, self_path]))
+
+      {:ok, _mods, _} =
+        Kernel.ParallelCompiler.compile(siblings,
+          each_module: fn _file, m, binary -> persist_beam(m, binary) end
+        )
+    end
 
     IEx.Helpers.recompile()
     :ok
   end
 
-  defp app_source_files(changed_path) do
-    [{mod, _} | _] = Code.compile_file(changed_path)
+  defp app_source_files(app) do
+    {:ok, mods} = :application.get_key(app, :modules)
 
-    case Application.get_application(mod) do
-      nil ->
-        [Path.expand(changed_path)]
-
-      app ->
-        {:ok, mods} = :application.get_key(app, :modules)
-
-        mods
-        |> Enum.flat_map(fn m ->
-          try do
-            [m.__info__(:compile)[:source] |> List.to_string()]
-          rescue
-            _ -> []
-          end
-        end)
-        |> Enum.uniq()
-    end
+    mods
+    |> Enum.flat_map(fn m ->
+      try do
+        [m.__info__(:compile)[:source] |> List.to_string()]
+      rescue
+        _ -> []
+      end
+    end)
+    |> Enum.uniq()
   end
 
   defp persist_beam(mod, binary) do
