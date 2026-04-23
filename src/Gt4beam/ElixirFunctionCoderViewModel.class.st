@@ -11,22 +11,6 @@ ElixirFunctionCoderViewModel >> elementClass [
 	^ GtExpandableSourceCoderElement
 ]
 
-{ #category : 'actions' }
-ElixirFunctionCoderViewModel >> save [
-	"I splice the current editor text back into the module source at
-	 my function's line range, save and recompile. Called from Ctrl-S
-	 via GtSourceCoderSaveShortcut → requestSave → save.
-	 currentSourceString lives on the coder model (GtSourceCoder), not
-	 on the view model — route through coderModel."
-	| coder |
-	coder := self coderModel.
-	coder moduleCoder
-		spliceFunction: coder currentSourceString
-		fromLine: coder startLine
-		toLine: coder endLine.
-	^ true
-]
-
 { #category : 'as yet unclassified' }
 ElixirFunctionCoderViewModel >> newCompletionStrategy [
 	| strategy |
@@ -36,4 +20,12 @@ ElixirFunctionCoderViewModel >> newCompletionStrategy [
 	self coderModel moduleCoder ifNotNil: [ :mc |
 		mc editorSessionId ifNotNil: [ :sid | strategy sessionId: sid ] ].
 	^ strategy
+]
+
+{ #category : 'actions' }
+ElixirFunctionCoderViewModel >> save [
+	"I delegate to the coder model's single save method.
+	 Called from Ctrl-S via requestSave."
+	self coderModel saveFunction.
+	^ true
 ]
