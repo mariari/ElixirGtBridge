@@ -344,7 +344,18 @@ defmodule GtBridge.Analysis do
   # eval env (e.g. "use TypedStruct" triggers __meta__ errors)
   @preamble_starts ["import ", "alias ", "require "]
 
-  defp preamble_directives(source) do
+  @doc "I return the alias/import/require lines from a module's source."
+  @spec preamble_directives(module()) :: [String.t()]
+  def preamble_directives(mod) when is_atom(mod) do
+    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
+         {:ok, source} <- File.read(path) do
+      preamble_directives(source)
+    else
+      _ -> []
+    end
+  end
+
+  def preamble_directives(source) when is_binary(source) do
     source
     |> String.split("\n")
     |> Stream.map(&String.trim/1)

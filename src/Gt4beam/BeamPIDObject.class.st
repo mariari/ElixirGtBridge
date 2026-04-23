@@ -12,6 +12,12 @@ BeamPIDObject class >> elixirClass [
 ]
 
 { #category : 'accessing' }
+BeamPIDObject >> elixirClass [
+	"I return nil — PIDs are not modules and cannot be imported."
+	^ nil
+]
+
+{ #category : 'accessing' }
 BeamPIDObject >> applicationAnalysis [
 	"I find my application by PID (not by module name like proxies
 	 do) using Erlang's :application.get_application/1."
