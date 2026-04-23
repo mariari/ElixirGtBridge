@@ -160,6 +160,48 @@ ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
 ]
 
 { #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtCompileDepsFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show compile-time dependency edges with sub-tabs for
+	 app-only (internal deps) and full (including external).
+	 App modules are blue, external deps are light gray."
+	| appModules edges |
+	edges := [ (self application evaluateAndWait:
+		'GtBridge.Analysis.compile_dep_edges(app: ', self name resolve, ')') asList ]
+		on: Error do: [ #() ].
+	edges isEmpty ifTrue: [ ^ aView empty ].
+	appModules := [ (self modules asList collect: [ :m | m symbol asString ]) asSet ]
+		on: Error do: [ Set new ].
+	^ aView composite
+		title: 'Compile deps';
+		priority: 22;
+		views: {
+			self compileDepsViewLabeled: 'Internal'
+				query: 'GtBridge.Analysis.compile_dep_edges(app: ', self name resolve, ', internal: true)'
+				appModules: appModules.
+			self compileDepsViewLabeled: 'All'
+				query: 'GtBridge.Analysis.compile_dep_edges(app: ', self name resolve, ')'
+				appModules: appModules }
+]
+
+{ #category : 'private' }
+ElixirApplicationAnalysis >> compileDepsViewLabeled: aLabel query: aQuery appModules: appModules [
+	"I build a single mondrian compile-deps sub-view."
+	^ GtPhlowEmptyView new mondrian
+		title: aLabel;
+		painting: [ :aMondrian |
+			| edges |
+			edges := [ (self application evaluateAndWait: aQuery) asList ]
+				on: Error do: [ #() ].
+			BeamMondrianHelpers
+				compileDepsOn: aMondrian
+				edges: edges
+				highlightModules: appModules
+				application: self application ]
+]
+
+{ #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtDependencyGraphFor: aView [
 	<gtView>
 	<gtBeamView>

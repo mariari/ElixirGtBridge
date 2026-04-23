@@ -31,19 +31,6 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
-{ #category : 'dependency-tree' }
-BeamMondrianHelpers class >> flattenDepTree: node into: nodes edges: edges [
-	"I walk a server-side dependency tree and collect unique node names
-	 plus the direct parent→child edges between them."
-	| nodeName |
-	nodeName := (node attributeAt: #name) asString.
-	(nodes includes: nodeName) ifTrue: [ ^ self ].
-	nodes add: nodeName.
-	(node attributeAt: #children) asList do: [ :child |
-		edges add: nodeName -> (child attributeAt: #name) asString.
-		self flattenDepTree: child into: nodes edges: edges ]
-]
-
 { #category : 'stencils' }
 BeamMondrianHelpers class >> edgeStencil [
 	^ BlParabollaArcElement new
@@ -56,22 +43,17 @@ BeamMondrianHelpers class >> edgeStencil [
 			border: (BlBorder paint: (Color gray alpha: 0.4) width: 1))
 ]
 
-{ #category : 'stencils' }
-BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock [
-	^ BrHorizontalPane new
-		geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
-		border: (BlBorder paint: aColor darker width: 1);
-		background: aColor;
-		padding: (BlInsets all: 4);
-		addChild: (BlTextElement new
-			text: aString asRopedText glamorousRegularSmallSize;
-			constraintsDo: [ :c |
-				c horizontal fitContent.
-				c vertical fitContent ]);
-		when: BlClickEvent do: [ :evt | evt consumed: true. aBlock value: evt ];
-		constraintsDo: [ :c |
-			c horizontal fitContent.
-			c vertical fitContent ]
+{ #category : 'dependency-tree' }
+BeamMondrianHelpers class >> flattenDepTree: node into: nodes edges: edges [
+	"I walk a server-side dependency tree and collect unique node names
+	 plus the direct parent→child edges between them."
+	| nodeName |
+	nodeName := (node attributeAt: #name) asString.
+	(nodes includes: nodeName) ifTrue: [ ^ self ].
+	nodes add: nodeName.
+	(node attributeAt: #children) asList do: [ :child |
+		edges add: nodeName -> (child attributeAt: #name) asString.
+		self flattenDepTree: child into: nodes edges: edges ]
 ]
 
 { #category : 'supervision' }
@@ -107,6 +89,24 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 		edges add: entry -> childEntry ]
 ]
 
+{ #category : 'stencils' }
+BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock [
+	^ BrHorizontalPane new
+		geometry: (BlRoundedRectangleGeometry cornerRadius: 3);
+		border: (BlBorder paint: aColor darker width: 1);
+		background: aColor;
+		padding: (BlInsets all: 4);
+		addChild: (BlTextElement new
+			text: aString asRopedText glamorousRegularSmallSize;
+			constraintsDo: [ :c |
+				c horizontal fitContent.
+				c vertical fitContent ]);
+		when: BlClickEvent do: [ :evt | evt consumed: true. aBlock value: evt ];
+		constraintsDo: [ :c |
+			c horizontal fitContent.
+			c vertical fitContent ]
+]
+
 { #category : 'supervision' }
 BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThreshold: threshold application: anApp [
 	"I render a colored supervision tree with pool collapsing."
@@ -126,15 +126,20 @@ BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThresho
 					ifTrue: [ Color fromHexString: '#d4e6f1' ]
 					ifFalse: [ Color fromHexString: '#d5f5e3' ] ].
 			el := self nodeLabeled: label color: color onClick: [ :evt | ].
-			el addEventHandlerOn: BlClickEvent do: [ :evt | | pidStr cleaned |
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				| pidStr cleaned expr |
 				evt consumed: true.
 				pidStr := node at: #pid ifAbsent: [ nil ].
 				pidStr ifNotNil: [
-					cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+					expr := (isPool or: [ label beginsWith: '#PID' ])
+						ifTrue: [
+							cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+							'IEx.Helpers.pid("', cleaned, '")' ]
+						ifFalse: [ label first = $:
+							ifTrue: [ label ]
+							ifFalse: [ 'Elixir.', label ] ].
 					evt currentTarget phlow spawnObject:
-						(anApp newCommandFactory
-							<< ('IEx.Helpers.pid("', cleaned, '")');
-							sendAndWait) ] ].
+						(anApp newCommandFactory << expr; sendAndWait) ] ].
 			el ];
 		with: allNodes.
 	aMondrian edges stencil: [ self edgeStencil ];

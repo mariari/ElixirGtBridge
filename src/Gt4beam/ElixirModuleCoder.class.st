@@ -359,6 +359,26 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 		stencil: [ self buildSourceViewElement ]
 ]
 
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtCompileDepsViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"I show what recompiles when this module changes and what
+	 this module depends on at compile time."
+	^ aView mondrian
+		title: 'Compile deps';
+		priority: 35;
+		painting: [ :aMondrian |
+			| edges |
+			edges := [ (application evaluateAndWait:
+				'GtBridge.Analysis.compile_dep_edges_for(', moduleName, ')') asList ]
+				on: Error do: [ #() ].
+			BeamMondrianHelpers
+				compileDepsOn: aMondrian
+				edges: edges
+				highlightModules: (Set with: moduleName)
+				application: application ]
+]
+
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> hasFunctions [
 	"I return true if the bridge can enumerate my functions.
