@@ -19,21 +19,6 @@ Gt4beamSessionLifecycleExamples >> application [
 	^ app
 ]
 
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> atomSpotterTool [
-	"I verify that a BeamAtomObject produces a composite tool
-	 from the spotter's tool transformation."
-	<gtExample>
-	| atom search tool |
-	atom := self moduleAtomDocsView.
-	search := GtSpotterSearch new.
-	tool := search objectToolToActOn: atom rawObject: atom from: nil.
-	self assert: tool class equals: BeamProxyToggleCompositeTool.
-	self assert: (atom class lookupSelector: #gtSpotterActDefaultFrom:) methodClass
-		equals: BeamAtomObject.
-	^ tool
-]
-
 { #category : 'private' }
 Gt4beamSessionLifecycleExamples >> closeSessionId: aSessionId on: anApp [
 	"I send POST /SESSION_CLOSE for the given sessionId."
@@ -50,6 +35,17 @@ Gt4beamSessionLifecycleExamples >> closeSessionId: aSessionId on: anApp [
 ]
 
 { #category : 'examples - completion' }
+Gt4beamSessionLifecycleExamples >> completeModuleDot [
+	"I complete 'Enum.ma' and return the results.
+	Exercises module function completion via /COMPLETE."
+	<gtExample>
+	| results |
+	results := self completionStrategy fetchCompletionsFor: 'Enum.ma'.
+	self assert: (results anySatisfy: [ :r | r beginsWith: 'Enum.map/' ]).
+	^ results
+]
+
+{ #category : 'examples - completion' }
 Gt4beamSessionLifecycleExamples >> completeAliasDot [
 	"I complete 'Enum.fl' via an alias and verify the prefix uses the alias name.
 	Proves alias dot-completion returns Enum.flat_map, not the full module path."
@@ -63,17 +59,6 @@ Gt4beamSessionLifecycleExamples >> completeAliasDot [
 ]
 
 { #category : 'examples - completion' }
-Gt4beamSessionLifecycleExamples >> completeModuleDot [
-	"I complete 'Enum.ma' and return the results.
-	Exercises module function completion via /COMPLETE."
-	<gtExample>
-	| results |
-	results := self completionStrategy fetchCompletionsFor: 'Enum.ma'.
-	self assert: (results anySatisfy: [ :r | r beginsWith: 'Enum.map/' ]).
-	^ results
-]
-
-{ #category : 'examples - completion' }
 Gt4beamSessionLifecycleExamples >> completeWithBindings [
 	"I complete a variable prefix using session bindings.
 	The target has my_val bound; completing 'my_' finds it."
@@ -82,32 +67,6 @@ Gt4beamSessionLifecycleExamples >> completeWithBindings [
 	results := self completionStrategy fetchCompletionsFor: 'my_'.
 	self assert: (results includes: 'my_val').
 	^ results
-]
-
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> completionPopupAppears [
-	"I verify that typing 'Enum.ma' in an editor with our completion
-	 strategy shows a popup with matching completions."
-	<gtExample>
-	| strategy editor controller scripter overlay |
-	strategy := self completionStrategy.
-	editor := BrEditor new
-		aptitude: BrGlamorousCodeEditorAptitude new;
-		text: '' asRopedText;
-		constraintsDo: [ :c | c horizontal exact: 400. c vertical exact: 30 ].
-	controller := GtCompletionController on: editor strategy: strategy.
-	controller install.
-	controller showOnTextModification: true.
-	scripter := BlScripter new.
-	scripter element: editor.
-	scripter doStep: [ :s | s block: [ :el | el requestFocus ] ].
-	scripter typeStep: [ :s | s text: 'Enum.ma' ].
-	scripter doStep: [ :s | s block: [ :el |
-		scripter space pulse. scripter space pulse. scripter space pulse ] ].
-	overlay := controller instVarNamed: 'overlay'.
-	self assert: overlay isAttachedToSceneGraph.
-	self assert: (controller instVarNamed: 'completionResult') isNotNil.
-	^ scripter
 ]
 
 { #category : 'examples - completion' }
@@ -124,52 +83,6 @@ Gt4beamSessionLifecycleExamples >> completionStrategy [
 	^ strategy
 ]
 
-{ #category : 'examples - documentation' }
-Gt4beamSessionLifecycleExamples >> documentationSections [
-	"I verify to_sections returns a delimited string."
-	<gtExample>
-	| sections |
-	sections := self target bindAndExecuteRaw:
-		'GtBridge.Documentation.to_sections(
-			GtBridge.Documentation.for_module(Enum))'
-		sessionId: self sessionId.
-	self assert: (sections includesSubstring: '__SECTION__').
-	^ sections
-]
-
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> documentationSpotterActOn [
-	"I verify the full spotter interaction for a beam module:
-	 type a query, act on the first result, and assert the
-	 tool produced is our composite tool with R|P toggle."
-	<gtExample>
-	| spotter spotterElement scripter actOnEvents actOnHandler actOn |
-	self application.
-	spotter := GtSpotter on: GtSpotterStart new.
-	spotterElement := GtStreamingSpotterElement new spotter: spotter.
-	scripter := BlScripter new.
-	scripter element: spotterElement.
-	actOnEvents := OrderedCollection new.
-	actOnHandler := GtSpotterByScripterExamplesActOnHandler new
-		actOnEvents: actOnEvents.
-	spotterElement spotter announcer weak
-		when: GtSpotterObjectActOn send: #onActed: to: actOnHandler.
-	scripter typeStep: [ :s | s text: 'GtBridge.Analy' ].
-	scripter mouseMoveOverStep: [ :s |
-		s id: GtSpotterCandidateElementId index: 1 ].
-	scripter mouseMoveOverStep: [ :s |
-		s id: GtSpotterCandidateElementId index: 1;
-		  id: GtSpotterCandidateActOnButtonId ].
-	scripter clickStep: [ :s |
-		s id: GtSpotterCandidateElementId index: 1;
-		  id: GtSpotterCandidateActOnButtonId ].
-	self assert: actOnEvents size equals: 1.
-	actOn := actOnEvents first.
-	self assert: actOn isActedUpon.
-	self assert: actOn toolToSend class equals: BeamProxyToggleCompositeTool.
-	^ scripter
-]
-
 { #category : 'examples - bindings' }
 Gt4beamSessionLifecycleExamples >> fetchedBindings [
 	"I return the bindings dict from the target session.
@@ -180,18 +93,6 @@ Gt4beamSessionLifecycleExamples >> fetchedBindings [
 	bindings := self target fetchBindingsWithSessionId: self sessionId.
 	self assert: (bindings includesKey: #my_val).
 	^ bindings
-]
-
-{ #category : 'examples - documentation' }
-Gt4beamSessionLifecycleExamples >> functionDocumentation [
-	"I return function-level docs for Enum.map/2."
-	<gtExample>
-	| doc |
-	doc := self target bindAndExecuteRaw:
-		'GtBridge.Documentation.for_function(Enum, :map, 2)'
-		sessionId: self sessionId.
-	self assertObjectPhlowViewsFor: doc.
-	^ doc
 ]
 
 { #category : 'examples - cleanup' }
@@ -257,62 +158,6 @@ Gt4beamSessionLifecycleExamples >> messageWithSessionId [
 	^ msg
 ]
 
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> modeTabSwitching [
-	"I verify switching between Atom, Pid, and State tabs on a
-	 named process atom, and that R|P toggle works after switching."
-	<gtExample>
-	| atom tool element scripter tabGroup |
-	atom := self namedProcessAtom.
-	tool := atom gtDefaultInspectorTool.
-	tool asElementDo: [ :e | element := e ].
-	scripter := BlScripter new.
-	scripter element: element.
-	scripter doStep: [ :s | s block: [ :el |
-		scripter space pulse. scripter space pulse. scripter space pulse ] ].
-	tabGroup := tool instVarNamed: 'tabGroup'.
-	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Atom'.
-	"Switch to Pid"
-	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs second select ] ].
-	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Pid'.
-	"Switch to State"
-	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs third select ] ].
-	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'State'.
-	"Back to Atom"
-	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs first select ] ].
-	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Atom'.
-	"R|P toggle still works after tab switching"
-	scripter clickStep: [ :s | s id: 'beam-toggle-P' ].
-	self assert: (tool instVarNamed: 'subState') equals: 'Proxy'.
-	scripter clickStep: [ :s | s id: 'beam-toggle-R' ].
-	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
-	^ scripter
-]
-
-{ #category : 'examples - documentation' }
-Gt4beamSessionLifecycleExamples >> moduleAtomDocsView [
-	"I verify a module atom has isModuleAtom and documentation renders."
-	<gtExample>
-	| atom |
-	atom := self target bindAndExecuteRaw: 'Enum'
-		sessionId: self sessionId.
-	self assert: (atom isKindOf: BeamAtomObject).
-	self assert: atom isModuleAtom.
-	^ atom
-]
-
-{ #category : 'examples - documentation' }
-Gt4beamSessionLifecycleExamples >> moduleDocumentation [
-	"I return a Documentation proxy for Enum."
-	<gtExample>
-	| doc |
-	doc := self target bindAndExecuteRaw:
-		'GtBridge.Documentation.for_module(Enum)'
-		sessionId: self sessionId.
-	self assertObjectPhlowViewsFor: doc.
-	^ doc
-]
-
 { #category : 'examples - sessions' }
 Gt4beamSessionLifecycleExamples >> myVal2SessionIsolated [
 	"I return a second coder with my_val bound to 2,
@@ -324,20 +169,6 @@ Gt4beamSessionLifecycleExamples >> myVal2SessionIsolated [
 	v1 := self target bindAndExecuteRaw: 'my_val' sessionId: self sessionId.
 	self assert: v1 equals: 1.
 	^ coder
-]
-
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> namedProcessAtom [
-	"I return an atom for :application_controller — a registered
-	 process with Atom, Pid, and State inspector modes."
-	<gtExample>
-	| atom modes |
-	atom := self target bindAndExecuteRaw: ':application_controller'
-		sessionId: self sessionId.
-	self assert: (atom isKindOf: BeamAtomObject).
-	modes := BeamInspectorModeCollector new fromObject: atom; collect.
-	self assert: modes size equals: 3.
-	^ atom
 ]
 
 { #category : 'private' }
@@ -359,30 +190,6 @@ Gt4beamSessionLifecycleExamples >> pidViews [
 		sessionId: self sessionId.
 	self assertObjectPhlowViewsFor: pid.
 	^ pid
-]
-
-{ #category : 'examples - spotter' }
-Gt4beamSessionLifecycleExamples >> rpToggleSwitchesViews [
-	"I verify the R|P toggle switches between remote and proxy
-	 views. Clicks P, asserts proxy state, clicks R back, asserts
-	 remote state restored. Also verifies proxy element is cached."
-	<gtExample>
-	| tool element scripter |
-	tool := self documentationSpotterTool.
-	tool asElementDo: [ :e | element := e ].
-	scripter := BlScripter new.
-	scripter element: element.
-	scripter wait forEmptySpaceTaskQueue.
-	scripter syncPlay.
-	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
-	"Switch to Proxy"
-	scripter clickStep: [ :s | s id: 'beam-toggle-P' ].
-	self assert: (tool instVarNamed: 'subState') equals: 'Proxy'.
-	self assert: (tool instVarNamed: 'cachedProxies') size equals: 1.
-	"Switch back to Remote"
-	scripter clickStep: [ :s | s id: 'beam-toggle-R' ].
-	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
-	^ scripter
 ]
 
 { #category : 'examples - cleanup' }
@@ -448,6 +255,214 @@ Gt4beamSessionLifecycleExamples >> target [
 	coder := self newCoder.
 	coder bindAndExecuteRaw: 'my_val = 1' sessionId: self sessionId.
 	^ coder
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> documentationSections [
+	"I verify to_sections returns a delimited string."
+	<gtExample>
+	| sections |
+	sections := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.to_sections(
+			GtBridge.Documentation.for_module(Enum))'
+		sessionId: self sessionId.
+	self assert: (sections includesSubstring: '__SECTION__').
+	^ sections
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> functionDocumentation [
+	"I return function-level docs for Enum.map/2."
+	<gtExample>
+	| doc |
+	doc := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.for_function(Enum, :map, 2)'
+		sessionId: self sessionId.
+	self assertObjectPhlowViewsFor: doc.
+	^ doc
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> moduleAtomDocsView [
+	"I verify a module atom has isModuleAtom and documentation renders."
+	<gtExample>
+	| atom |
+	atom := self target bindAndExecuteRaw: 'Enum'
+		sessionId: self sessionId.
+	self assert: (atom isKindOf: BeamAtomObject).
+	self assert: atom isModuleAtom.
+	^ atom
+]
+
+{ #category : 'examples - documentation' }
+Gt4beamSessionLifecycleExamples >> moduleDocumentation [
+	"I return a Documentation proxy for Enum."
+	<gtExample>
+	| doc |
+	doc := self target bindAndExecuteRaw:
+		'GtBridge.Documentation.for_module(Enum)'
+		sessionId: self sessionId.
+	self assertObjectPhlowViewsFor: doc.
+	^ doc
+]
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> documentationSpotterTool [
+	"I verify that a BeamDocumentationObject produces a composite
+	 tool from the spotter's tool transformation, and that
+	 gtSpotterActDefaultFrom: resolves to our override (not Object)."
+	<gtExample>
+	| doc search tool |
+	doc := self moduleDocumentation.
+	search := GtSpotterSearch new.
+	tool := search objectToolToActOn: doc rawObject: doc from: nil.
+	self assert: tool class equals: BeamProxyToggleCompositeTool.
+	self assert: (doc class lookupSelector: #gtSpotterActDefaultFrom:) methodClass
+		equals: BeamProxyObject.
+	^ tool
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> atomSpotterTool [
+	"I verify that a BeamAtomObject produces a composite tool
+	 from the spotter's tool transformation."
+	<gtExample>
+	| atom search tool |
+	atom := self moduleAtomDocsView.
+	search := GtSpotterSearch new.
+	tool := search objectToolToActOn: atom rawObject: atom from: nil.
+	self assert: tool class equals: BeamProxyToggleCompositeTool.
+	self assert: (atom class lookupSelector: #gtSpotterActDefaultFrom:) methodClass
+		equals: BeamAtomObject.
+	^ tool
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> documentationSpotterActOn [
+	"I verify the full spotter interaction for a beam module:
+	 type a query, act on the first result, and assert the
+	 tool produced is our composite tool with R|P toggle."
+	<gtExample>
+	| spotter spotterElement scripter actOnEvents actOnHandler actOn |
+	self application.
+	spotter := GtSpotter on: GtSpotterStart new.
+	spotterElement := GtStreamingSpotterElement new spotter: spotter.
+	scripter := BlScripter new.
+	scripter element: spotterElement.
+	actOnEvents := OrderedCollection new.
+	actOnHandler := GtSpotterByScripterExamplesActOnHandler new
+		actOnEvents: actOnEvents.
+	spotterElement spotter announcer weak
+		when: GtSpotterObjectActOn send: #onActed: to: actOnHandler.
+	scripter typeStep: [ :s | s text: 'GtBridge.Analy' ].
+	scripter mouseMoveOverStep: [ :s |
+		s id: GtSpotterCandidateElementId index: 1 ].
+	scripter mouseMoveOverStep: [ :s |
+		s id: GtSpotterCandidateElementId index: 1;
+		  id: GtSpotterCandidateActOnButtonId ].
+	scripter clickStep: [ :s |
+		s id: GtSpotterCandidateElementId index: 1;
+		  id: GtSpotterCandidateActOnButtonId ].
+	self assert: actOnEvents size equals: 1.
+	actOn := actOnEvents first.
+	self assert: actOn isActedUpon.
+	self assert: actOn toolToSend class equals: BeamProxyToggleCompositeTool.
+	^ scripter
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> namedProcessAtom [
+	"I return an atom for :application_controller — a registered
+	 process with Atom, Pid, and State inspector modes."
+	<gtExample>
+	| atom modes |
+	atom := self target bindAndExecuteRaw: ':application_controller'
+		sessionId: self sessionId.
+	self assert: (atom isKindOf: BeamAtomObject).
+	modes := BeamInspectorModeCollector new fromObject: atom; collect.
+	self assert: modes size equals: 3.
+	^ atom
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> rpToggleSwitchesViews [
+	"I verify the R|P toggle switches between remote and proxy
+	 views. Clicks P, asserts proxy state, clicks R back, asserts
+	 remote state restored. Also verifies proxy element is cached."
+	<gtExample>
+	| tool element scripter |
+	tool := self documentationSpotterTool.
+	tool asElementDo: [ :e | element := e ].
+	scripter := BlScripter new.
+	scripter element: element.
+	scripter wait forEmptySpaceTaskQueue.
+	scripter syncPlay.
+	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
+	"Switch to Proxy"
+	scripter clickStep: [ :s | s id: 'beam-toggle-P' ].
+	self assert: (tool instVarNamed: 'subState') equals: 'Proxy'.
+	self assert: (tool instVarNamed: 'cachedProxies') size equals: 1.
+	"Switch back to Remote"
+	scripter clickStep: [ :s | s id: 'beam-toggle-R' ].
+	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
+	^ scripter
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> modeTabSwitching [
+	"I verify switching between Atom, Pid, and State tabs on a
+	 named process atom, and that R|P toggle works after switching."
+	<gtExample>
+	| atom tool element scripter tabGroup |
+	atom := self namedProcessAtom.
+	tool := atom gtDefaultInspectorTool.
+	tool asElementDo: [ :e | element := e ].
+	scripter := BlScripter new.
+	scripter element: element.
+	scripter doStep: [ :s | s block: [ :el |
+		scripter space pulse. scripter space pulse. scripter space pulse ] ].
+	tabGroup := tool instVarNamed: 'tabGroup'.
+	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Atom'.
+	"Switch to Pid"
+	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs second select ] ].
+	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Pid'.
+	"Switch to State"
+	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs third select ] ].
+	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'State'.
+	"Back to Atom"
+	scripter doStep: [ :s | s block: [ :el | tabGroup viewModel tabs first select ] ].
+	self assert: tabGroup viewModel selectedTab tabLabel text asString equals: 'Atom'.
+	"R|P toggle still works after tab switching"
+	scripter clickStep: [ :s | s id: 'beam-toggle-P' ].
+	self assert: (tool instVarNamed: 'subState') equals: 'Proxy'.
+	scripter clickStep: [ :s | s id: 'beam-toggle-R' ].
+	self assert: (tool instVarNamed: 'subState') equals: 'Remote'.
+	^ scripter
+]
+
+{ #category : 'examples - spotter' }
+Gt4beamSessionLifecycleExamples >> completionPopupAppears [
+	"I verify that typing 'Enum.ma' in an editor with our completion
+	 strategy shows a popup with matching completions."
+	<gtExample>
+	| strategy editor controller scripter overlay |
+	strategy := self completionStrategy.
+	editor := BrEditor new
+		aptitude: BrGlamorousCodeEditorAptitude new;
+		text: '' asRopedText;
+		constraintsDo: [ :c | c horizontal exact: 400. c vertical exact: 30 ].
+	controller := GtCompletionController on: editor strategy: strategy.
+	controller install.
+	controller showOnTextModification: true.
+	scripter := BlScripter new.
+	scripter element: editor.
+	scripter doStep: [ :s | s block: [ :el | el requestFocus ] ].
+	scripter typeStep: [ :s | s text: 'Enum.ma' ].
+	scripter doStep: [ :s | s block: [ :el |
+		scripter space pulse. scripter space pulse. scripter space pulse ] ].
+	overlay := controller instVarNamed: 'overlay'.
+	self assert: overlay isAttachedToSceneGraph.
+	self assert: (controller instVarNamed: 'completionResult') isNotNil.
+	^ scripter
 ]
 
 { #category : 'examples - bindings' }

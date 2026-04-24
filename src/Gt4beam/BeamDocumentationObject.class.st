@@ -25,18 +25,6 @@ BeamDocumentationObject >> applicationAnalysis [
 ]
 
 { #category : 'accessing' }
-BeamDocumentationObject >> elixirClass [
-	"I return the documented module name, not the struct type.
-	 This ensures snippets import the right module and load
-	 its preamble (aliases, requires)."
-	^ [ | name |
-		name := self evaluateAndWait:
-			'inspect(elem(', self resolve, '.query, 1))'.
-		name isString ifTrue: [ name ] ifFalse: [ super elixirClass ] ]
-		on: Error do: [ super elixirClass ]
-]
-
-{ #category : 'accessing' }
 BeamDocumentationObject >> functionLines [
 	"I return {startLine. endLine} for a function-scoped Documentation, or nil."
 	| result |
@@ -61,6 +49,7 @@ BeamDocumentationObject >> gtActionApplicationFor: anAction [
 { #category : 'gt-views' }
 BeamDocumentationObject >> gtApplicationFor: aView [
 	<gtView>
+	<gtBeamView>
 	| appAnalysis |
 	appAnalysis := self applicationAnalysis.
 	appAnalysis ifNil: [ ^ aView empty ].
@@ -75,22 +64,27 @@ BeamDocumentationObject >> gtApplicationFor: aView [
 BeamDocumentationObject >> gtCoderFor: aView [
 	<gtView>
 	<gtBeamView>
+	"I show the module coder. Source file is optional — without it
+	 the Functions/Source tabs hide but Help/Dependencies still work."
 	| file modName |
-	file := self sourceFile.
-	file isString ifFalse: [ ^ aView empty ].
-	file asFileReference exists ifFalse: [ ^ aView empty ].
-	modName := self evaluateAndWait:
-		'inspect(elem(', self resolve, '.query, 1))'.
+	modName := [ self evaluateAndWait:
+		'inspect(elem(', self resolve, '.query, 1))' ]
+		on: Error do: [ nil ].
 	modName isString ifFalse: [ ^ aView empty ].
+	file := [ | f |
+		f := self sourceFile.
+		(f isString and: [ f asFileReference exists ])
+			ifTrue: [ f ] ifFalse: [ nil ] ]
+		on: Error do: [ nil ].
 	^ aView explicit
-		title: 'Coder';
+		title: 'Meta';
 		priority: 5;
 		stencil: [
 			| coder lineRange |
 			coder := ElixirModuleCoder new
 				moduleName: modName;
-				sourcePath: file;
 				application: self application.
+			file ifNotNil: [ coder sourcePath: file ].
 			lineRange := [ self functionLines ] on: Error do: [ nil ].
 			lineRange ifNotNil: [ coder focusLine: lineRange ].
 			coder asCoderViewModel asElement ]
@@ -98,7 +92,9 @@ BeamDocumentationObject >> gtCoderFor: aView [
 
 { #category : 'gt-views' }
 BeamDocumentationObject >> gtDependenciesFor: aView [
-	<gtView>
+	"I show a dependency graph. No <gtView> pragma — this is only
+	 reachable via the Coder's Dependencies forward tab, not as a
+	 top-level inspector tab."
 	| modName appName |
 	modName := [ self evaluateAndWait:
 		'inspect(elem(', self resolve, '.query, 1))' ]
@@ -120,46 +116,62 @@ BeamDocumentationObject >> gtDependenciesFor: aView [
 			callers := (self evaluateAndWait:
 				'GtBridge.Analysis.callers(', modName, ', :', appName, ')
 				|> Enum.map(&inspect/1) |> Enum.sort()') asList collect: [ :m | m asString ].
-			allNodes := ({ modName } , callers , callees) asSet asOrderedCollection.
-			edges := OrderedCollection new.
-			callers do: [ :c | edges add: c -> modName ].
-			callees do: [ :c | edges add: modName -> c ].
+			allNodes := ({ modName } , callees , callers) asSet asArray sorted.
 			aMondrian nodes
-				stencil: [ :name |
-					BeamMondrianHelpers
-						nodeLabeled: (short value: name)
-						color: (name = modName
-							ifTrue: [ Color fromHexString: '#fff3cd' ]
-							ifFalse: [ (callers includes: name)
-								ifTrue: [ Color fromHexString: '#d4e6f1' ]
-								ifFalse: [ Color fromHexString: '#d5f5e3' ] ])
-						onClick: [ :evt |
+				shape: [ :n |
+					| color |
+					color := n = modName
+						ifTrue: [ Color fromHexString: '#4285f4' ]
+						ifFalse: [ (callees includes: n)
+							ifTrue: [ Color fromHexString: '#e8f0fe' ]
+							ifFalse: [ Color fromHexString: '#fce8e6' ] ].
+					BrLabel new
+						aptitude: BrGlamorousLabelAptitude new;
+						text: (short value: n);
+						padding: (BlInsets all: 6);
+						background: color;
+						geometry: (BlRoundedRectangleGeometry cornerRadius: 6);
+						addEventHandlerOn: BlClickEvent do: [ :evt |
+							evt consumed: true.
 							evt currentTarget phlow spawnObject:
 								(self evaluateAndWait:
-									'GtBridge.Documentation.for_module(', name, ')') ] ];
+									'GtBridge.Documentation.for_module(', n, ')') ] ];
 				with: allNodes.
-			aMondrian edges stencil: [ BeamMondrianHelpers edgeStencil ];
+			edges := OrderedCollection new.
+			callees do: [ :c | edges add: modName -> c ].
+			callers do: [ :c | edges add: c -> modName ].
+			aMondrian edges
+				stencil: [ BeamMondrianHelpers edgeStencil ];
+				fromCenterBottom;
+				toCenterTop;
 				connect: edges from: #key to: #value.
-			aMondrian layout horizontalDominanceTree ]
+			aMondrian layout dominanceTree
+				nodeDistance: 20;
+				levelDistance: 40 ]
 ]
 
 { #category : 'gt-views' }
 BeamDocumentationObject >> gtExecutableFunctionsFor: aView [
 	"I show module functions. 0-arity functions execute on click."
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Run';
 		priority: 15;
 		items: [ | funs |
 			funs := [ self evaluateAndWait:
 				'GtBridge.Analysis.exported_functions(elem(', self resolve, '.query, 1))' ]
-				on: Error do: [ #() ].
-			funs asList ];
+				on: Error do: [ nil ].
+			(funs isNil or: [ funs isKindOf: BeamBridgeEvalError ])
+				ifTrue: [ #() ]
+				ifFalse: [ [ funs asList ] on: Error do: [ #() ] ] ];
 		column: 'Function' text: [ :each |
-			(each attributeAt: #name), '/', (each attributeAt: #arity) asString ];
+			[ (each attributeAt: #name), '/', (each attributeAt: #arity) asString ]
+				on: Error do: [ '?' ] ];
 		column: 'Action' text: [ :each |
-			(each attributeAt: #arity) = 0
-				ifTrue: [ '▶ Run' ] ifFalse: [ '' ] ] width: 60;
+			[ (each attributeAt: #arity) = 0
+				ifTrue: [ 'Run' ] ifFalse: [ '' ] ]
+				on: Error do: [ '' ] ] width: 60;
 		send: [ :each |
 			| mod fn arity |
 			mod := self evaluateAndWait:
@@ -171,6 +183,22 @@ BeamDocumentationObject >> gtExecutableFunctionsFor: aView [
 				ifFalse: [ self evaluateAndWait:
 					'GtBridge.Documentation.for_function(',
 					mod, ', :', fn, ', ', arity asString, ')' ] ]
+]
+
+{ #category : 'gt-views' }
+BeamDocumentationObject >> gtSourceFor: aView [
+	"I override to hide the Source tab — the Coder tab already
+	 has Source as an internal tab."
+	^ aView empty
+]
+
+{ #category : 'gt-extensions' }
+BeamDocumentationObject >> remoteViewsInContext: aContext [
+	"I return empty — remote view declarations (Module Doc,
+	 Functions, Types) are redundant as top-level tabs since the
+	 Coder's Help tab already shows them. They're still accessible
+	 via gtRemoteViewsFor: inside the Help tab."
+	^ #()
 ]
 
 { #category : 'gt-search' }
