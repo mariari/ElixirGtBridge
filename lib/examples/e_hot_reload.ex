@@ -1,122 +1,162 @@
 defmodule Examples.EHotReload do
   @moduledoc """
-  I test the hot-reload system end-to-end.
+  I test the hot-reload system end-to-end against a real dependency.
 
-  Each example modifies a real source file, verifies the change
-  took effect, then reverts. Running examples leaves no traces.
+  HotReloadTest is a path dep under fixtures/ with a struct (Config)
+  and a struct caller (Builder). Examples modify its source, verify
+  the change took effect, then revert. Running examples leaves no
+  traces.
+
+  All mutation examples go through `with_reload/3` which handles
+  the write-compile-revert cycle. Each example only specifies what
+  to change and what to observe.
   """
 
   use ExExample
   import ExUnit.Assertions
 
-  # Use Resolve as the test subject — it's a simple module
-  # that isn't part of the eval/compilation infrastructure.
-  @test_module GtBridge.Resolve
+  def rerun?(_), do: true
 
-  @spec add_function() :: :ok
+  # I return {path, original_content} for HotReloadTest's root module.
+  @spec resolve_source() :: {String.t(), String.t()}
+  example resolve_source do
+    {path, original} = source_for(HotReloadTest)
+    assert String.contains?(original, "defmodule HotReloadTest")
+    {path, original}
+  end
+
+  # I add a function to a dep and return the module's updated
+  # export list.
+  @spec add_function() :: [{atom(), non_neg_integer()}]
   example add_function do
-    path = @test_module.__info__(:compile)[:source] |> List.to_string()
-    {:ok, original} = File.read(path)
-
-    modified =
-      String.replace(
-        original,
-        "\nend\n",
-        "\n  def __hot_reload_test__, do: :it_works\nend\n"
-      )
-
-    try do
-      GtBridge.Analysis.hot_reload(path, modified)
-      assert function_exported?(@test_module, :__hot_reload_test__, 0)
-      assert @test_module.__hot_reload_test__() == :it_works
-      :ok
-    after
-      GtBridge.Analysis.hot_reload(path, original)
-    end
+    with_reload(HotReloadTest, &inject_before_end(&1, "def __test__, do: :it_works"), fn ->
+      assert HotReloadTest.__test__() == :it_works
+      HotReloadTest.__info__(:functions)
+    end)
   end
 
-  @spec struct_field_propagates() :: :ok
-  example struct_field_propagates do
-    path =
-      GtBridge.Phlow.Mondrian.__info__(:compile)[:source]
-      |> List.to_string()
+  # I modify hello's return value and return the formatted source
+  # from disk.
+  @spec modify_function() :: String.t()
+  example modify_function do
+    {path, _} = source_for(HotReloadTest)
 
-    {:ok, original} = File.read(path)
-
-    modified =
-      String.replace(
-        original,
-        "field(:layout, atom(), default: :horizontal_tree)\n  end",
-        "field(:layout, atom(), default: :horizontal_tree)\n    field(:__test_field__, String.t(), default: \"works\")\n  end"
-      )
-
-    try do
-      GtBridge.Analysis.hot_reload(path, modified)
-
-      m = GtBridge.Phlow.Builder.mondrian()
-      assert Map.has_key?(m, :__test_field__)
-      assert m.__test_field__ == "works"
-      :ok
-    after
-      GtBridge.Analysis.hot_reload(path, original)
-    end
+    with_reload(HotReloadTest, &String.replace(&1, "do: :world", "do: :modified"), fn ->
+      assert HotReloadTest.hello() == :modified
+      File.read!(path)
+    end)
   end
 
-  @spec beam_persisted() :: :ok
+  # I add a new field to Config, then add an accessor to Builder
+  # that uses it. Proves cross-module hot-reload works when
+  # changes depend on each other.
+  @spec new_field_propagates() :: String.t()
+  example new_field_propagates do
+    with_reload(
+      HotReloadTest.Config,
+      &String.replace(&1, "value: 0", ~s(value: 0, extra: "propagated")),
+      fn ->
+        with_reload(
+          HotReloadTest.Builder,
+          &inject_before_end(&1, ~s(def extra, do: %Config{}.extra)),
+          fn ->
+            result = HotReloadTest.Builder.extra()
+            assert result == "propagated"
+            result
+          end
+        )
+      end
+    )
+  end
+
+  # I add a function and return the beam file's export list —
+  # proving beams are persisted to ebin.
+  @spec beam_persisted() :: [{atom(), non_neg_integer()}]
   example beam_persisted do
-    path = @test_module.__info__(:compile)[:source] |> List.to_string()
-    {:ok, original} = File.read(path)
+    with_reload(HotReloadTest, &inject_before_end(&1, "def __beam__, do: :ok"), fn ->
+      exports = beam_exports(HotReloadTest)
+      assert {:__beam__, 0} in exports
+      exports
+    end)
+  end
 
-    modified =
-      String.replace(
-        original,
-        "\nend\n",
-        "\n  def __beam_test__, do: :persisted\nend\n"
-      )
+  # I hot-reload a standalone file with no application registration
+  # and return its module info.
+  @spec standalone_module() :: keyword()
+  example standalone_module do
+    mod = :"Elixir.HotReloadStandaloneTest"
+    path = Path.join(System.tmp_dir!(), "hot_reload_standalone_test.ex")
+
+    source =
+      "defmodule HotReloadStandaloneTest do\n  def value, do: :standalone\nend\n"
 
     try do
-      GtBridge.Analysis.hot_reload(path, modified)
-
-      app = Application.get_application(@test_module)
-      ebin = Application.app_dir(app, "ebin")
-      beam = Path.join(ebin, "Elixir.GtBridge.Resolve.beam")
-
-      assert File.exists?(beam)
-
-      {:ok, {_, [{:exports, exports}]}} =
-        :beam_lib.chunks(String.to_charlist(beam), [:exports])
-
-      assert Enum.any?(exports, fn {name, arity} ->
-               name == :__beam_test__ and arity == 0
-             end)
-
-      :ok
+      GtBridge.Analysis.hot_reload(path, source)
+      assert apply(mod, :value, []) == :standalone
+      assert Application.get_application(mod) == nil
+      apply(mod, :module_info, [])
     after
-      GtBridge.Analysis.hot_reload(path, original)
+      File.rm(path)
+      :code.purge(mod)
+      :code.delete(mod)
     end
   end
 
-  @spec revert_restores_original() :: :ok
-  example revert_restores_original do
-    path = @test_module.__info__(:compile)[:source] |> List.to_string()
-    {:ok, original} = File.read(path)
-
-    modified =
-      String.replace(
-        original,
-        "\nend\n",
-        "\n  def __revert_test__, do: :temporary\nend\n"
-      )
+  # I verify revert restores source, beam, and module exports.
+  # Returns exports after revert.
+  @spec revert_clean() :: [{atom(), non_neg_integer()}]
+  example revert_clean do
+    {path, original} = source_for(HotReloadTest)
+    modified = inject_before_end(original, "def __revert__, do: :tmp")
 
     GtBridge.Analysis.hot_reload(path, modified)
-    assert function_exported?(@test_module, :__revert_test__, 0)
+    assert function_exported?(HotReloadTest, :__revert__, 0)
 
     GtBridge.Analysis.hot_reload(path, original)
-    refute function_exported?(@test_module, :__revert_test__, 0)
+    refute function_exported?(HotReloadTest, :__revert__, 0)
 
-    # File should match original
-    {:ok, current} = File.read(path)
-    assert current == original
-    :ok
+    assert File.read!(path) == original
+    exports = beam_exports(HotReloadTest)
+    refute {:__revert__, 0} in exports
+    exports
+  end
+
+  ############################################################
+  #                         Helpers                          #
+  ############################################################
+
+  # I handle the write-compile-revert cycle. `transform` receives
+  # the original source and returns the modified version. `observe`
+  # runs after hot-reload and its return value becomes the example
+  # result. Revert is automatic.
+  defp with_reload(mod, transform, observe) do
+    {path, original} = source_for(mod)
+
+    try do
+      GtBridge.Analysis.hot_reload(path, transform.(original))
+      observe.()
+    after
+      GtBridge.Analysis.hot_reload(path, original)
+    end
+  end
+
+  defp source_for(mod) do
+    path = GtBridge.Resolve.source_file(mod)
+    {:ok, content} = File.read(path)
+    {path, content}
+  end
+
+  defp inject_before_end(source, definition) do
+    String.replace(source, "\nend\n", "\n  #{definition}\nend\n")
+  end
+
+  defp beam_exports(mod) do
+    app = Application.get_application(mod)
+    beam = Path.join(Application.app_dir(app, "ebin"), "#{mod}.beam")
+
+    {:ok, {_, [{:exports, exports}]}} =
+      :beam_lib.chunks(String.to_charlist(beam), [:exports])
+
+    exports
   end
 end

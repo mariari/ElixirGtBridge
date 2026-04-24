@@ -344,7 +344,18 @@ defmodule GtBridge.Analysis do
   # eval env (e.g. "use TypedStruct" triggers __meta__ errors)
   @preamble_starts ["import ", "alias ", "require "]
 
-  defp preamble_directives(source) do
+  @doc "I return the alias/import/require lines from a module's source."
+  @spec preamble_directives(module()) :: [String.t()]
+  def preamble_directives(mod) when is_atom(mod) do
+    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
+         {:ok, source} <- File.read(path) do
+      preamble_directives(source)
+    else
+      _ -> []
+    end
+  end
+
+  def preamble_directives(source) when is_binary(source) do
     source
     |> String.split("\n")
     |> Stream.map(&String.trim/1)
@@ -485,8 +496,7 @@ defmodule GtBridge.Analysis do
           name: Atom.to_string(t),
           size: :mnesia.table_info(t, :size),
           type: Atom.to_string(:mnesia.table_info(t, :type)),
-          attrs:
-            Enum.map_join(:mnesia.table_info(t, :attributes), ", ", &Atom.to_string/1)
+          attrs: Enum.map_join(:mnesia.table_info(t, :attributes), ", ", &Atom.to_string/1)
         }
       end)
       |> Enum.sort_by(& &1.name)
@@ -718,13 +728,7 @@ defmodule GtBridge.Analysis do
 
   defp module_has_doc?(mod), do: module_doc_info(mod) |> elem(1)
 
-  defp has_source?(mod) do
-    try do
-      mod.module_info(:compile)[:source] != nil
-    rescue
-      _ -> false
-    end
-  end
+  defp has_source?(mod), do: GtBridge.Resolve.source_file(mod) != nil
 
   defp module_doc_status(mod) do
     case Code.fetch_docs(mod) do
@@ -773,28 +777,41 @@ defmodule GtBridge.Analysis do
     File.write!(path, content)
     Mix.Tasks.Format.run([path])
 
-    # Ensure clean compiler state — previous compilations may
-    # have left entries in this table.
     :ets.delete_all_objects(:elixir_modules)
-
     abs_path = Path.expand(path)
-    [{mod, _} | _] = Code.compile_file(path)
+
+    compiled = Code.compile_file(path)
+    # Any module from the file suffices — we only need the app.
+    # (Files with typedstruct may return helper modules first.)
+    [{mod, _} | _] = compiled
     app = Application.get_application(mod)
+    main_app = Mix.Project.config()[:app]
 
-    if app != Mix.Project.config()[:app] do
-      # Dep: compile siblings for struct caller tracking.
-      # Exclude the changed file and the calling module's file
-      # to avoid triple-loading (which purges the running code).
-      self_path = __ENV__.file |> Path.expand()
+    case app do
+      nil ->
+        # Standalone module — no app to persist into or propagate across.
+        :ok
 
-      siblings =
-        app_source_files(app)
-        |> Enum.reject(&(&1 in [abs_path, self_path]))
+      ^main_app ->
+        # Main project — IEx.recompile handles manifest-driven recompilation.
+        :ok
 
-      {:ok, _mods, _} =
-        Kernel.ParallelCompiler.compile(siblings,
-          each_module: fn _file, m, binary -> persist_beam(m, binary) end
-        )
+      _ ->
+        # Dependency — persist the directly compiled modules, then
+        # compile all siblings in one pass for struct propagation.
+        # Exclude __ENV__.file to avoid purging the running code.
+        for {m, binary} <- compiled, do: persist_beam(m, binary)
+
+        self_path = __ENV__.file |> Path.expand()
+
+        siblings =
+          app_source_files(app)
+          |> Enum.reject(&(&1 in [abs_path, self_path]))
+
+        {:ok, _mods, _} =
+          Kernel.ParallelCompiler.compile(siblings,
+            each_module: fn _file, m, binary -> persist_beam(m, binary) end
+          )
     end
 
     IEx.Helpers.recompile()
@@ -803,16 +820,7 @@ defmodule GtBridge.Analysis do
 
   defp app_source_files(app) do
     {:ok, mods} = :application.get_key(app, :modules)
-
-    mods
-    |> Enum.flat_map(fn m ->
-      try do
-        [m.__info__(:compile)[:source] |> List.to_string()]
-      rescue
-        _ -> []
-      end
-    end)
-    |> Enum.uniq()
+    mods |> Enum.map(&GtBridge.Resolve.source_file/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
 
   defp persist_beam(mod, binary) do
@@ -858,11 +866,30 @@ defmodule GtBridge.Analysis do
   Label is :compile, :export, or :runtime.
   """
   @stdlib_modules MapSet.new([
-    Kernel, Kernel.Typespec, Kernel.Utils, Module, Protocol,
-    Application, Supervisor, GenServer, Agent, Task,
-    Enum, String, Map, MapSet, Keyword, List, Atom, Integer,
-    IO, File, Path, Code, Logger
-  ])
+                    Kernel,
+                    Kernel.Typespec,
+                    Kernel.Utils,
+                    Module,
+                    Protocol,
+                    Application,
+                    Supervisor,
+                    GenServer,
+                    Agent,
+                    Task,
+                    Enum,
+                    String,
+                    Map,
+                    MapSet,
+                    Keyword,
+                    List,
+                    Atom,
+                    Integer,
+                    IO,
+                    File,
+                    Path,
+                    Code,
+                    Logger
+                  ])
 
   @spec compile_dep_edges(keyword()) :: [map()]
   def compile_dep_edges(opts \\ []) do
@@ -927,7 +954,11 @@ defmodule GtBridge.Analysis do
   defp bfs(visited, [], _adj), do: visited
 
   defp bfs(visited, frontier, adj) do
-    next = Enum.flat_map(frontier, &Map.get(adj, &1, [])) |> Enum.uniq() |> Enum.reject(&(&1 in visited))
+    next =
+      Enum.flat_map(frontier, &Map.get(adj, &1, []))
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 in visited))
+
     bfs(MapSet.union(visited, MapSet.new(next)), next, adj)
   end
 end
