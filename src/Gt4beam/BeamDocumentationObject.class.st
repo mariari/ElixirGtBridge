@@ -62,6 +62,7 @@ BeamDocumentationObject >> gtApplicationFor: aView [
 { #category : 'gt-views' }
 BeamDocumentationObject >> gtCoderFor: aView [
 	<gtView>
+	<gtBeamView>
 	| file modName |
 	file := self sourceFile.
 	file isString ifFalse: [ ^ aView empty ].
