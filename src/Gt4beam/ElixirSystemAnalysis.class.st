@@ -11,21 +11,6 @@ Class {
 	#tag : 'Analysis'
 }
 
-{ #category : 'instance creation' }
-ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication [
-	^ self new
-		application: aBeamLinkApplication;
-		yourself
-]
-
-{ #category : 'instance creation' }
-ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication gitRepository: aGtGitRepository [
-	^ self new
-		application: aBeamLinkApplication;
-		gitRepository: aGtGitRepository;
-		yourself
-]
-
 { #category : 'spotter' }
 ElixirSystemAnalysis class >> beamSearchFor: aSearch queryFn: fnName send: sendBlock [
 	"I create an explicit spotter search that delegates to a BEAM-side
@@ -43,6 +28,21 @@ ElixirSystemAnalysis class >> beamSearchFor: aSearch queryFn: fnName send: sendB
 					collect: [ :m | m asString ] ];
 		previewObject: [ :each | sendBlock value: each value: app ];
 		send: [ :each | sendBlock value: each value: app ]
+]
+
+{ #category : 'instance creation' }
+ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication [
+	^ self new
+		application: aBeamLinkApplication;
+		yourself
+]
+
+{ #category : 'instance creation' }
+ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication gitRepository: aGtGitRepository [
+	^ self new
+		application: aBeamLinkApplication;
+		gitRepository: aGtGitRepository;
+		yourself
 ]
 
 { #category : 'accessing' }
@@ -77,32 +77,6 @@ ElixirSystemAnalysis >> gitRepository [
 { #category : 'accessing' }
 ElixirSystemAnalysis >> gitRepository: aGitRepository [
 	gitRepository := aGitRepository
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> loadedApplicationRecords [
-	^ self loadedApplicationTuples asList collect: [ :each |
-		{ each itemAt: 0. each itemAt: 1. each itemAt: 2 } ]
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> loadedApplicationTuples [
-	^ self isConnected
-		ifTrue: [ self remoteApplications ]
-		ifFalse: [ #() ]
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> remoteApplications [
-	^ self application
-		evaluateAndWait: 'Application.loaded_applications()'
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> workingDirectory [
-	^ self hasApplication
-		ifTrue: [ application workingDirectory ]
-		ifFalse: [ nil ]
 ]
 
 { #category : 'gt views' }
@@ -328,6 +302,34 @@ ElixirSystemAnalysis >> gtSearchModulesFor: aSearch [
 				'GtBridge.Documentation.for_module(', modName, ')' ]
 ]
 
+{ #category : 'testing' }
+ElixirSystemAnalysis >> hasApplication [
+	^ application isNotNil
+]
+
+{ #category : 'testing' }
+ElixirSystemAnalysis >> hasGitRepository [
+	^ gitRepository isNotNil
+]
+
+{ #category : 'testing' }
+ElixirSystemAnalysis >> isConnected [
+	^ self hasApplication and: [ application isRunning ]
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysis >> loadedApplicationRecords [
+	^ self loadedApplicationTuples asList collect: [ :each |
+		{ each itemAt: 0. each itemAt: 1. each itemAt: 2 } ]
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysis >> loadedApplicationTuples [
+	^ self isConnected
+		ifTrue: [ self remoteApplications ]
+		ifFalse: [ #() ]
+]
+
 { #category : 'printing' }
 ElixirSystemAnalysis >> printOn: aStream [
 	aStream
@@ -355,17 +357,15 @@ ElixirSystemAnalysis >> problemsFor: moduleInfo in: anApp [
 	^ rows
 ]
 
-{ #category : 'testing' }
-ElixirSystemAnalysis >> hasApplication [
-	^ application isNotNil
+{ #category : 'accessing' }
+ElixirSystemAnalysis >> remoteApplications [
+	^ self application
+		evaluateAndWait: 'Application.loaded_applications()'
 ]
 
-{ #category : 'testing' }
-ElixirSystemAnalysis >> hasGitRepository [
-	^ gitRepository isNotNil
-]
-
-{ #category : 'testing' }
-ElixirSystemAnalysis >> isConnected [
-	^ self hasApplication and: [ application isRunning ]
+{ #category : 'accessing' }
+ElixirSystemAnalysis >> workingDirectory [
+	^ self hasApplication
+		ifTrue: [ application workingDirectory ]
+		ifFalse: [ nil ]
 ]

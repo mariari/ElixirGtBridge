@@ -27,38 +27,6 @@ ElixirSystemAnalysisExamples >> analysisHasLoadedApplications [
 	^ analysis loadedApplicationRecords
 ]
 
-{ #category : 'accessing' }
-ElixirSystemAnalysisExamples >> firstApplication [
-	<gtExample>
-	| application |
-	application := self analysis applications first.
-	self assert: application name isNotNil.
-	^ application
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysisExamples >> gitRepository [
-	<gtExample>
-	| repository |
-	repository := GtGitRepository forRepoNamed: 'gt4beam'.
-	self assert: repository isNotNil.
-	^ repository
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysisExamples >> runningApplication [
-	<gtExample>
-	| application |
-	application := BeamLinkApplication allInstances
-		detect: [ :each | 
-			((each instVarNamed: 'settings') isNotNil)
-				and: [ each isRunning ] ]
-		ifNone: [ BeamLinkApplication start ].
-	self assert: application isNotNil.
-	self assert: application isRunning.
-	^ application
-]
-
 { #category : 'examples - views' }
 ElixirSystemAnalysisExamples >> applicationsView [
 	<gtExample>
@@ -75,6 +43,24 @@ ElixirSystemAnalysisExamples >> dashboardView [
 	view := self analysis gtDashboardFor: GtPhlowEmptyView new.
 	self assert: view notNil.
 	^ view
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysisExamples >> firstApplication [
+	<gtExample>
+	| application |
+	application := self analysis applications first.
+	self assert: application name isNotNil.
+	^ application
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysisExamples >> gitRepository [
+	<gtExample>
+	| repository |
+	repository := GtGitRepository forRepoNamed: 'gt4beam'.
+	self assert: repository isNotNil.
+	^ repository
 ]
 
 { #category : 'examples - views' }
@@ -102,4 +88,18 @@ ElixirSystemAnalysisExamples >> problemsView [
 	view := self analysis gtProblemsFor: GtPhlowEmptyView new.
 	self assert: view notNil.
 	^ view
+]
+
+{ #category : 'accessing' }
+ElixirSystemAnalysisExamples >> runningApplication [
+	<gtExample>
+	| application |
+	application := BeamLinkApplication allInstances
+		detect: [ :each | 
+			((each instVarNamed: 'settings') isNotNil)
+				and: [ each isRunning ] ]
+		ifNone: [ BeamLinkApplication start ].
+	self assert: application isNotNil.
+	self assert: application isRunning.
+	^ application
 ]

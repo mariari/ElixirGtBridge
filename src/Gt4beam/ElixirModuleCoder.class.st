@@ -81,6 +81,65 @@ ElixirModuleCoder >> asCoderViewModel [
 ]
 
 { #category : 'private' }
+ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
+	"I insert a draft editor pane immediately after addRow. The draft
+	 uses my editor session so completion sees my imports/aliases.
+	 Save splices the draft via addFunction: and removes the pane;
+	 the source-change announcement refreshes the streaming list.
+	 Cancel just removes the pane."
+	| vm editor draftPane header existing |
+	existing := container children detect: [ :c | c == addRow ] ifNone: [ nil ].
+	existing ifNil: [ ^ self ].
+	"Bail if a draft is already open — addRow is always at index 1 and
+	 if there's a draft it sits at index 2; we don't want two drafts."
+	container children size > 2 ifTrue: [ ^ self ].
+	vm := self coderModelForSource:
+		'def new_function do', String lf, '  :ok', String lf, 'end'.
+	vm
+		when: GtSourceCoderViewModelSaveRequested
+		do: [ :ann |
+			self addFunction: vm coderModel currentSourceString.
+			draftPane removeFromParent.
+			ann consumed: true ].
+	editor := vm asElement matchParent.
+	header := BrHorizontalPane new
+		hMatchParent;
+		vFitContent;
+		alignCenterLeft;
+		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
+		addChild: (BrLabel new
+			aptitude: (BrGlamorousLabelAptitude new glamorousCodeFont; fontSize: 12);
+			text: 'New function');
+		addChild: (BrFrame new hMatchParent vFitContent);
+		addChild: (BrButton new
+			aptitude: BrGlamorousButtonWithIconAptitude;
+			icon: BrGlamorousVectorIcons accept;
+			beSmallSize;
+			label: 'Add & compile';
+			action: [ :btn |
+				self addFunction: vm coderModel currentSourceString.
+				draftPane removeFromParent ]);
+		addChild: (BrButton new
+			aptitude: BrGlamorousButtonWithIconAptitude;
+			icon: BrGlamorousVectorIcons cancel;
+			beSmallSize;
+			label: 'Cancel';
+			action: [ :btn | draftPane removeFromParent ]);
+		yourself.
+	draftPane := BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical exact: 220 ];
+		padding: (BlInsets all: 4);
+		border: (BlBorder paint: (Color gray alpha: 0.4) width: 1);
+		addChild: header;
+		addChild: editor;
+		yourself.
+	container addChild: draftPane at: 2
+]
+
+{ #category : 'private' }
 ElixirModuleCoder >> buildExampleMapElement [
 	"I build a Mondrian graph of example dependencies."
 	| mondrian data edges nodes app modName |
@@ -150,62 +209,44 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 ]
 
 { #category : 'private' }
-ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
-	"I insert a draft editor pane immediately after addRow. The draft
-	 uses my editor session so completion sees my imports/aliases.
-	 Save splices the draft via addFunction: and removes the pane;
-	 the source-change announcement refreshes the streaming list.
-	 Cancel just removes the pane."
-	| vm editor draftPane header existing |
-	existing := container children detect: [ :c | c == addRow ] ifNone: [ nil ].
-	existing ifNil: [ ^ self ].
-	"Bail if a draft is already open — addRow is always at index 1 and
-	 if there's a draft it sits at index 2; we don't want two drafts."
-	container children size > 2 ifTrue: [ ^ self ].
-	vm := self coderModelForSource:
-		'def new_function do', String lf, '  :ok', String lf, 'end'.
-	vm
-		when: GtSourceCoderViewModelSaveRequested
-		do: [ :ann |
-			self addFunction: vm coderModel currentSourceString.
-			draftPane removeFromParent.
-			ann consumed: true ].
-	editor := vm asElement matchParent.
-	header := BrHorizontalPane new
-		hMatchParent;
-		vFitContent;
-		alignCenterLeft;
-		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new glamorousCodeFont; fontSize: 12);
-			text: 'New function');
-		addChild: (BrFrame new hMatchParent vFitContent);
-		addChild: (BrButton new
-			aptitude: BrGlamorousButtonWithIconAptitude;
-			icon: BrGlamorousVectorIcons accept;
-			beSmallSize;
-			label: 'Add & compile';
-			action: [ :btn |
-				self addFunction: vm coderModel currentSourceString.
-				draftPane removeFromParent ]);
-		addChild: (BrButton new
-			aptitude: BrGlamorousButtonWithIconAptitude;
-			icon: BrGlamorousVectorIcons cancel;
-			beSmallSize;
-			label: 'Cancel';
-			action: [ :btn | draftPane removeFromParent ]);
-		yourself.
-	draftPane := BlElement new
-		layout: BlLinearLayout vertical;
-		constraintsDo: [ :c |
-			c horizontal matchParent.
-			c vertical exact: 220 ];
-		padding: (BlInsets all: 4);
-		border: (BlBorder paint: (Color gray alpha: 0.4) width: 1);
-		addChild: header;
-		addChild: editor;
-		yourself.
-	container addChild: draftPane at: 2
+ElixirModuleCoder >> buildSourceViewElement [
+	"I build a self-refreshing container for the Source tab. The inner
+	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me
+	 (e.g. after a function save or delete) so the displayed source
+	 always matches what's on disk. Using a rebuild block instead of
+	 mutating the existing coder's sourceCode because GtCoderModel
+	 doesn't broadcast mid-life source replacements to its element.
+
+	 I also handle Ctrl-S on the inner coder view model by subscribing
+	 to GtSourceCoderViewModelSaveRequested and routing the current
+	 text through saveAndCompile:."
+
+	| container rebuild |
+	container := BlElement new
+			layout: BlLinearLayout vertical;
+			constraintsDo: [ :c | 
+				c horizontal matchParent.
+				c vertical matchParent ].
+	rebuild := [ | coderModel vm |
+		container removeChildren.
+		coderModel := GtElixirCoderModel new.
+		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
+		coderModel
+			sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
+		vm := coderModel asCoderViewModel.
+		vm expanded: true.
+		vm
+			when: GtSourceCoderViewModelSaveRequested
+			do: [ :ann | 
+				self saveAndCompile: coderModel currentSourceString.
+				ann consumed: true ].
+		container addChild: vm asElement matchParent ].
+	rebuild value.
+	self announcer
+		when: GtCoderSourceCodeChanged
+		do: [ :ann | rebuild value ]
+		for: self.
+	^ container
 ]
 
 { #category : 'private' }
@@ -224,45 +265,6 @@ ElixirModuleCoder >> coderModelForSource: sourceText [
 		vm viewPharoBindings: bindings.
 		LeElixirSnippetElement sessionMap at: bindings put: sid ].
 	^ vm
-]
-
-{ #category : 'private' }
-ElixirModuleCoder >> buildSourceViewElement [
-	"I build a self-refreshing container for the Source tab. The inner
-	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me
-	 (e.g. after a function save or delete) so the displayed source
-	 always matches what's on disk. Using a rebuild block instead of
-	 mutating the existing coder's sourceCode because GtCoderModel
-	 doesn't broadcast mid-life source replacements to its element.
-
-	 I also handle Ctrl-S on the inner coder view model by subscribing
-	 to GtSourceCoderViewModelSaveRequested and routing the current
-	 text through saveAndCompile:."
-	| container rebuild |
-	container := BlElement new
-		layout: BlLinearLayout vertical;
-		constraintsDo: [ :c |
-			c horizontal matchParent.
-			c vertical matchParent ].
-	rebuild := [
-		| coderModel vm |
-		container removeChildren.
-		coderModel := GtElixirCoderModel new.
-		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
-		coderModel sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
-		vm := coderModel asCoderViewModel.
-		vm expanded: true.
-		vm
-			when: GtSourceCoderViewModelSaveRequested
-			do: [ :ann |
-				self saveAndCompile: coderModel currentSourceString.
-				ann consumed: true ].
-		container addChild: vm asElement matchParent ].
-	rebuild value.
-	self announcer
-		when: GtCoderSourceCodeChanged
-		do: [ :ann | rebuild value ].
-	^ container
 ]
 
 { #category : 'accessing' }
@@ -301,6 +303,26 @@ ElixirModuleCoder >> functionEntries [
 	^ [ application evaluateAndWait:
 		'GtBridge.Analysis.all_functions(', moduleName, ')' ]
 		on: Error do: [ #() ]
+]
+
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtCompileDepsViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"I show what recompiles when this module changes and what
+	 this module depends on at compile time."
+	^ aView mondrian
+		title: 'Compile deps';
+		priority: 35;
+		painting: [ :aMondrian |
+			| edges |
+			edges := [ (application evaluateAndWait:
+				'GtBridge.Analysis.compile_dep_edges_for(', moduleName, ')') asList ]
+				on: Error do: [ #() ].
+			BeamMondrianHelpers
+				compileDepsOn: aMondrian
+				edges: edges
+				highlightModules: (Set with: moduleName)
+				application: application ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -359,26 +381,6 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 		stencil: [ self buildSourceViewElement ]
 ]
 
-{ #category : 'gt-extensions' }
-ElixirModuleCoder >> gtCompileDepsViewFor: aView context: aContext [
-	<gtElixirModuleView>
-	"I show what recompiles when this module changes and what
-	 this module depends on at compile time."
-	^ aView mondrian
-		title: 'Compile deps';
-		priority: 35;
-		painting: [ :aMondrian |
-			| edges |
-			edges := [ (application evaluateAndWait:
-				'GtBridge.Analysis.compile_dep_edges_for(', moduleName, ')') asList ]
-				on: Error do: [ #() ].
-			BeamMondrianHelpers
-				compileDepsOn: aMondrian
-				edges: edges
-				highlightModules: (Set with: moduleName)
-				application: application ]
-]
-
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> hasFunctions [
 	"I return true if the bridge can enumerate my functions.
@@ -432,11 +434,6 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 ]
 
 { #category : 'accessing' }
-ElixirModuleCoder >> sourceCode [
-	^ sourcePath asFileReference contents
-]
-
-{ #category : 'accessing' }
 ElixirModuleCoder >> selfObject [
 	^ selfObject
 ]
@@ -444,6 +441,11 @@ ElixirModuleCoder >> selfObject [
 { #category : 'accessing' }
 ElixirModuleCoder >> selfObject: anObject [
 	selfObject := anObject
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> sourceCode [
+	^ sourcePath asFileReference contents
 ]
 
 { #category : 'accessing' }

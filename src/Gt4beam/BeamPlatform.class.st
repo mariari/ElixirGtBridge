@@ -11,11 +11,6 @@ BeamPlatform class >> weakRegistryClass [
 	^ LanguageLinkPharoWeakRegistry
 ]
 
-{ #category : 'accessing' }
-BeamPlatform >> folderForApplication [
-	^ self class package repository repository location
-]
-
 { #category : 'hooks' }
 BeamPlatform >> ensureEnvironmentForApp: anApplication [
 	"TODO: See how best to not run this
@@ -34,6 +29,11 @@ BeamPlatform >> ensureEnvironmentForApp: anApplication [
 			error signal ] ] asJob
 		title: 'Updating the Mix Dependencies';
 		run
+]
+
+{ #category : 'accessing' }
+BeamPlatform >> folderForApplication [
+	^ self class package repository repository location
 ]
 
 { #category : 'utils' }

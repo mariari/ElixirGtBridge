@@ -30,11 +30,6 @@ BeamLinkApplication class >> start [
 	^ self startWith: LanguageLinkSettings elixirDefaultSettings
 ]
 
-{ #category : 'accessing' }
-BeamLinkApplication >> remShInfo [
-	^ self processHandler processCommandLineString
-]
-
 { #category : 'as yet unclassified' }
 BeamLinkApplication >> gtCoderBrowserFor: aView [
 	<gtView>
@@ -46,15 +41,20 @@ BeamLinkApplication >> gtCoderBrowserFor: aView [
 		stencil: [ ElixirCoderBrowser forApplication: self ]
 ]
 
-{ #category : 'directory' }
-BeamLinkApplication >> workingDirectory [
-	^ self settings workingDirectory
-]
-
 { #category : 'initialization' }
 BeamLinkApplication >> initializeHandlers [
 	loggingHandler := LanguageLinkLoggingHandler application: self.
 	processHandler := LanguageLinkServerHandler application: self.
 	communicationHandler := LanguageLinkCommunicationHandler application: self.
 	executionHandler := ElixirExecutionHandler application: self
+]
+
+{ #category : 'accessing' }
+BeamLinkApplication >> remShInfo [
+	^ self processHandler processCommandLineString
+]
+
+{ #category : 'directory' }
+BeamLinkApplication >> workingDirectory [
+	^ self settings workingDirectory
 ]

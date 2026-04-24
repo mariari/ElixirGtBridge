@@ -26,16 +26,6 @@ GtBeamViewDeclaration class >> remoteName [
 	^ self subclassResponsibility
 ]
 
-{ #category : 'accessing' }
-GtBeamViewDeclaration >> rawData [
-	^ rawData
-]
-
-{ #category : 'accessing' }
-GtBeamViewDeclaration >> rawData: anObject [
-	rawData := anObject
-]
-
 { #category : 'as yet unclassified' }
 GtBeamViewDeclaration >> asView [
 	| view |
@@ -48,6 +38,16 @@ GtBeamViewDeclaration >> asView [
 	self treatView: view.
 
 	^ view
+]
+
+{ #category : 'accessing' }
+GtBeamViewDeclaration >> rawData [
+	^ rawData
+]
+
+{ #category : 'accessing' }
+GtBeamViewDeclaration >> rawData: anObject [
+	rawData := anObject
 ]
 
 { #category : 'as yet unclassified' }

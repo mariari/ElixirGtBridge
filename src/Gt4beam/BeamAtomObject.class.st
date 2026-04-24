@@ -19,6 +19,14 @@ BeamAtomObject class >> new: aSymbol [
 	^ self new symbol: aSymbol
 ]
 
+{ #category : 'comparing' }
+BeamAtomObject >> = aSymbol [
+	"I should probably do this better"
+
+	self class == aSymbol class ifFalse: [ ^ false ].
+	^ self symbol = aSymbol symbol
+]
+
 { #category : 'accessing' }
 BeamAtomObject >> applicationAnalysis [
 	"I return the ElixirApplicationAnalysis for my module, or nil."
@@ -34,33 +42,17 @@ BeamAtomObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> determinePID [
+	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
+]
+
 { #category : 'accessing' }
 BeamAtomObject >> elixirClass [
 	"I return the Elixir module name for module atoms, or nil otherwise.
 	 Used by GtElixirCoderModel's wrapSource:withSelf: to prepend
 	 `import <Module>` to snippets that reference a module atom as self."
 	^ self isModuleAtom ifTrue: [ symbol ]
-]
-
-{ #category : 'accessing' }
-BeamAtomObject >> remoteClass [
-	"I return the atom's module name for playground page keys."
-	^ self elixirClass ifNil: [ symbol ]
-]
-
-{ #category : 'accessing' }
-BeamAtomObject >> symbol [
-	^ symbol
-]
-
-{ #category : 'accessing' }
-BeamAtomObject >> symbol: anObject [
-	symbol := anObject
-]
-
-{ #category : 'as yet unclassified' }
-BeamAtomObject >> determinePID [
-	^ self evaluateAndWait: (self resolve , '|> Process.whereis()')
 ]
 
 { #category : 'as yet unclassified' }
@@ -70,34 +62,6 @@ BeamAtomObject >> evaluateAndWait: aString [
 	^ BeamLinkApplication uniqueInstance newCommandFactory
 		<< aString;
 		sendAndWait
-]
-
-{ #category : 'as yet unclassified' }
-BeamAtomObject >> printOn: aStream [
-	self symbol printOn: aStream
-]
-
-{ #category : 'comparing' }
-BeamAtomObject >> = aSymbol [
-	"I should probably do this better"
-
-	self class == aSymbol class ifFalse: [ ^ false ].
-	^ self symbol = aSymbol symbol
-]
-
-{ #category : 'comparing' }
-BeamAtomObject >> hash [
-	^ self symbol hash hashMultiply
-]
-
-{ #category : 'elixir - resolution' }
-BeamAtomObject >> resolve [
-	"I return the Elixir literal for this atom. Module atoms
-	 (uppercase letter) are bare names; all others (including
-	 underscore-prefixed like __meta__) get the : prefix."
-	^ symbol first isUppercase
-		ifTrue: [ symbol ]
-		ifFalse: [ ':' , symbol ]
 ]
 
 { #category : 'gt-actions' }
@@ -113,6 +77,43 @@ BeamAtomObject >> gtActionApplicationFor: anAction [
 				aButton phlow spawnObject: app ] ]
 ]
 
+{ #category : 'views' }
+BeamAtomObject >> gtBeamPrintFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the Elixir inspect() output for this atom."
+	^ aView textEditor
+		title: 'Print';
+		priority: 115;
+		aptitude: BrGlamorousCodeEditorAptitude;
+		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ]
+]
+
+{ #category : 'views' }
+BeamAtomObject >> gtCoderFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the module coder for module atoms. Elixir modules get
+	 the Elixir. prefix; Erlang modules use the bare atom name."
+	| modName |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	modName := symbol first isUppercase
+		ifTrue: [ (symbol beginsWith: 'Elixir.')
+			ifTrue: [ symbol ]
+			ifFalse: [ 'Elixir.' , symbol ] ]
+		ifFalse: [ ':' , symbol ].
+	^ aView explicit
+		title: 'Meta';
+		priority: 199;
+		stencil: [
+			| coder |
+			coder := ElixirModuleCoder
+				forModule: modName
+				application: BeamLinkApplication uniqueInstance.
+			coder selfObject: self.
+			coder asCoderViewModel asElement ]
+]
+
 { #category : 'gt-extensions' }
 BeamAtomObject >> gtDefaultInspectorTool [
 	"I collect inspector modes — self (Atom) is implicit, declared
@@ -122,6 +123,44 @@ BeamAtomObject >> gtDefaultInspectorTool [
 		fromObject: self;
 		collect.
 	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
+{ #category : 'views' }
+BeamAtomObject >> gtModuleDocsView: aView [
+	<gtView>
+	<gtBeamView>
+	| sections page |
+	self isModuleAtom ifFalse: [ ^ aView empty ].
+	sections := self evaluateAndWait:
+		'GtBridge.Documentation.to_sections('
+		, 'GtBridge.Documentation.for_module('
+		, self resolve , '))'.
+	sections isString ifFalse: [ ^ aView empty ].
+	page := LePage named: self symbol.
+	LeDatabase new addPage: page.
+	(sections splitOn: '__SECTION__') do: [ :s |
+		s trimBoth isEmpty ifFalse: [
+			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
+	^ aView explicit
+		title: 'Documentation';
+		priority: 3;
+		stencil: [ page asPreviewElement vMatchParent ]
+]
+
+{ #category : 'inspector-modes' }
+BeamAtomObject >> gtPidMode: aMode [
+	<gtInspectorMode>
+	| pid |
+	pid := [ self determinePID ] on: Error do: [ nil ].
+	(pid isNil or: [ pid isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'Pid';
+		priority: 10;
+		object: pid;
+		tool: (pid gtRemoteSideInspectorTool
+			name: 'Pid';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
 ]
 
 { #category : 'gt-extensions' }
@@ -204,25 +243,14 @@ BeamAtomObject >> gtViewsForRemoteSideInContext: aContext [
 		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ]
 ]
 
+{ #category : 'comparing' }
+BeamAtomObject >> hash [
+	^ self symbol hash hashMultiply
+]
+
 { #category : 'gt-extensions' }
 BeamAtomObject >> inspectorModeName [
 	^ 'Atom'
-]
-
-{ #category : 'inspector-modes' }
-BeamAtomObject >> gtPidMode: aMode [
-	<gtInspectorMode>
-	| pid |
-	pid := [ self determinePID ] on: Error do: [ nil ].
-	(pid isNil or: [ pid isError ]) ifTrue: [ ^ aMode ].
-	^ aMode
-		name: 'Pid';
-		priority: 10;
-		object: pid;
-		tool: (pid gtRemoteSideInspectorTool
-			name: 'Pid';
-			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
-			withLabelAndIconAptitude)
 ]
 
 { #category : 'testing' }
@@ -238,61 +266,33 @@ BeamAtomObject >> isModuleAtom [
 		on: Error do: [ false ]
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtBeamPrintFor: aView [
-	<gtView>
-	<gtBeamView>
-	"I show the Elixir inspect() output for this atom."
-	^ aView textEditor
-		title: 'Print';
-		priority: 115;
-		aptitude: BrGlamorousCodeEditorAptitude;
-		text: [ self evaluateAndWait: self resolve , ' |> inspect(pretty: true)' ]
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> printOn: aStream [
+	self symbol printOn: aStream
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtCoderFor: aView [
-	<gtView>
-	<gtBeamView>
-	"I show the module coder for module atoms. Elixir modules get
-	 the Elixir. prefix; Erlang modules use the bare atom name."
-	| modName |
-	self isModuleAtom ifFalse: [ ^ aView empty ].
-	modName := symbol first isUppercase
-		ifTrue: [ (symbol beginsWith: 'Elixir.')
-			ifTrue: [ symbol ]
-			ifFalse: [ 'Elixir.' , symbol ] ]
-		ifFalse: [ ':' , symbol ].
-	^ aView explicit
-		title: 'Meta';
-		priority: 199;
-		stencil: [
-			| coder |
-			coder := ElixirModuleCoder
-				forModule: modName
-				application: BeamLinkApplication uniqueInstance.
-			coder selfObject: self.
-			coder asCoderViewModel asElement ]
+{ #category : 'accessing' }
+BeamAtomObject >> remoteClass [
+	"I return the atom's module name for playground page keys."
+	^ self elixirClass ifNil: [ symbol ]
 ]
 
-{ #category : 'views' }
-BeamAtomObject >> gtModuleDocsView: aView [
-	<gtView>
-	<gtBeamView>
-	| sections page |
-	self isModuleAtom ifFalse: [ ^ aView empty ].
-	sections := self evaluateAndWait:
-		'GtBridge.Documentation.to_sections('
-		, 'GtBridge.Documentation.for_module('
-		, self resolve , '))'.
-	sections isString ifFalse: [ ^ aView empty ].
-	page := LePage named: self symbol.
-	LeDatabase new addPage: page.
-	(sections splitOn: '__SECTION__') do: [ :s |
-		s trimBoth isEmpty ifFalse: [
-			page addSnippet: (LeTextSnippet string: s trimBoth) ] ].
-	^ aView explicit
-		title: 'Documentation';
-		priority: 3;
-		stencil: [ page asPreviewElement vMatchParent ]
+{ #category : 'elixir - resolution' }
+BeamAtomObject >> resolve [
+	"I return the Elixir literal for this atom. Module atoms
+	 (uppercase letter) are bare names; all others (including
+	 underscore-prefixed like __meta__) get the : prefix."
+	^ symbol first isUppercase
+		ifTrue: [ symbol ]
+		ifFalse: [ ':' , symbol ]
+]
+
+{ #category : 'accessing' }
+BeamAtomObject >> symbol [
+	^ symbol
+]
+
+{ #category : 'accessing' }
+BeamAtomObject >> symbol: anObject [
+	symbol := anObject
 ]

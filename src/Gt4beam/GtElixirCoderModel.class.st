@@ -18,6 +18,11 @@ GtElixirCoderModel class >> code: aString [
 		  (GtCoderExplicitStringSource new source: aString)
 ]
 
+{ #category : 'converting' }
+GtElixirCoderModel >> asCoderViewModel [
+	^ GtElixirSnippetCoderViewModel new coder: self
+]
+
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
 	"I prepend preamble, import, and self binding, then eval."
@@ -28,6 +33,53 @@ GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId
 	^ self
 		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: selfObj)
 		sessionId: sid
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> bindAndExecuteRaw: sourceString sessionId: sid [
+	| factory |
+	self initializeApplication.
+	factory := application newCommandFactory.
+	sid ifNotNil: [ factory sessionId: sid ].
+	^ factory
+		<< sourceString;
+		sendAndWait
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> computeAst: theSourceString [
+	^ ElixirParser
+		parseWithErrors: theSourceString
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
+	| serverAddress url response raw result payload |
+	application ifNil: [ ^ Dictionary new ].
+	serverAddress := application settings serverSocketAddress.
+	serverAddress ifNil: [ ^ Dictionary new ].
+	url := 'http://' , serverAddress ipOrName , ':'
+		, serverAddress port asString , '/BINDINGS'.
+	payload := Dictionary new.
+	sid ifNotNil: [ payload at: #sessionId put: sid ].
+	response := ZnClient new
+		url: url;
+		entity: (ZnEntity
+				with: (STONJSON toString: payload)
+				type: ZnMimeType applicationJson);
+		post;
+		response.
+	response isSuccess ifFalse: [ ^ Dictionary new ].
+	raw := STONJSON fromString: response contents.
+	result := Dictionary new: raw size.
+	raw keysAndValuesDo: [ :name :value |
+		result at: name put: (self reifyBindingValue: value) ].
+	^ result
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
+	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
 { #category : 'private' }
@@ -49,26 +101,23 @@ GtElixirCoderModel >> ensurePreambleLoaded: selfObj [
 		on: Error do: [ preambleLines := #() ]
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecuteRaw: sourceString sessionId: sid [
-	| factory |
-	self initializeApplication.
-	factory := application newCommandFactory.
-	sid ifNotNil: [ factory sessionId: sid ].
-	^ factory
-		<< sourceString;
-		sendAndWait
+{ #category : 'private' }
+GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
+	aCoderVM ifNil: [ ^ self ].
+	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
+	viewBindings ifNil: [ ^ self ].
+	sid ifNil: [ ^ self ].
+	FinalizationRegistry default
+		add: viewBindings
+		finalizer: (BeamSessionFinalizer
+			sessionId: sid
+			application: application).
+	aCoderVM sessionFinalizerRegistered: true
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> computeAst: theSourceString [
-	^ ElixirParser
-		parseWithErrors: theSourceString
-]
-
-{ #category : 'accessing' }
-GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
-	elixirLinkApplicationStrategy := anApplicationStrategy
+{ #category : 'private' }
+GtElixirCoderModel >> fetchBindingsWithSessionId: sid [
+	^ [ self doFetchBindingsWithSessionId: sid ] on: Error do: [ Dictionary new ]
 ]
 
 { #category : 'accessing' }
@@ -149,63 +198,6 @@ GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFai
 	^ result
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
-	"Answer the modified source to return the declared variables"
-	^ String
-		streamContents: [ :stream |
-			stream << trimmedSourceString ]
-]
-
-{ #category : 'converting' }
-GtElixirCoderModel >> asCoderViewModel [
-	^ GtElixirSnippetCoderViewModel new coder: self
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
-	| serverAddress url response raw result payload |
-	application ifNil: [ ^ Dictionary new ].
-	serverAddress := application settings serverSocketAddress.
-	serverAddress ifNil: [ ^ Dictionary new ].
-	url := 'http://' , serverAddress ipOrName , ':'
-		, serverAddress port asString , '/BINDINGS'.
-	payload := Dictionary new.
-	sid ifNotNil: [ payload at: #sessionId put: sid ].
-	response := ZnClient new
-		url: url;
-		entity: (ZnEntity
-				with: (STONJSON toString: payload)
-				type: ZnMimeType applicationJson);
-		post;
-		response.
-	response isSuccess ifFalse: [ ^ Dictionary new ].
-	raw := STONJSON fromString: response contents.
-	result := Dictionary new: raw size.
-	raw keysAndValuesDo: [ :name :value |
-		result at: name put: (self reifyBindingValue: value) ].
-	^ result
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
-	aCoderVM ifNil: [ ^ self ].
-	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
-	viewBindings ifNil: [ ^ self ].
-	sid ifNil: [ ^ self ].
-	FinalizationRegistry default
-		add: viewBindings
-		finalizer: (BeamSessionFinalizer
-			sessionId: sid
-			application: application).
-	aCoderVM sessionFinalizerRegistered: true
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> fetchBindingsWithSessionId: sid [
-	^ [ self doFetchBindingsWithSessionId: sid ] on: Error do: [ Dictionary new ]
-]
-
 { #category : 'private' }
 GtElixirCoderModel >> reifyBindingValue: aValue [
 	"Proxy references carry exid+exclass; reify as BeamProxyObject.
@@ -239,6 +231,14 @@ GtElixirCoderModel >> selfObjectFor: aContext [
 	^ (req notNil and: [ req respondsTo: #selfObject ])
 		ifTrue: [ req selfObject ]
 		ifFalse: [ nil ]
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
+	"Answer the modified source to return the declared variables"
+	^ String
+		streamContents: [ :stream |
+			stream << trimmedSourceString ]
 ]
 
 { #category : 'private' }

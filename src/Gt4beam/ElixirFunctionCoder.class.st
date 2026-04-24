@@ -141,31 +141,6 @@ ElixirFunctionCoder >> initializeAddOns: addOns [
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler)
 ]
 
-{ #category : 'actions' }
-ElixirFunctionCoder >> saveFunction [
-	"I splice my current source text into the module file at
-	 my function's position (found by name/arity) and recompile.
-	 Then reset my source to the formatted result from disk."
-	| src |
-	src := self currentSourceString.
-	moduleCoder
-		spliceFunction: src
-		forFunction: functionName
-		arity: arity.
-	[ | entries match freshSource |
-	  entries := [ (moduleCoder application evaluateAndWait:
-		'GtBridge.Analysis.all_functions(', moduleCoder moduleName, ')') asList ]
-		on: Error do: [ #() ].
-	  match := entries
-		detect: [ :e | (e attributeAt: #name) asString = functionName
-			and: [ (e attributeAt: #arity) = arity ] ]
-		ifNone: [ nil ].
-	  match ifNotNil: [
-		freshSource := (match attributeAt: #source) asString.
-		self sourceCode: (GtCoderExplicitStringSource new source: freshSource) ] ]
-		on: Error do: [ ]
-]
-
 { #category : 'add-ons' }
 ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
 	super initializeAddOns: addOns viewModel: aViewModel.
@@ -186,16 +161,6 @@ ElixirFunctionCoder >> initializeApplication [
 	^ app
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> initializeShortcuts: addOns [
-	"I add Ctrl-S save so editing a function and hitting save splices
-	 it back into the module. GtSourceCoderSaveShortcut calls
-	 requestSave on the view model which calls save, overridden on
-	 ElixirFunctionCoderViewModel."
-	super initializeShortcuts: addOns.
-	addOns addShortcut: GtSourceCoderSaveShortcut new
-]
-
 { #category : 'initialization' }
 ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
 	moduleCoder := anElixirModuleCoder.
@@ -204,6 +169,16 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 	startLine := anEntry attributeAt: #start.
 	endLine := anEntry attributeAt: #end_line.
 	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> initializeShortcuts: addOns [
+	"I add Ctrl-S save so editing a function and hitting save splices
+	 it back into the module. GtSourceCoderSaveShortcut calls
+	 requestSave on the view model which calls save, overridden on
+	 ElixirFunctionCoderViewModel."
+	super initializeShortcuts: addOns.
+	addOns addShortcut: GtSourceCoderSaveShortcut new
 ]
 
 { #category : 'accessing' }
@@ -278,6 +253,31 @@ ElixirFunctionCoder >> refreshLinesAfterSwap [
 	myEntry ifNotNil: [
 		startLine := myEntry attributeAt: #start.
 		endLine := myEntry attributeAt: #end_line ]
+]
+
+{ #category : 'actions' }
+ElixirFunctionCoder >> saveFunction [
+	"I splice my current source text into the module file at
+	 my function's position (found by name/arity) and recompile.
+	 Then reset my source to the formatted result from disk."
+	| src |
+	src := self currentSourceString.
+	moduleCoder
+		spliceFunction: src
+		forFunction: functionName
+		arity: arity.
+	[ | entries match freshSource |
+	  entries := [ (moduleCoder application evaluateAndWait:
+		'GtBridge.Analysis.all_functions(', moduleCoder moduleName, ')') asList ]
+		on: Error do: [ #() ].
+	  match := entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ nil ].
+	  match ifNotNil: [
+		freshSource := (match attributeAt: #source) asString.
+		self sourceCode: (GtCoderExplicitStringSource new source: freshSource) ] ]
+		on: Error do: [ ]
 ]
 
 { #category : 'accessing' }

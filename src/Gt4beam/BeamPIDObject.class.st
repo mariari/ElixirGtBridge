@@ -12,12 +12,6 @@ BeamPIDObject class >> elixirClass [
 ]
 
 { #category : 'accessing' }
-BeamPIDObject >> elixirClass [
-	"I return nil — PIDs are not modules and cannot be imported."
-	^ nil
-]
-
-{ #category : 'accessing' }
 BeamPIDObject >> applicationAnalysis [
 	"I find my application by PID (not by module name like proxies
 	 do) using Erlang's :application.get_application/1."
@@ -35,6 +29,28 @@ BeamPIDObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
+{ #category : 'views - helpers' }
+BeamPIDObject >> childrenTree [
+	^ self
+		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
+]
+
+{ #category : 'accessing' }
+BeamPIDObject >> elixirClass [
+	"I return nil — PIDs are not modules and cannot be imported."
+	^ nil
+]
+
+{ #category : 'gt-extensions' }
+BeamPIDObject >> gtDefaultInspectorTool [
+	"I collect inspector modes via <gtInspectorMode> pragmas."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtInformationFor: aView [
 	<gtView>
@@ -49,6 +65,22 @@ BeamPIDObject >> gtInformationFor: aView [
 		column: 'Value'
 			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
 		send: #value
+]
+
+{ #category : 'inspector-modes' }
+BeamPIDObject >> gtStateMode: aMode [
+	<gtInspectorMode>
+	| state |
+	state := [ self process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'State';
+		priority: 20;
+		object: state;
+		tool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
 ]
 
 { #category : 'as yet unclassified' }
@@ -90,12 +122,23 @@ BeamPIDObject >> information [
 		pair first -> pair second ]) asDictionary
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> isEvaluatorProcess [
 	" I determine if I'm the same process as the current evaluator.
 	I can not run certain operations on myself"
 
 	^ self evaluateAndWait: self resolve , '== self()'
+]
+
+{ #category : 'predicates' }
+BeamPIDObject >> isSupervisor [
+	^ self
+		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
 ]
 
 { #category : 'as yet unclassified' }
@@ -106,47 +149,4 @@ BeamPIDObject >> printOn: str [
 { #category : 'as yet unclassified' }
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
-]
-
-{ #category : 'gt-extensions' }
-BeamPIDObject >> gtDefaultInspectorTool [
-	"I collect inspector modes via <gtInspectorMode> pragmas."
-	| modes |
-	modes := BeamInspectorModeCollector new
-		fromObject: self;
-		collect.
-	^ BeamProxyToggleCompositeTool fromModes: modes
-]
-
-{ #category : 'gt-extensions' }
-BeamPIDObject >> inspectorModeName [
-	^ 'Pid'
-]
-
-{ #category : 'inspector-modes' }
-BeamPIDObject >> gtStateMode: aMode [
-	<gtInspectorMode>
-	| state |
-	state := [ self process_state ] on: Error do: [ nil ].
-	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
-	^ aMode
-		name: 'State';
-		priority: 20;
-		object: state;
-		tool: (state gtRemoteSideInspectorTool
-			name: 'State';
-			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
-			withLabelAndIconAptitude)
-]
-
-{ #category : 'predicates' }
-BeamPIDObject >> isSupervisor [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
-]
-
-{ #category : 'views - helpers' }
-BeamPIDObject >> childrenTree [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
 ]

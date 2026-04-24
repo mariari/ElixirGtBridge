@@ -36,6 +36,22 @@ ElixirCoderBrowser class >> forApplicationAnalysis: anElixirApplicationAnalysis 
 ]
 
 { #category : 'as yet unclassified' }
+ElixirCoderBrowser >> appNode: anAppName [
+	"I build a tree node for a single application with its modules
+	 grouped by namespace under the app. The #appName key lets the
+	 send: block spawn the matching ElixirApplicationAnalysis when
+	 the user clicks on the app row itself (vs. a module leaf)."
+	| appNode modules |
+	appNode := Dictionary new.
+	appNode at: #label put: anAppName.
+	appNode at: #appName put: anAppName.
+	modules := [ self moduleInfoForApplication: anAppName ]
+		on: Error do: [ #() ].
+	appNode at: #children put: (self groupModulesByNamespace: modules).
+	^ appNode
+]
+
+{ #category : 'as yet unclassified' }
 ElixirCoderBrowser >> application [
 	^ application
 ]
@@ -73,22 +89,6 @@ ElixirCoderBrowser >> applicationNodes [
 	 BEAM — the fetch happens once per browser instance, filtering is
 	 pure Smalltalk after that."
 	^ self filterNodes: self rawNodes
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> appNode: anAppName [
-	"I build a tree node for a single application with its modules
-	 grouped by namespace under the app. The #appName key lets the
-	 send: block spawn the matching ElixirApplicationAnalysis when
-	 the user clicks on the app row itself (vs. a module leaf)."
-	| appNode modules |
-	appNode := Dictionary new.
-	appNode at: #label put: anAppName.
-	appNode at: #appName put: anAppName.
-	modules := [ self moduleInfoForApplication: anAppName ]
-		on: Error do: [ #() ].
-	appNode at: #children put: (self groupModulesByNamespace: modules).
-	^ appNode
 ]
 
 { #category : 'as yet unclassified' }

@@ -17,6 +17,11 @@ BeamInspectorMode class >> empty [
 	^ self new
 ]
 
+{ #category : 'testing' }
+BeamInspectorMode >> isEmpty [
+	^ tool isNil
+]
+
 { #category : 'accessing' }
 BeamInspectorMode >> name [
 	^ name
@@ -55,9 +60,4 @@ BeamInspectorMode >> tool [
 { #category : 'accessing' }
 BeamInspectorMode >> tool: aTool [
 	tool := aTool
-]
-
-{ #category : 'testing' }
-BeamInspectorMode >> isEmpty [
-	^ tool isNil
 ]

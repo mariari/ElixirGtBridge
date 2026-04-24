@@ -20,14 +20,9 @@ MnesiaTableInspector >> application: anApp [
 	application := anApp
 ]
 
-{ #category : 'accessing' }
-MnesiaTableInspector >> tableName [
-	^ tableName
-]
-
-{ #category : 'accessing' }
-MnesiaTableInspector >> tableName: aString [
-	tableName := aString
+{ #category : 'private' }
+MnesiaTableInspector >> eval: aString [
+	^ application newCommandFactory << aString; sendAndWait
 ]
 
 { #category : 'gt-views' }
@@ -82,11 +77,16 @@ MnesiaTableInspector >> printOn: aStream [
 ]
 
 { #category : 'private' }
-MnesiaTableInspector >> eval: aString [
-	^ application newCommandFactory << aString; sendAndWait
-]
-
-{ #category : 'private' }
 MnesiaTableInspector >> quotedTableAtom [
 	^ ':"', tableName, '"'
+]
+
+{ #category : 'accessing' }
+MnesiaTableInspector >> tableName [
+	^ tableName
+]
+
+{ #category : 'accessing' }
+MnesiaTableInspector >> tableName: aString [
+	tableName := aString
 ]
