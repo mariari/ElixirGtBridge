@@ -239,9 +239,16 @@ ElixirFunctionCoder >> moduleCoder [
 ElixirFunctionCoder >> moveBy: anOffset [
 	"I swap myself with my neighbor at myIndex + anOffset.
 	 swapFunctions:with: calls saveAndCompile: which announces the
-	 source change — no explicit announceFunctionsChanged needed."
+	 source change — no explicit announceFunctionsChanged needed.
+
+	 Filter out macro-generated entries (start = 0) before computing
+	 indices: those have no file location, so swapping with one would
+	 try to splice empty source over a real function.  Without this,
+	 Move Up on the first real function found a start=0 sibling at
+	 the previous index and crashed."
 	| entries myIndex targetIndex |
-	entries := moduleCoder functionEntries asList
+	entries := (moduleCoder functionEntries asList
+		select: [ :e | (e attributeAt: #start) > 0 ])
 		sort: [ :a :b | (a attributeAt: #start) < (b attributeAt: #start) ].
 	myIndex := entries detectIndex: [ :e | (e attributeAt: #start) = startLine ] ifNone: [ ^ self ].
 	targetIndex := myIndex + anOffset.
