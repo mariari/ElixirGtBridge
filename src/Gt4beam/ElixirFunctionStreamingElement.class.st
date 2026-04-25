@@ -60,9 +60,22 @@ ElixirFunctionStreamingElement >> streamingCodersViewModel: aViewModel [
 
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingElement >> onScrollTargetChanged: anAnnouncement [
-	"I scroll the list to the matching coder VM."
+	"I scroll to the matching coder VM AND expand+focus it. Coders
+	 default to folded in this list, so a navigation target (e.g.
+	 'show me string/2 in GtBridge.Phlow.Text') would otherwise land
+	 on a folded row even after scrolling. The match block runs only
+	 on items the scanner inspects; the side-effect fires on the
+	 single item where applicableTo: returns true."
 	anAnnouncement scrollTarget ifNotNil: [ :aTarget |
-		list scrollToItemSuchThat: [ :each | aTarget applicableTo: each ] offset: 0 ]
+		list
+			scrollToItemSuchThat: [ :each |
+				(aTarget applicableTo: each)
+					ifTrue: [
+						each expanded: true.
+						each focused: true.
+						true ]
+					ifFalse: [ false ] ]
+			offset: 0 ]
 ]
 
 { #category : 'as yet unclassified' }
