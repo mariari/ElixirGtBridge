@@ -799,30 +799,49 @@ defmodule GtBridge.Analysis do
     |> Map.new()
   end
 
-  defp collect_remote_calls(ast) do
-    {_, calls} = Macro.prewalk(ast, [], &do_collect_remote_call/2)
-    calls
+  defp collect_remote_calls(ast), do: walk_calls(ast, [])
+
+  # `a |> M.f(b)` parses as {:|>, _, [a, M.f(b)]} but means M.f(a, b),
+  # so the right-hand call gets arity length(args) + 1. Walk the left
+  # side normally and the right side as a pipe target.
+  defp walk_calls({:|>, _, [left, right]}, acc) do
+    acc |> then(&walk_calls(left, &1)) |> walk_pipe_target(right)
   end
 
-  defp do_collect_remote_call(
-         {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args} = node,
+  defp walk_calls(
+         {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args},
          acc
        )
        when is_atom(fun) and is_list(args) do
-    mod = parts |> Enum.map_join(".", &Atom.to_string/1)
+    acc = [remote_entry(parts, fun, length(args), meta) | acc]
+    Enum.reduce(args, acc, &walk_calls/2)
+  end
 
-    entry = %{
-      target_module: mod,
+  defp walk_calls({_, _, args}, acc) when is_list(args), do: Enum.reduce(args, acc, &walk_calls/2)
+  defp walk_calls({a, b}, acc), do: walk_calls(b, walk_calls(a, acc))
+  defp walk_calls(items, acc) when is_list(items), do: Enum.reduce(items, acc, &walk_calls/2)
+  defp walk_calls(_, acc), do: acc
+
+  defp walk_pipe_target(
+         {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args},
+         acc
+       )
+       when is_atom(fun) and is_list(args) do
+    acc = [remote_entry(parts, fun, length(args) + 1, meta) | acc]
+    Enum.reduce(args, acc, &walk_calls/2)
+  end
+
+  defp walk_pipe_target(node, acc), do: walk_calls(node, acc)
+
+  defp remote_entry(parts, fun, arity, meta) do
+    %{
+      target_module: parts |> Enum.map_join(".", &Atom.to_string/1),
       function: Atom.to_string(fun),
-      arity: length(args),
+      arity: arity,
       line: meta[:line],
       column: meta[:column]
     }
-
-    {node, [entry | acc]}
   end
-
-  defp do_collect_remote_call(node, acc), do: {node, acc}
 
   defp resolve_call_aliases(calls, aliases) do
     calls

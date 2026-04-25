@@ -73,17 +73,29 @@ ElixirFunctionExpanderAttribute >> buildHeader [
 
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> fetchSource [
-	"I fetch the target function's source from the BEAM."
-	^ [ | fns match |
+	"I fetch the target function's source from the BEAM. Prefer
+	 the exact name+arity match; fall back to all clauses with that
+	 name joined together if arity disagrees — handles pipe-arity
+	 quirks, captures, and macro expansions where the AST-derived
+	 call arity may not match the function definition."
+	^ [ | fns exact byName |
 		fns := (application evaluateAndWait:
 			'GtBridge.Analysis.all_functions(', targetModule, ')') asList.
-		match := fns
+		exact := fns
 			detect: [ :f | (f attributeAt: #name) asString = functionName
 				and: [ (f attributeAt: #arity) asInteger = arity ] ]
 			ifNone: [ nil ].
-		match
-			ifNotNil: [ (match attributeAt: #source) asString ]
-			ifNil: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ] ]
+		exact ifNotNil: [ ^ (exact attributeAt: #source) asString ].
+		byName := fns select: [ :f | (f attributeAt: #name) asString = functionName ].
+		byName isEmpty
+			ifTrue: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ]
+			ifFalse: [
+				(byName collect: [ :f | (f attributeAt: #source) asString ])
+					inject: ''
+					into: [ :acc :src |
+						acc isEmpty
+							ifTrue: [ src ]
+							ifFalse: [ acc, String lf, String lf, src ] ] ] ]
 		on: Error do: [ '# error fetching source' ]
 ]
 
