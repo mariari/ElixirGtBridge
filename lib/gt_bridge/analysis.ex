@@ -183,7 +183,7 @@ defmodule GtBridge.Analysis do
             start: 0,
             end_line: 0,
             sig: "#{name_str}/#{a}",
-            source: "# macro-generated, no source"
+            source: "# #{name_str}/#{a}, no source"
           }
         end
       rescue
@@ -451,7 +451,7 @@ defmodule GtBridge.Analysis do
           start: 0,
           end_line: 0,
           sig: "#{name_str}/#{a}",
-          source: "# macro-generated, no source"
+          source: "# #{name_str}/#{a}, no source"
         }
       end
 
