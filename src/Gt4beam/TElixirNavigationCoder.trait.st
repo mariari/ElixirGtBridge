@@ -14,14 +14,16 @@ TElixirNavigationCoder >> application [
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseImplementorsAt: aPosition requesterObject: aRequester [
 	"I find implementors of the Elixir function at cursor position.
-	 Qualified calls navigate directly. Bare names delegate to browseImplementorsIn:."
+	 Both qualified and bare-name calls spawn a search filter — the
+	 user picks the right arity. Avoids guessing arity from the AST
+	 (which is wrong for pipes, captures, and macro-generated calls)."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
 			moduleName
 				ifNotNil: [
 					self
-						navigateToQualified: moduleName
+						browseImplementorsInModule: (self resolveModuleName: moduleName)
 						function: functionName
 						requesterObject: aRequester ]
 				ifNil: [
@@ -31,33 +33,41 @@ TElixirNavigationCoder >> browseImplementorsAt: aPosition requesterObject: aRequ
 
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseImplementorsIn: aString requesterObject: aRequester [
-	"I find implementors of the selected text as a function name.
-	 If exactly one implementor exists, I jump straight to its docs;
-	 otherwise I spawn a search filter."
+	"I find implementors of the selected text as a function name and
+	 spawn a search filter. Always uses the filter so the user can
+	 pick across modules and arities — no implicit single-result jump."
 	| name reply results |
 	name := aString trimBoth.
 	reply := self application evaluateAndWait:
 		'GtBridge.Analysis.implementors(:', name, ')'.
 	(reply isKindOf: BeamBridgeEvalError) ifTrue: [ ^ self ].
 	results := reply asList.
-	results size = 1
-		ifTrue: [
-			| only |
-			only := results first.
-			self
-				notifyObjectSpawn: (self application evaluateAndWait:
-					(self
-						functionDocsQueryFor: (only attributeAt: #module) asString
-						name: name
-						arity: (only attributeAt: #arity)))
-				requesterObject: aRequester ]
-		ifFalse: [
-			self
-				notifyObjectSpawn: (ElixirSearchFilter new
-					title: name, ' implementors'
-					items: results
-					application: self application)
-				requesterObject: aRequester ]
+	self
+		notifyObjectSpawn: (ElixirSearchFilter new
+			title: name, ' implementors'
+			items: results
+			application: self application)
+		requesterObject: aRequester
+]
+
+{ #category : 'navigation' }
+TElixirNavigationCoder >> browseImplementorsInModule: aResolvedModule function: aFunctionName requesterObject: aRequester [
+	"I spawn a filter showing all functions named aFunctionName in
+	 aResolvedModule (any arity). Used for qualified C-m so the user
+	 picks the right arity instead of us guessing from the AST."
+	| reply results |
+	reply := self application evaluateAndWait:
+		'GtBridge.Analysis.all_functions(', aResolvedModule, ')',
+		' |> Enum.filter(& &1.name == "', aFunctionName, '")',
+		' |> Enum.map(&Map.put(&1, :module, "', aResolvedModule, '"))'.
+	(reply isKindOf: BeamBridgeEvalError) ifTrue: [ ^ self ].
+	results := reply asList.
+	self notifyObjectSpawn:
+		(ElixirSearchFilter new
+			title: aResolvedModule, '.', aFunctionName
+			items: results
+			application: self application)
+		requesterObject: aRequester
 ]
 
 { #category : 'navigation' }
@@ -145,55 +155,11 @@ TElixirNavigationCoder >> detectElixirFunctionAt: aPosition ifFound: foundBlock 
 	^ foundBlock value: moduleName value: functionName
 ]
 
-{ #category : 'navigation - private' }
-TElixirNavigationCoder >> functionDocsQueryFor: aResolvedModule function: aFunctionName [
-	"I look up aFunctionName's arity in aResolvedModule and return
-	 the BEAM expression that fetches docs for that specific function.
-	 If no matching function exists, I fall back to module-level docs."
-	| fns match |
-	fns := (self application evaluateAndWait:
-		'GtBridge.Analysis.all_functions(', aResolvedModule, ')') asList.
-	match := fns detect: [ :f | (f attributeAt: #name) asString = aFunctionName ]
-		ifNone: [ ^ self moduleDocsQuery: aResolvedModule ].
-	^ self
-		functionDocsQueryFor: aResolvedModule
-		name: aFunctionName
-		arity: (match attributeAt: #arity)
-]
-
-{ #category : 'navigation - private' }
-TElixirNavigationCoder >> functionDocsQueryFor: aResolvedModule name: aFunctionName arity: anArity [
-	"I return the BEAM expression that fetches docs for one function."
-	^ 'GtBridge.Documentation.for_function(', aResolvedModule,
-		', :', aFunctionName,
-		', ', anArity asString, ')'
-]
-
 { #category : 'shortcuts' }
 TElixirNavigationCoder >> initializeNavigationShortcuts: addOns [
 	"I register C-m (implementors) and C-n (references)."
 	addOns addShortcut: GtSourceCoderBrowseImplementorsShortcut new.
 	addOns addShortcut: GtSourceCoderBrowseReferencesShortcut new
-]
-
-{ #category : 'navigation - private' }
-TElixirNavigationCoder >> moduleDocsQuery: aResolvedModule [
-	"I return the BEAM expression that fetches docs for an entire module."
-	^ 'GtBridge.Documentation.for_module(', aResolvedModule, ')'
-]
-
-{ #category : 'navigation - private' }
-TElixirNavigationCoder >> navigateToQualified: moduleName function: functionName requesterObject: aRequester [
-	"I resolve the module alias and spawn a documentation object
-	 for the specific function (or the module if the function
-	 lookup fails). Used by C-m on qualified calls."
-	| resolved query |
-	resolved := self resolveModuleName: moduleName.
-	query := [ self functionDocsQueryFor: resolved function: functionName ]
-		on: Error do: [ self moduleDocsQuery: resolved ].
-	self
-		notifyObjectSpawn: (self application evaluateAndWait: query)
-		requesterObject: aRequester
 ]
 
 { #category : 'requirements' }

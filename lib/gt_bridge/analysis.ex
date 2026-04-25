@@ -142,25 +142,52 @@ defmodule GtBridge.Analysis do
   `:end_line`, `:name`, `:arity`, `:kind`, `:sig`, and `:source`
   (the source text for that function including annotations).
 
-  The walk-back logic handles multiline @doc heredocs.
+  AST entries are merged with runtime exports from `__info__(:functions)`
+  so macro-generated functions (e.g. `defview`, `defstruct` field
+  accessors, etc.) are visible. Runtime-only entries get default
+  `start: 0`, `end_line: 0`, `kind: :def`, and a placeholder source.
   """
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
-    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-         {:ok, source} <- File.read(path),
-         {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
-      lines = String.split(source, "\n")
+    ast_entries =
+      with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
+           {:ok, source} <- File.read(path),
+           {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
+        lines = String.split(source, "\n")
 
-      extract_functions(ast)
-      |> merge_clauses()
-      |> Enum.map(fn f ->
-        start = walk_back_annotations(lines, f.start)
-        source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
-        %{f | start: start} |> Map.put(:source, source_text)
-      end)
-    else
-      _ -> []
-    end
+        extract_functions(ast)
+        |> merge_clauses()
+        |> Enum.map(fn f ->
+          start = walk_back_annotations(lines, f.start)
+          source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
+          %{f | start: start} |> Map.put(:source, source_text)
+        end)
+      else
+        _ -> []
+      end
+
+    ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
+
+    runtime_extra =
+      try do
+        for {n, a} <- mod.__info__(:functions),
+            name_str = Atom.to_string(n),
+            not MapSet.member?(ast_keys, {name_str, a}) do
+          %{
+            name: name_str,
+            arity: a,
+            kind: :def,
+            start: 0,
+            end_line: 0,
+            sig: "#{name_str}/#{a}",
+            source: "# macro-generated, no source"
+          }
+        end
+      rescue
+        _ -> []
+      end
+
+    ast_entries ++ runtime_extra
   end
 
   defp merge_clauses(entries) do
