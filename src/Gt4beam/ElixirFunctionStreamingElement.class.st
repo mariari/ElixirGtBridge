@@ -28,7 +28,7 @@ ElixirFunctionStreamingElement >> initialize [
 					elt := anEvent currentTarget.
 					elt isCollapsed ifTrue: [
 						anEvent consumed: true.
-						elt expand.
+						elt textualCoderViewModel expanded: true.
 						elt textualCoderViewModel focused: true ] ] ];
 		itemId: [ :eachCoderViewModel | eachCoderViewModel coder id ];
 		itemDataBinder: [ :aCoderElement :aCoderViewModel :anItemIndex |
