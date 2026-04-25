@@ -23,13 +23,7 @@ ElixirFunctionStreamingElement >> initialize [
 		itemStencil: [ :anElementClass |
 			anElementClass new
 				vFitContentLimited;
-				addEventFilterOn: BlClickEvent do: [ :anEvent |
-					| elt |
-					elt := anEvent currentTarget.
-					elt isCollapsed ifTrue: [
-						anEvent consumed: true.
-						elt expand.
-						elt textualCoderViewModel focused: true ] ] ];
+				yourself ];
 		itemId: [ :eachCoderViewModel | eachCoderViewModel coder id ];
 		itemDataBinder: [ :aCoderElement :aCoderViewModel :anItemIndex |
 			aCoderElement
