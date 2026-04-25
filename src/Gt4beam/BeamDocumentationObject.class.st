@@ -77,7 +77,7 @@ BeamDocumentationObject >> gtCoderFor: aView [
 			ifTrue: [ f ] ifFalse: [ nil ] ]
 		on: Error do: [ nil ].
 	^ aView explicit
-		title: 'Meta';
+		title: 'Coder';
 		priority: 5;
 		stencil: [
 			| coder lineRange |

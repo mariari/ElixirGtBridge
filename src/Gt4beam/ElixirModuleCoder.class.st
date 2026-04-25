@@ -81,6 +81,78 @@ ElixirModuleCoder >> asCoderViewModel [
 ]
 
 { #category : 'private' }
+ElixirModuleCoder >> buildExampleMapElement [
+	"I build a Mondrian graph of example dependencies."
+	| mondrian data edges nodes app modName |
+	app := self application.
+	modName := self moduleName.
+	data := (app evaluateAndWait:
+		'GtBridge.Analysis.example_deps(', modName, ')') asList.
+	edges := OrderedCollection new.
+	data do: [ :pair |
+		| from tos |
+		from := pair itemAt: 0.
+		tos := (pair itemAt: 1) asList.
+		tos do: [ :to | edges add: from -> to ] ].
+	nodes := data collect: [ :pair | pair itemAt: 0 ].
+	mondrian := GtMondrian new.
+	mondrian nodes
+		stencil: [ :name |
+			BeamMondrianHelpers
+				nodeLabeled: name
+				color: (Color fromHexString: '#e6f5ec')
+				onClick: [ :evt |
+					evt target phlow spawnObject:
+						(app newCommandFactory << (modName, '.', name, '()'); sendAndWait) ] ];
+		with: nodes.
+	mondrian edges stencil: [ BeamMondrianHelpers edgeStencil ];
+		connectToAll: [ :name |
+			(edges select: [ :e | e key = name ]) collect: #value ].
+	mondrian layout horizontalDominanceTree.
+	^ mondrian root
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> buildFunctionsViewElement [
+	"I build the Functions tab. If focusLine is set, I set a scroll
+	 target on the view model — the streaming element handles
+	 scroll via list scrollToItemSuchThat:offset: when the matching
+	 item loads (same pattern as GtPharoStreamingMethodsCoderElement)."
+	| container addRow streaming vm streamingElement focusStart |
+	container := BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical matchParent ].
+	addRow := BrHorizontalPane new
+		hMatchParent;
+		vFitContent;
+		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
+		addChild: (BrButton new
+			aptitude: BrGlamorousButtonWithIconAptitude;
+			icon: BrGlamorousVectorIcons add;
+			beSmallSize;
+			label: 'Add function';
+			action: [ :btn | self buildAddFunctionDraftPaneIn: container afterRow: addRow ]);
+		yourself.
+	streaming := ElixirFunctionStreamingModel forModuleCoder: self.
+	vm := GtStreamingCodersViewModel new
+		streamingCodersModel: streaming;
+		yourself.
+	streamingElement := ElixirFunctionStreamingElement new
+		streamingCodersViewModel: vm;
+		yourself.
+	focusStart := focusLine ifNotNil: [ :lines |
+		lines isArray ifTrue: [ lines first ] ifFalse: [ lines ] ].
+	focusStart ifNotNil: [
+		vm scrollToTarget: (ElixirFunctionScrollTarget new startLine: focusStart) ].
+	container
+		addChild: addRow;
+		addChild: streamingElement matchParent.
+	^ container
+]
+
+{ #category : 'private' }
 ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 	"I insert a draft editor pane immediately after addRow. The draft
 	 uses my editor session so completion sees my imports/aliases.
@@ -140,116 +212,6 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 ]
 
 { #category : 'private' }
-ElixirModuleCoder >> buildExampleMapElement [
-	"I build a Mondrian graph of example dependencies."
-	| mondrian data edges nodes app modName |
-	app := self application.
-	modName := self moduleName.
-	data := (app evaluateAndWait:
-		'GtBridge.Analysis.example_deps(', modName, ')') asList.
-	edges := OrderedCollection new.
-	data do: [ :pair |
-		| from tos |
-		from := pair itemAt: 0.
-		tos := (pair itemAt: 1) asList.
-		tos do: [ :to | edges add: from -> to ] ].
-	nodes := data collect: [ :pair | pair itemAt: 0 ].
-	mondrian := GtMondrian new.
-	mondrian nodes
-		stencil: [ :name |
-			BeamMondrianHelpers
-				nodeLabeled: name
-				color: (Color fromHexString: '#e6f5ec')
-				onClick: [ :evt |
-					evt target phlow spawnObject:
-						(app newCommandFactory << (modName, '.', name, '()'); sendAndWait) ] ];
-		with: nodes.
-	mondrian edges stencil: [ BeamMondrianHelpers edgeStencil ];
-		connectToAll: [ :name |
-			(edges select: [ :e | e key = name ]) collect: #value ].
-	mondrian layout horizontalDominanceTree.
-	^ mondrian root
-]
-
-{ #category : 'private' }
-ElixirModuleCoder >> buildFunctionsViewElement [
-	"I build the Functions tab: an Add function button row on top,
-	 then the streaming list of function coders below. Clicking Add
-	 inserts a draft editor between the button row and the list; the
-	 Source tab stays accessible so the user can reference it while
-	 drafting."
-	| container addRow streaming vm streamingElement |
-	container := BlElement new
-		layout: BlLinearLayout vertical;
-		constraintsDo: [ :c |
-			c horizontal matchParent.
-			c vertical matchParent ].
-	addRow := BrHorizontalPane new
-		hMatchParent;
-		vFitContent;
-		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
-		addChild: (BrButton new
-			aptitude: BrGlamorousButtonWithIconAptitude;
-			icon: BrGlamorousVectorIcons add;
-			beSmallSize;
-			label: 'Add function';
-			action: [ :btn | self buildAddFunctionDraftPaneIn: container afterRow: addRow ]);
-		yourself.
-	streaming := ElixirFunctionStreamingModel forModuleCoder: self.
-	vm := GtStreamingCodersViewModel new
-		streamingCodersModel: streaming;
-		yourself.
-	streamingElement := ElixirFunctionStreamingElement new
-		streamingCodersViewModel: vm;
-		yourself.
-	container
-		addChild: addRow;
-		addChild: streamingElement matchParent.
-	^ container
-]
-
-{ #category : 'private' }
-ElixirModuleCoder >> buildSourceViewElement [
-	"I build a self-refreshing container for the Source tab. The inner
-	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me
-	 (e.g. after a function save or delete) so the displayed source
-	 always matches what's on disk. Using a rebuild block instead of
-	 mutating the existing coder's sourceCode because GtCoderModel
-	 doesn't broadcast mid-life source replacements to its element.
-
-	 I also handle Ctrl-S on the inner coder view model by subscribing
-	 to GtSourceCoderViewModelSaveRequested and routing the current
-	 text through saveAndCompile:."
-
-	| container rebuild |
-	container := BlElement new
-			layout: BlLinearLayout vertical;
-			constraintsDo: [ :c | 
-				c horizontal matchParent.
-				c vertical matchParent ].
-	rebuild := [ | coderModel vm |
-		container removeChildren.
-		coderModel := GtElixirCoderModel new.
-		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
-		coderModel
-			sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
-		vm := coderModel asCoderViewModel.
-		vm expanded: true.
-		vm
-			when: GtSourceCoderViewModelSaveRequested
-			do: [ :ann | 
-				self saveAndCompile: coderModel currentSourceString.
-				ann consumed: true ].
-		container addChild: vm asElement matchParent ].
-	rebuild value.
-	self announcer
-		when: GtCoderSourceCodeChanged
-		do: [ :ann | rebuild value ]
-		for: self.
-	^ container
-]
-
-{ #category : 'private' }
 ElixirModuleCoder >> coderModelForSource: sourceText [
 	"I return a GtElixirCoderModel view model wired to my editor
 	 session so completion sees my imports/aliases."
@@ -265,6 +227,50 @@ ElixirModuleCoder >> coderModelForSource: sourceText [
 		vm viewPharoBindings: bindings.
 		LeElixirSnippetElement sessionMap at: bindings put: sid ].
 	^ vm
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> buildSourceViewElement [
+	"I build a self-refreshing container for the Source tab. The inner
+	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me.
+	 If focusLine is set, I scroll to that line after rendering."
+	| container rebuild |
+	container := BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c |
+			c horizontal matchParent.
+			c vertical matchParent ].
+	rebuild := [
+		| coderModel vm element |
+		container removeChildren.
+		coderModel := GtElixirCoderModel new.
+		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
+		coderModel contextModuleName: moduleName.
+		coderModel sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
+		vm := coderModel asCoderViewModel.
+		vm expanded: true.
+		vm
+			when: GtSourceCoderViewModelSaveRequested
+			do: [ :ann |
+				self saveAndCompile: coderModel currentSourceString.
+				ann consumed: true ].
+		focusLine ifNotNil: [ :lines |
+			| startLine source pos |
+			startLine := lines isArray
+				ifTrue: [ lines first ]
+				ifFalse: [ lines ].
+			source := self sourceCode.
+			pos := 0.
+			1 to: (startLine - 1 min: source lines size) do: [ :i |
+				pos := pos + (source lines at: i) size + 1 ].
+			vm moveCursorTo: pos.
+			vm scrollToLine: startLine withCharacterPosition: 1 ].
+		container addChild: vm asElement matchParent ].
+	rebuild value.
+	self announcer
+		when: GtCoderSourceCodeChanged
+		do: [ :ann | rebuild value ].
+	^ container
 ]
 
 { #category : 'accessing' }
@@ -303,26 +309,6 @@ ElixirModuleCoder >> functionEntries [
 	^ [ application evaluateAndWait:
 		'GtBridge.Analysis.all_functions(', moduleName, ')' ]
 		on: Error do: [ #() ]
-]
-
-{ #category : 'gt-extensions' }
-ElixirModuleCoder >> gtCompileDepsViewFor: aView context: aContext [
-	<gtElixirModuleView>
-	"I show what recompiles when this module changes and what
-	 this module depends on at compile time."
-	^ aView mondrian
-		title: 'Compile deps';
-		priority: 35;
-		painting: [ :aMondrian |
-			| edges |
-			edges := [ (application evaluateAndWait:
-				'GtBridge.Analysis.compile_dep_edges_for(', moduleName, ')') asList ]
-				on: Error do: [ #() ].
-			BeamMondrianHelpers
-				compileDepsOn: aMondrian
-				edges: edges
-				highlightModules: (Set with: moduleName)
-				application: application ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -434,6 +420,11 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 ]
 
 { #category : 'accessing' }
+ElixirModuleCoder >> sourceCode [
+	^ sourcePath asFileReference contents
+]
+
+{ #category : 'accessing' }
 ElixirModuleCoder >> selfObject [
 	^ selfObject
 ]
@@ -441,11 +432,6 @@ ElixirModuleCoder >> selfObject [
 { #category : 'accessing' }
 ElixirModuleCoder >> selfObject: anObject [
 	selfObject := anObject
-]
-
-{ #category : 'accessing' }
-ElixirModuleCoder >> sourceCode [
-	^ sourcePath asFileReference contents
 ]
 
 { #category : 'accessing' }
