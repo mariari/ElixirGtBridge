@@ -134,7 +134,26 @@ ElixirFunctionCoder >> asCoderViewModel [
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> collapsedText [
-	^ self signature asRopedText
+	"Macro-generated entries (start = 0) get a trailing '(no source)'
+	 hint so the user can tell at a glance there's nothing to expand
+	 to and that Save/Delete/Move are unavailable.  The function name
+	 stays visible — the row itself is still useful for Help/Run.
+
+	 We highlight via a light-pink BACKGROUND on the suffix.  Per-
+	 character foreground attributes get clobbered when GT's
+	 GtSourceCoderCollapsedContentElement assigns its element-level
+	 `foreground:` (the BlTextDelegatedAttributesBuilder applies it
+	 across positions 0..size when the rope is set into the element,
+	 overwriting per-char foreground).  Backgrounds aren't set at
+	 the element level, so a per-char background tint survives."
+	| text |
+	(startLine isNotNil and: [ startLine > 0 ])
+		ifTrue: [ ^ self signature asRopedText ].
+	text := (self signature, ' (no source)') asRopedText.
+	text
+		attribute: (BlTextBackgroundAttribute paint: (Color fromHexString: 'FFE0E6'))
+		from: self signature size + 1 to: text size.
+	^ text
 ]
 
 { #category : 'accessing' }
