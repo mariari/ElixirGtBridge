@@ -190,10 +190,32 @@ defmodule GtBridge.Analysis do
         _ -> []
       end
 
-    # Sort by source line. Runtime-only entries (start: 0) go to the end
-    # so source-order is preserved for AST entries.
-    (ast_entries ++ runtime_extra)
-    |> Enum.sort_by(fn f -> {f.start == 0, f.start} end)
+    # Place runtime entries that share a name with an AST entry
+    # (default-arg siblings — e.g. `def foo(a, b \\ 3)` generates
+    # foo/1 alongside the AST's foo/2) immediately above the first
+    # AST entry with that name, sorted by arity within the group.
+    # True orphan runtime entries (no AST counterpart, like BIFs and
+    # macro-only modules) keep their place at the end.
+    ast_names = ast_entries |> Enum.map(& &1.name) |> MapSet.new()
+
+    {siblings, orphans} =
+      Enum.split_with(runtime_extra, fn f -> MapSet.member?(ast_names, f.name) end)
+
+    siblings_by_name = Enum.group_by(siblings, & &1.name)
+
+    {grouped, _} =
+      ast_entries
+      |> Enum.sort_by(& &1.start)
+      |> Enum.flat_map_reduce(MapSet.new(), fn ast_entry, seen ->
+        if MapSet.member?(seen, ast_entry.name) do
+          {[ast_entry], seen}
+        else
+          sibs = siblings_by_name |> Map.get(ast_entry.name, []) |> Enum.sort_by(& &1.arity)
+          {sibs ++ [ast_entry], MapSet.put(seen, ast_entry.name)}
+        end
+      end)
+
+    grouped ++ orphans
   end
 
   defp merge_clauses(entries) do
