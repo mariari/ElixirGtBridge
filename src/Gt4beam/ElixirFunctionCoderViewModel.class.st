@@ -9,9 +9,21 @@ Class {
 { #category : 'accessing' }
 ElixirFunctionCoderViewModel >> elementClass [
 	"I use ElixirFunctionCoderRowElement so the row can paint
-	 its sidebar based on the coder's hasSource state.  Filter
-	 results inherit this through ElixirFilterFunctionCoderViewModel."
+	 its sidebar based on the coder's hasSource state."
 	^ ElixirFunctionCoderRowElement
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoderViewModel >> headerElementClass [
+	"I show the clickable Module > function/arity breadcrumb only
+	 for filter results — Functions-tab callers leave the coder's
+	 showsModuleInHeader flag false so the module isn't repeated
+	 per row.  GtSourceCoderContentElement>>onTextualCoderViewModelChanged
+	 mounts the returned class as the first child of the collapsed
+	 and expanded content elements when this is non-nil."
+	^ self coder showsModuleInHeader
+		ifTrue: [ ElixirFunctionCoderHeaderElement ]
+		ifFalse: [ nil ]
 ]
 
 { #category : 'as yet unclassified' }
