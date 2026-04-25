@@ -454,6 +454,7 @@ defmodule GtBridge.Analysis do
         end
       end)
     end)
+    |> Enum.uniq()
     |> Enum.flat_map(fn {from_mod, from_name, from_ar} ->
       all_functions(from_mod)
       |> Enum.filter(fn f -> f.name == from_name and f.arity == from_ar end)
