@@ -1,15 +1,27 @@
 Class {
 	#name : 'GtElixirCoderModel',
 	#superclass : 'GtSourceCoder',
+	#traits : 'TElixirNavigationCoder',
+	#classTraits : 'TElixirNavigationCoder classTrait',
 	#instVars : [
 		'application',
 		'elixirLinkApplicationStrategy',
-		'preambleLines'
+		'preambleLines',
+		'contextModuleName'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
 	#tag : 'Coder'
 }
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> application [
+
+	"I return the BEAM application, initializing it if needed."
+
+	application ifNil: [ self initializeApplication ].
+	^ application
+]
 
 { #category : 'instance creation' }
 GtElixirCoderModel class >> code: aString [
@@ -82,6 +94,16 @@ GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
+{ #category : 'accessing' }
+GtElixirCoderModel >> contextModuleName [
+	^ contextModuleName
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> contextModuleName: aString [
+	contextModuleName := aString
+]
+
 { #category : 'private' }
 GtElixirCoderModel >> ensurePreambleLoaded: selfObj [
 	"I fetch and cache the module's preamble directives (aliases,
@@ -126,6 +148,8 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 
 	addOns
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler).
+	addOns
+		addStyler: ElixirFunctionExpanderStyler new.
 
 	elixirLinkApplicationStrategy
 		ifNotNil: [ addOns
@@ -157,19 +181,14 @@ GtElixirCoderModel >> initializeApplication [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
-	"I add Ctrl-D DoIt, Ctrl-G DoItAndInspect, and Ctrl-S Save.
-	 The save shortcut fires GtSourceCoderViewModelSaveRequested on
-	 the view model; consumers that know how to save (e.g. the module
-	 coder's Source tab) subscribe to that announcement. Lepiter
-	 snippets leave it unconsumed, falling back to the base class's
-	 no-op save."
 	super initializeShortcuts: addOns.
-
 	elixirLinkApplicationStrategy
-		ifNotNil: [ addOns
+		ifNotNil: [
+			addOns
 				addShortcut: GtSourceCoderDoItShortcut new;
 				addShortcut: GtSourceCoderDoItAndInspectShortcut new;
-				addShortcut: GtSourceCoderSaveShortcut new ]
+				addShortcut: GtSourceCoderSaveShortcut new.
+			self initializeNavigationShortcuts: addOns ]
 ]
 
 { #category : 'accessing' }
@@ -231,14 +250,6 @@ GtElixirCoderModel >> selfObjectFor: aContext [
 	^ (req notNil and: [ req respondsTo: #selfObject ])
 		ifTrue: [ req selfObject ]
 		ifFalse: [ nil ]
-]
-
-{ #category : 'accessing' }
-GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
-	"Answer the modified source to return the declared variables"
-	^ String
-		streamContents: [ :stream |
-			stream << trimmedSourceString ]
 ]
 
 { #category : 'private' }
