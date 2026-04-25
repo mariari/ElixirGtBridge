@@ -30,30 +30,44 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> buildHeader [
-	"I return a clickable Module > function/arity header bar."
-	| header |
+	"I return a header bar with two click targets: clicking the
+	 module name spawns module docs; clicking the function/arity
+	 label spawns the specific function's docs."
+	| header moduleLabel separatorLabel functionLabel |
+	moduleLabel := BrLabel new
+		aptitude: (BrGlamorousLabelAptitude new
+			foreground: (Color fromHexString: '666666'); fontSize: 11);
+		text: targetModule.
+	moduleLabel addEventHandlerOn: BlClickEvent do: [ :evt |
+		evt consumed: true.
+		evt currentTarget phlow spawnObject:
+			(application evaluateAndWait:
+				'GtBridge.Documentation.for_module(', targetModule, ')') ].
+
+	separatorLabel := BrLabel new
+		aptitude: (BrGlamorousLabelAptitude new
+			foreground: (Color fromHexString: '999999'); fontSize: 11);
+		text: ' > '.
+
+	functionLabel := BrLabel new
+		aptitude: (BrGlamorousLabelAptitude new bold; fontSize: 11);
+		text: functionName, '/', arity asString.
+	functionLabel addEventHandlerOn: BlClickEvent do: [ :evt |
+		evt consumed: true.
+		evt currentTarget phlow spawnObject:
+			(application evaluateAndWait:
+				'GtBridge.Documentation.for_function(', targetModule,
+					', :', functionName, ', ', arity asString, ')') ].
+
 	header := BrHorizontalPane new
 		hMatchParent; vFitContent;
 		padding: (BlInsets top: 4 left: 6 bottom: 2 right: 6);
 		background: (Color fromHexString: 'f0f0f0');
 		border: (BlBorder paint: (Color fromHexString: 'e0e0e0') width: 1);
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new
-				foreground: (Color fromHexString: '666666'); fontSize: 11);
-			text: targetModule);
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new
-				foreground: (Color fromHexString: '999999'); fontSize: 11);
-			text: ' > ');
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new bold; fontSize: 11);
-			text: functionName, '/', arity asString);
+		addChild: moduleLabel;
+		addChild: separatorLabel;
+		addChild: functionLabel;
 		yourself.
-	header addEventHandlerOn: BlClickEvent do: [ :evt |
-		evt consumed: true.
-		evt currentTarget phlow spawnObject:
-			(application evaluateAndWait:
-				'GtBridge.Documentation.for_module(', targetModule, ')') ].
 	^ header
 ]
 
