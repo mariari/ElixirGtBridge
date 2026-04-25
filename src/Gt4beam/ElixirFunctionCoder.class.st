@@ -25,7 +25,9 @@ ElixirFunctionCoder class >> forEntry: anEntry moduleCoder: anElixirModuleCoder 
 ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
 	"I remove this function with a confirmation dropdown, matching
-	 GT's method coder delete pattern."
+	 GT's method coder delete pattern. Skipped for macro-generated
+	 functions (no source = nothing to splice out)."
+	self hasSource ifFalse: [ ^ self ].
 	anAddOns
 		addDropDownWithPreviewAction: 'Remove' translated
 		icon: BrGlamorousVectorIcons bin
@@ -59,6 +61,9 @@ ElixirFunctionCoder >> addHelpAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
+	"Skipped for macro-generated functions (no source line means
+	 there's no slot in the file to swap with a neighbor)."
+	self hasSource ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Move up' translated
 		icon: BrGlamorousVectorIcons up
@@ -98,6 +103,9 @@ ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
+	"Skipped for macro-generated functions — saving requires a
+	 source location to splice into."
+	self hasSource ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Save' translated
 		icon: BrGlamorousVectorIcons accept
@@ -122,6 +130,14 @@ ElixirFunctionCoder >> contextModuleName [
 { #category : 'accessing' }
 ElixirFunctionCoder >> arity [
 	^ arity
+]
+
+{ #category : 'testing' }
+ElixirFunctionCoder >> hasSource [
+	"I am false for macro-generated functions (the analysis emits
+	 entries with start = 0 for runtime exports without an AST).
+	 Save/Delete/Move actions are nonsensical for such entries."
+	^ startLine isNotNil and: [ startLine > 0 ]
 ]
 
 { #category : 'converting' }
