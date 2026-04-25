@@ -131,7 +131,31 @@ ElixirFunctionCoder >> asCoderViewModel [
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> collapsedText [
-	^ self signature asRopedText
+	"I show the module name (clickable, jumps to module source) plus
+	 the function/arity. Clicking the module label spawns the module
+	 docs; clicking elsewhere expands the function source inline via
+	 the streaming list's filter."
+	| moduleName fullText text moduleEnd |
+	moduleName := moduleCoder ifNotNil: [ moduleCoder moduleName ] ifNil: [ '?' ].
+	fullText := moduleName, ' > ', functionName, '/', arity asString.
+	text := fullText asRopedText.
+	moduleEnd := moduleName size.
+	text
+		attributes: {
+			BlTextForegroundAttribute paint: (Color fromHexString: '666666').
+			BrTextClickAttribute new
+				action: [ :anEvent :anAttribute |
+					anEvent consumed: true.
+					moduleCoder ifNotNil: [
+						anEvent currentTarget phlow spawnObject:
+							(moduleCoder application evaluateAndWait:
+								'GtBridge.Documentation.for_module(', moduleName, ')') ] ];
+				yourself }
+		from: 1 to: moduleEnd.
+	text
+		attribute: BlFontWeightAttribute bold
+		from: moduleEnd + 4 to: fullText size.
+	^ text
 ]
 
 { #category : 'private' }
