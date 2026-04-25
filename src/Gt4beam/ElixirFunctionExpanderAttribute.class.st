@@ -28,54 +28,13 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 		addChild: vm asElement
 ]
 
-{ #category : 'building' }
-ElixirFunctionExpanderAttribute class >> buildHeaderForModule: aModuleName functionName: aFunctionName arity: anArity application: anApplication [
-	"I return a compact horizontal pane with three labels:
-	 module > function/arity. Each module/function label fires its
-	 action via addEventFilterOn: (capture phase) so first-click
-	 works even when list rows want to consume clicks."
-	| moduleLabel separatorLabel functionLabel |
-	moduleLabel := BrLabel new
-		aptitude: (BrGlamorousLabelAptitude new
-			foreground: (Color fromHexString: '666666'); fontSize: 11);
-		text: aModuleName.
-	moduleLabel addEventFilterOn: BlClickEvent do: [ :evt |
-		evt consumed: true.
-		anApplication ifNotNil: [
-			evt currentTarget phlow spawnObject:
-				(anApplication evaluateAndWait:
-					'GtBridge.Documentation.for_module(', aModuleName, ')') ] ].
-
-	separatorLabel := BrLabel new
-		aptitude: (BrGlamorousLabelAptitude new
-			foreground: (Color fromHexString: 'aaaaaa'); fontSize: 11);
-		text: ' > '.
-
-	functionLabel := BrLabel new
-		aptitude: (BrGlamorousLabelAptitude new bold; fontSize: 11);
-		text: aFunctionName, '/', anArity asString.
-	functionLabel addEventFilterOn: BlClickEvent do: [ :evt |
-		evt consumed: true.
-		anApplication ifNotNil: [
-			evt currentTarget phlow spawnObject:
-				(anApplication evaluateAndWait:
-					'GtBridge.Documentation.for_function(', aModuleName,
-						', :', aFunctionName, ', ', anArity asString, ')') ] ].
-
-	^ BrHorizontalPane new
-		hFitContent;
-		vFitContent;
-		padding: (BlInsets top: 1 left: 4 bottom: 1 right: 4);
-		addChild: moduleLabel;
-		addChild: separatorLabel;
-		addChild: functionLabel;
-		yourself
-]
-
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> buildHeader [
-	^ self class
-		buildHeaderForModule: targetModule
+	"I return the same breadcrumb header the filter rows use, so
+	 |> inline expansions and Module > function/arity rows look
+	 and click identically."
+	^ ElixirFunctionCoderHeaderElement
+		forModule: targetModule
 		functionName: functionName
 		arity: arity
 		application: application

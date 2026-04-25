@@ -139,10 +139,10 @@ ElixirFunctionCoder >> collapsedText [
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> showsModuleInHeader: aBoolean [
-	"I control whether asCoderViewModel returns the filter VM (which
-	 uses ElixirFilterFunctionCoderElement with a clickable Module >
-	 function/arity header). Functions-tab callers leave it false so
-	 the module isn't repeated for every function."
+	"I control whether asCoderViewModel returns the filter VM, whose
+	 headerElementClass is ElixirFunctionCoderHeaderElement (clickable
+	 Module > function/arity breadcrumb). Functions-tab callers leave
+	 it false so the module isn't repeated for every function."
 	showsModuleInHeader := aBoolean
 ]
 
