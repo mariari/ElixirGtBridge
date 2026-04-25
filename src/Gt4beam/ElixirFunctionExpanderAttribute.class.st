@@ -28,47 +28,57 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 		addChild: vm asElement
 ]
 
-{ #category : 'private' }
-ElixirFunctionExpanderAttribute >> buildHeader [
-	"I return a header bar with two click targets: clicking the
-	 module name spawns module docs; clicking the function/arity
-	 label spawns the specific function's docs."
-	| header moduleLabel separatorLabel functionLabel |
+{ #category : 'building' }
+ElixirFunctionExpanderAttribute class >> buildHeaderForModule: aModuleName functionName: aFunctionName arity: anArity application: anApplication [
+	"I return a compact horizontal pane with three labels:
+	 module > function/arity. Each module/function label fires its
+	 action via addEventFilterOn: (capture phase) so first-click
+	 works even when list rows want to consume clicks."
+	| moduleLabel separatorLabel functionLabel |
 	moduleLabel := BrLabel new
 		aptitude: (BrGlamorousLabelAptitude new
 			foreground: (Color fromHexString: '666666'); fontSize: 11);
-		text: targetModule.
-	moduleLabel addEventHandlerOn: BlClickEvent do: [ :evt |
+		text: aModuleName.
+	moduleLabel addEventFilterOn: BlClickEvent do: [ :evt |
 		evt consumed: true.
-		evt currentTarget phlow spawnObject:
-			(application evaluateAndWait:
-				'GtBridge.Documentation.for_module(', targetModule, ')') ].
+		anApplication ifNotNil: [
+			evt currentTarget phlow spawnObject:
+				(anApplication evaluateAndWait:
+					'GtBridge.Documentation.for_module(', aModuleName, ')') ] ].
 
 	separatorLabel := BrLabel new
 		aptitude: (BrGlamorousLabelAptitude new
-			foreground: (Color fromHexString: '999999'); fontSize: 11);
+			foreground: (Color fromHexString: 'aaaaaa'); fontSize: 11);
 		text: ' > '.
 
 	functionLabel := BrLabel new
 		aptitude: (BrGlamorousLabelAptitude new bold; fontSize: 11);
-		text: functionName, '/', arity asString.
-	functionLabel addEventHandlerOn: BlClickEvent do: [ :evt |
+		text: aFunctionName, '/', anArity asString.
+	functionLabel addEventFilterOn: BlClickEvent do: [ :evt |
 		evt consumed: true.
-		evt currentTarget phlow spawnObject:
-			(application evaluateAndWait:
-				'GtBridge.Documentation.for_function(', targetModule,
-					', :', functionName, ', ', arity asString, ')') ].
+		anApplication ifNotNil: [
+			evt currentTarget phlow spawnObject:
+				(anApplication evaluateAndWait:
+					'GtBridge.Documentation.for_function(', aModuleName,
+						', :', aFunctionName, ', ', anArity asString, ')') ] ].
 
-	header := BrHorizontalPane new
-		hMatchParent; vFitContent;
-		padding: (BlInsets top: 4 left: 6 bottom: 2 right: 6);
-		background: (Color fromHexString: 'f0f0f0');
-		border: (BlBorder paint: (Color fromHexString: 'e0e0e0') width: 1);
+	^ BrHorizontalPane new
+		hFitContent;
+		vFitContent;
+		padding: (BlInsets top: 1 left: 4 bottom: 1 right: 4);
 		addChild: moduleLabel;
 		addChild: separatorLabel;
 		addChild: functionLabel;
-		yourself.
-	^ header
+		yourself
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderAttribute >> buildHeader [
+	^ self class
+		buildHeaderForModule: targetModule
+		functionName: functionName
+		arity: arity
+		application: application
 ]
 
 { #category : 'private' }
