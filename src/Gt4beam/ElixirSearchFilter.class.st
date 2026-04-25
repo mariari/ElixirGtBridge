@@ -42,7 +42,7 @@ ElixirSearchFilter >> gtItemsFor: aView [
 			| streaming vm |
 			streaming := ElixirFilterStreamingModel new
 				items: items application: application.
-			vm := GtStreamingCodersViewModel new
+			vm := ElixirFoldedCodersViewModel new
 				streamingCodersModel: streaming.
 			streaming refreshItemsStreamDueTo: 'filter'.
 			ElixirFunctionStreamingElement new
