@@ -59,5 +59,7 @@ defmodule GtBridge.Resolve do
     else
       _ -> nil
     end
+  rescue
+    _ -> nil
   end
 end
