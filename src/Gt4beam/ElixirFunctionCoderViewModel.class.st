@@ -8,7 +8,10 @@ Class {
 
 { #category : 'accessing' }
 ElixirFunctionCoderViewModel >> elementClass [
-	^ GtExpandableSourceCoderElement
+	"I use ElixirFunctionCoderRowElement so the row can paint
+	 its sidebar based on the coder's hasSource state.  Filter
+	 results inherit this through ElixirFilterFunctionCoderViewModel."
+	^ ElixirFunctionCoderRowElement
 ]
 
 { #category : 'as yet unclassified' }
