@@ -172,6 +172,9 @@ defmodule GtBridge.Analysis do
       try do
         for {n, a} <- mod.__info__(:functions),
             name_str = Atom.to_string(n),
+            # Skip __struct__, __info__, __views__, etc. — internal/macro
+            # plumbing the user doesn't want in their function list.
+            not String.starts_with?(name_str, "__"),
             not MapSet.member?(ast_keys, {name_str, a}) do
           %{
             name: name_str,
@@ -187,7 +190,10 @@ defmodule GtBridge.Analysis do
         _ -> []
       end
 
-    ast_entries ++ runtime_extra
+    # Sort by source line. Runtime-only entries (start: 0) go to the end
+    # so source-order is preserved for AST entries.
+    (ast_entries ++ runtime_extra)
+    |> Enum.sort_by(fn f -> {f.start == 0, f.start} end)
   end
 
   defp merge_clauses(entries) do
@@ -954,25 +960,64 @@ defmodule GtBridge.Analysis do
 
   defp extract_functions(_), do: []
 
-  @function_kinds [:def, :defp, :defmacro, :defmacrop]
+  # Atoms that look like function definers (def, defp, defmacro, defmacrop,
+  # plus user macros like defview) but aren't function-defining themselves.
+  @non_function_def_kinds [
+    :defmodule,
+    :defstruct,
+    :defguard,
+    :defguardp,
+    :defprotocol,
+    :defimpl,
+    :defdelegate,
+    :deftype,
+    :defrecord,
+    :defrecordp,
+    :defexception,
+    :defoverridable
+  ]
 
-  defp function_entry({kind, meta, [head | _]}) when kind in @function_kinds do
-    {name, arity} = function_head(head)
+  defp function_entry({kind, meta, [head | _]}) when is_atom(kind) do
+    kind_str = Atom.to_string(kind)
+
+    cond do
+      not String.starts_with?(kind_str, "def") ->
+        []
+
+      kind in @non_function_def_kinds ->
+        []
+
+      true ->
+        function_entry_for(kind_str, head, meta)
+    end
+  end
+
+  defp function_entry(_), do: []
+
+  defp function_entry_for(kind_str, head, meta) do
+    case function_head(head) do
+      {name, arity} when is_atom(name) and is_integer(arity) ->
+        function_record(kind_str, name, arity, meta)
+
+      _ ->
+        []
+    end
+  end
+
+  defp function_record(kind_str, name, arity, meta) do
     end_line = meta[:end][:line] || meta[:end_of_expression][:line] || meta[:line]
 
     [
       %{
         name: Atom.to_string(name),
         arity: arity,
-        kind: Atom.to_string(kind),
+        kind: kind_str,
         start: meta[:line],
         end_line: end_line,
         sig: "#{name}/#{arity}"
       }
     ]
   end
-
-  defp function_entry(_), do: []
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
   defp function_head({name, _, args}) when is_list(args), do: {name, length(args)}
