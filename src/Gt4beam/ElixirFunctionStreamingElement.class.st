@@ -20,7 +20,16 @@ ElixirFunctionStreamingElement >> initialize [
 	listItemsProvider := BrStreamItemsProvider new stream: AsyncEmptyStream new.
 	list := BrSimpleList new
 		itemType: [ :anItemTypeFactory :anItemObject | anItemObject elementClass ];
-		itemStencil: [ :anElementClass | anElementClass new vFitContentLimited ];
+		itemStencil: [ :anElementClass |
+			anElementClass new
+				vFitContentLimited;
+				addEventFilterOn: BlClickEvent do: [ :anEvent |
+					| elt |
+					elt := anEvent currentTarget.
+					elt isCollapsed ifTrue: [
+						anEvent consumed: true.
+						elt expand.
+						elt textualCoderViewModel focused: true ] ] ];
 		itemId: [ :eachCoderViewModel | eachCoderViewModel coder id ];
 		itemDataBinder: [ :aCoderElement :aCoderViewModel :anItemIndex |
 			aCoderElement

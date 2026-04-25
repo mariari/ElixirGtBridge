@@ -117,7 +117,8 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 	"I build the Functions tab. If focusLine is set, I set a scroll
 	 target on the view model — the streaming element handles
 	 scroll via list scrollToItemSuchThat:offset: when the matching
-	 item loads (same pattern as GtPharoStreamingMethodsCoderElement)."
+	 item loads (same pattern as GtPharoStreamingMethodsCoderElement).
+	 Each function coder starts folded so the user scans the list."
 	| container addRow streaming vm streamingElement focusStart |
 	container := BlElement new
 		layout: BlLinearLayout vertical;
@@ -136,7 +137,7 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 			action: [ :btn | self buildAddFunctionDraftPaneIn: container afterRow: addRow ]);
 		yourself.
 	streaming := ElixirFunctionStreamingModel forModuleCoder: self.
-	vm := GtStreamingCodersViewModel new
+	vm := ElixirFoldedCodersViewModel new
 		streamingCodersModel: streaming;
 		yourself.
 	streamingElement := ElixirFunctionStreamingElement new
