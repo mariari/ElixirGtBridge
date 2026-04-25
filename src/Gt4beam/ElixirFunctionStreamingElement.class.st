@@ -50,8 +50,18 @@ ElixirFunctionStreamingElement >> streamingCodersViewModel: aViewModel [
 ]
 
 { #category : 'as yet unclassified' }
+ElixirFunctionStreamingElement >> onScrollTargetChanged: anAnnouncement [
+	"I scroll the list to the matching coder VM."
+	anAnnouncement scrollTarget ifNotNil: [ :aTarget |
+		list scrollToItemSuchThat: [ :each | aTarget applicableTo: each ] offset: 0 ]
+]
+
+{ #category : 'as yet unclassified' }
 ElixirFunctionStreamingElement >> subscribeToStreamingCodersViewModel [
 	streamingCodersViewModel
 		when: GtStreamingCodersViewModelStreamChanged
-		send: #onStreamingCodersChanged: to: self
+		send: #onStreamingCodersChanged: to: self.
+	streamingCodersViewModel
+		when: GtStreamingCodersViewModelScrollTargetChanged
+		send: #onScrollTargetChanged: to: self
 ]
