@@ -32,23 +32,25 @@ ElixirCodeNavigationExamples >> cmBareFunctionShowsImplementors [
 
 { #category : 'examples - navigation' }
 ElixirCodeNavigationExamples >> cmNavigatesToFunction [
-	"I verify C-m on a fully qualified call spawns a Documentation
-	 object scoped to the specific function source_file/1, not just
-	 any documentation object."
+	"I verify C-m on a fully qualified call spawns a search filter
+	 scoped to the specific module and function. The filter shows
+	 all matching arities; the user picks."
 	<gtExample>
-	| coder spawned docs query |
+	| coder spawned filter items |
 	coder := self qualifiedDottedCoder.
 	spawned := self listenForSpawnOn: coder.
 	coder browseImplementorsAt: 22 requesterObject: nil.
-	docs := spawned contents.
-	self assert: docs isNotNil description: 'Should have spawned'.
-	self assert: docs class name equals: 'BeamDocumentationObject'.
-	query := docs attributeAt: #query.
-	self assert: (query itemAt: 0) symbol equals: #function.
-	self assert: (query itemAt: 1) symbol equals: #'Elixir.GtBridge.Resolve'.
-	self assert: (query itemAt: 2) symbol equals: #source_file.
-	self assert: (query itemAt: 3) equals: 1.
-	^ docs
+	filter := spawned contents.
+	self assert: filter isNotNil description: 'Should have spawned'.
+	self assert: filter class name equals: 'ElixirSearchFilter'.
+	self assert: filter gtDisplayString equals: 'GtBridge.Resolve.source_file'.
+	items := filter instVarNamed: 'items'.
+	self assert: items isNotNil description: 'Filter should carry function entries'.
+	self assert: items isNotEmpty description: 'Should have at least one matching arity'.
+	self assert: (items anySatisfy: [ :e |
+		(e attributeAt: #name) asString = 'source_file' ])
+		description: 'Filter items should be source_file functions'.
+	^ filter
 ]
 
 { #category : 'examples - navigation' }
