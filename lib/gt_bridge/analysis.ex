@@ -14,11 +14,9 @@ defmodule GtBridge.Analysis do
   - `module_graph/1` — module→module call edges for an application
   - `callees/1` — modules called by a given module
   - `callers/2` — modules that call a given module within an app
-  - `doc_coverage/1` — documentation status per module in an app
   """
 
   @type edge :: {module(), module()}
-  @type doc_status :: :full | :partial | :none
   @infrastructure_apps MapSet.new([:kernel, :stdlib, :elixir, :compiler, :logger])
 
   @doc """
@@ -56,20 +54,6 @@ defmodule GtBridge.Analysis do
   @spec callers(module(), atom()) :: [module()]
   def callers(mod, app) do
     for {from, ^mod} <- module_graph(app), do: from
-  end
-
-  @doc """
-  I return documentation coverage for each module in an application.
-
-  Status is `:full` if the module has a non-empty `@moduledoc`,
-  `:partial` if docs exist but `@moduledoc` is empty/hidden,
-  `:none` if `Code.fetch_docs/1` fails.
-  """
-  @spec doc_coverage(atom()) :: [{module(), doc_status()}]
-  def doc_coverage(app) do
-    modules(app)
-    |> Enum.map(fn mod -> {mod, module_doc_status(mod)} end)
-    |> Enum.sort_by(fn {mod, _} -> inspect(mod) end)
   end
 
   @doc """
@@ -149,8 +133,6 @@ defmodule GtBridge.Analysis do
       _ ->
         []
     end
-  rescue
-    _ -> []
   end
 
   @doc """
@@ -301,27 +283,6 @@ defmodule GtBridge.Analysis do
     sid
   end
 
-  @doc """
-  I load module imports into an existing eval session. Unlike
-  editor_session/2, I never create the session — if it doesn't
-  exist, I return nil. Use this for snippet sessions where the
-  session must be created by the HTTP handler (with the port
-  for async result callbacks).
-  """
-  @spec preload_imports(module(), String.t()) :: String.t() | nil
-  def preload_imports(mod, sid) do
-    case Registry.lookup(GtBridge.EvalRegistry, sid) do
-      [{pid, _}] when is_pid(pid) ->
-        if Process.alive?(pid) do
-          load_imports(mod, pid)
-          sid
-        end
-
-      _ ->
-        nil
-    end
-  end
-
   defp load_imports(mod, pid) do
     state = :sys.get_state(pid)
 
@@ -392,12 +353,8 @@ defmodule GtBridge.Analysis do
     |> Enum.flat_map(fn mod ->
       mod_name = inspect(mod)
 
-      try do
-        exported_functions(mod)
-        |> Enum.map(fn f -> Map.put(f, :module, mod_name) end)
-      rescue
-        _ -> []
-      end
+      exported_functions(mod)
+      |> Enum.map(fn f -> Map.put(f, :module, mod_name) end)
     end)
     |> Enum.filter(fn f ->
       String.contains?(String.downcase(f.name), q) or
@@ -405,6 +362,202 @@ defmodule GtBridge.Analysis do
     end)
     |> Enum.sort_by(&"#{&1.module}.#{&1.name}/#{&1.arity}")
     |> Enum.take(max)
+  end
+
+  @doc """
+  I return all modules that define a function with the given name and
+  optional arity. Includes `def`, `defp`, and macro-generated functions.
+  """
+  @spec implementors(atom(), non_neg_integer() | nil) :: [map()]
+  def implementors(name, arity \\ nil) do
+    name_str = Atom.to_string(name)
+
+    Application.loaded_applications()
+    |> Enum.flat_map(fn {app, _, _} -> modules(app) end)
+    |> Enum.filter(fn mod ->
+      Code.ensure_loaded?(mod) and function_exported?(mod, :__info__, 1)
+    end)
+    |> Enum.flat_map(fn mod -> module_implementors(mod, name_str, arity) end)
+    |> Enum.sort_by(&{&1.module, &1.arity})
+  end
+
+  # I return all entries (with source if available, stubs otherwise)
+  # for a function in a module. Merges AST extraction with runtime
+  # exports so we catch defp (AST-only) and macro-generated functions
+  # (exports-only).
+  defp module_implementors(mod, name_str, arity) do
+    name_atom = String.to_atom(name_str)
+    mod_str = inspect(mod)
+
+    ast_entries =
+      all_functions(mod)
+      |> Enum.filter(&(&1.name == name_str and (arity == nil or &1.arity == arity)))
+      |> Enum.map(&Map.put(&1, :module, mod_str))
+
+    ast_arities = ast_entries |> Enum.map(& &1.arity) |> MapSet.new()
+
+    # Defensive: even though the caller filters for function_exported?
+    # __info__/1, some modules raise inside __info__(:functions) (e.g.
+    # macro-only modules with no compiled function table).
+    exported_arities =
+      try do
+        for {n, a} <- mod.__info__(:functions), n == name_atom, do: a
+      rescue
+        _ -> []
+      end
+
+    extra =
+      for a <- exported_arities,
+          arity == nil or a == arity,
+          not MapSet.member?(ast_arities, a) do
+        %{
+          module: mod_str,
+          name: name_str,
+          arity: a,
+          kind: :def,
+          start: 0,
+          end_line: 0,
+          sig: "#{name_str}/#{a}",
+          source: "# macro-generated, no source"
+        }
+      end
+
+    ast_entries ++ extra
+  end
+
+  @doc """
+  I return all call sites of `mod.name/arity` across loaded applications.
+
+  Each result has `:module` (calling module), `:function` (calling function),
+  and `:arity`.
+  """
+  @spec function_references(module(), atom(), non_neg_integer() | nil) :: [map()]
+  def function_references(mod, name, arity \\ nil) do
+    target_app = Application.get_application(mod)
+
+    apps_to_scan(target_app)
+    |> Enum.flat_map(fn app ->
+      with_xref(app, fn server ->
+        case :xref.q(server, ~c"E") do
+          {:ok, edges} ->
+            for {{from_mod, from_fn, from_ar}, {to_mod, to_fn, to_ar}} <- edges,
+                to_mod == mod,
+                to_fn == name,
+                arity == nil or to_ar == arity,
+                from_mod != mod,
+                uniq: true do
+              {from_mod, Atom.to_string(from_fn), from_ar}
+            end
+
+          _ ->
+            []
+        end
+      end)
+    end)
+    |> Enum.flat_map(fn {from_mod, from_name, from_ar} ->
+      all_functions(from_mod)
+      |> Enum.filter(fn f -> f.name == from_name and f.arity == from_ar end)
+      |> Enum.map(&Map.put(&1, :module, inspect(from_mod)))
+    end)
+    |> Enum.sort_by(&{&1.module, &1.name})
+  end
+
+  # I return apps worth scanning for references.
+  # For infrastructure targets (Enum, Kernel, etc.) only scan the
+  # main project — scanning all deps would be slow and noisy.
+  # For project/dep targets, scan the target app, main project,
+  # and direct dependents.
+  defp apps_to_scan(target_app) do
+    main = Mix.Project.config()[:app]
+
+    if MapSet.member?(@infrastructure_apps, target_app) do
+      [main] |> Enum.reject(&is_nil/1)
+    else
+      dependents =
+        for {app, _, _} <- Application.loaded_applications(),
+            not MapSet.member?(@infrastructure_apps, app),
+            dep <- Application.spec(app, :applications) || [],
+            dep == target_app,
+            do: app
+
+      ([target_app, main | dependents] -- [nil])
+      |> Enum.uniq()
+      |> Enum.reject(&MapSet.member?(@infrastructure_apps, &1))
+    end
+  end
+
+  @doc """
+  I parse Elixir source and return uniquely resolvable remote call sites.
+
+  Each result has `:target_module`, `:function`, `:arity`, `:line`,
+  and `:column`. Only fully qualified and alias-resolved remote calls
+  are returned.
+  """
+  @spec call_sites(String.t(), module() | nil) :: [map()]
+  def call_sites(source, context_module \\ nil) do
+    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
+      aliases =
+        case context_module do
+          nil -> extract_alias_map(source)
+          mod -> module_alias_map(mod) |> Map.merge(extract_alias_map(source))
+        end
+
+      calls = ast |> collect_remote_calls() |> resolve_call_aliases(aliases)
+
+      # Build a per-module lookup of defined function names for filtering.
+      # Includes both def and defp via all_functions/1 (AST-based).
+      modules_in_calls = calls |> Enum.map(& &1.target_module) |> Enum.uniq()
+
+      defined =
+        Map.new(modules_in_calls, fn mod_str ->
+          {mod_str, defined_function_names(mod_str)}
+        end)
+
+      Enum.filter(calls, fn site ->
+        names = Map.get(defined, site.target_module, MapSet.new())
+        MapSet.member?(names, site.function)
+      end)
+    else
+      _ -> []
+    end
+  end
+
+  defp defined_function_names(mod_str) do
+    mod = Module.concat([mod_str])
+
+    if Code.ensure_loaded?(mod) and function_exported?(mod, :__info__, 1) and
+         GtBridge.Resolve.source_file(mod) != nil do
+      ast_names = all_functions(mod) |> Enum.map(& &1.name) |> MapSet.new()
+
+      # Defensive: see module_implementors — some modules raise inside
+      # __info__(:functions) despite exporting __info__/1.
+      exported_names =
+        try do
+          mod.__info__(:functions)
+          |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
+          |> MapSet.new()
+        rescue
+          _ -> MapSet.new()
+        end
+
+      MapSet.union(ast_names, exported_names)
+    else
+      MapSet.new()
+    end
+  end
+
+  @doc "I resolve an alias name using a context module's alias declarations."
+  @spec resolve_alias(module(), String.t()) :: String.t()
+  def resolve_alias(context_module, alias_name) do
+    aliases = module_alias_map(context_module)
+    Map.get(aliases, alias_name, alias_name)
+  end
+
+  defp module_alias_map(mod) do
+    case GtBridge.Resolve.source_file(mod) do
+      nil -> %{}
+      path -> path |> File.read!() |> extract_alias_map()
+    end
   end
 
   @doc "I return root applications — apps not depended on by any other loaded app."
@@ -620,6 +773,75 @@ defmodule GtBridge.Analysis do
   end
 
   ############################################################
+  #                  Call Site Extraction                     #
+  ############################################################
+
+  defp extract_alias_map(source) do
+    source
+    |> String.split("\n")
+    |> Enum.flat_map(fn line ->
+      trimmed = String.trim(line)
+
+      cond do
+        match = Regex.run(~r/^alias\s+(\S+),\s*as:\s*(\w+)/, trimmed) ->
+          [{Enum.at(match, 2), Enum.at(match, 1)}]
+
+        match = Regex.run(~r/^alias\s+([\w.]+)$/, trimmed) ->
+          full = Enum.at(match, 1)
+          short = full |> String.split(".") |> List.last()
+          [{short, full}]
+
+        true ->
+          []
+      end
+    end)
+    |> Map.new()
+  end
+
+  defp collect_remote_calls(ast) do
+    {_, calls} = Macro.prewalk(ast, [], &do_collect_remote_call/2)
+    calls
+  end
+
+  defp do_collect_remote_call(
+         {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args} = node,
+         acc
+       )
+       when is_atom(fun) and is_list(args) do
+    mod = parts |> Enum.map_join(".", &Atom.to_string/1)
+
+    entry = %{
+      target_module: mod,
+      function: Atom.to_string(fun),
+      arity: length(args),
+      line: meta[:line],
+      column: meta[:column]
+    }
+
+    {node, [entry | acc]}
+  end
+
+  defp do_collect_remote_call(node, acc), do: {node, acc}
+
+  defp resolve_call_aliases(calls, aliases) do
+    calls
+    |> Enum.map(fn call ->
+      first = call.target_module |> String.split(".") |> List.first()
+
+      case Map.get(aliases, first) do
+        nil ->
+          call
+
+        full ->
+          rest = call.target_module |> String.split(".") |> Enum.drop(1)
+          resolved = [full | rest] |> Enum.join(".")
+          %{call | target_module: resolved}
+      end
+    end)
+    |> Enum.sort_by(&{&1.line, &1.column})
+  end
+
+  ############################################################
   #                   Private Implementation                 #
   ############################################################
 
@@ -679,17 +901,15 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  @directives [:@, :use, :import, :alias, :require]
-
   defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
     Enum.flat_map(body, &function_entry/1)
   end
 
   defp extract_functions(_), do: []
 
-  defp function_entry({kind, _, _}) when kind in @directives, do: []
+  @function_kinds [:def, :defp, :defmacro, :defmacrop]
 
-  defp function_entry({kind, meta, [head | _]}) do
+  defp function_entry({kind, meta, [head | _]}) when kind in @function_kinds do
     {name, arity} = function_head(head)
     end_line = meta[:end][:line] || meta[:end_of_expression][:line] || meta[:line]
 
@@ -703,8 +923,6 @@ defmodule GtBridge.Analysis do
         sig: "#{name}/#{arity}"
       }
     ]
-  rescue
-    _ -> []
   end
 
   defp function_entry(_), do: []
@@ -729,15 +947,6 @@ defmodule GtBridge.Analysis do
   defp module_has_doc?(mod), do: module_doc_info(mod) |> elem(1)
 
   defp has_source?(mod), do: GtBridge.Resolve.source_file(mod) != nil
-
-  defp module_doc_status(mod) do
-    case Code.fetch_docs(mod) do
-      {:docs_v1, _, _, _, %{"en" => doc}, _, _} when doc != "" -> :full
-      {:docs_v1, _, _, _, :none, _, _} -> :none
-      {:docs_v1, _, _, _, _, _, _} -> :partial
-      _ -> :none
-    end
-  end
 
   defp with_xref(app, fun) do
     server = :"gt_xref_#{app}"
@@ -836,30 +1045,6 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I return compile dependency data from the project's manifest.
-
-  Each entry has the source file, its defined modules, and three
-  dependency lists: compile (macro/attribute deps that trigger
-  recompilation), export (struct deps), and runtime (function calls).
-  """
-  @spec compile_deps() :: [map()]
-  def compile_deps do
-    manifest_path = Path.join(Mix.Project.manifest_path(), "compile.elixir")
-    {_modules, sources} = Mix.Compilers.Elixir.read_manifest(manifest_path)
-
-    for {file, entry} <- sources do
-      %{
-        file: file,
-        modules: elem(entry, 11) |> Enum.map(&inspect/1),
-        compile: elem(entry, 4) |> Enum.map(&inspect/1),
-        export: elem(entry, 5) |> Enum.map(&inspect/1),
-        runtime: elem(entry, 6) |> Enum.map(&inspect/1)
-      }
-    end
-    |> Enum.sort_by(& &1.file)
-  end
-
-  @doc """
   I return the compile dependency graph as {from, to, label} edges.
 
   Edges represent: changing `to` forces recompilation of `from`.
@@ -924,41 +1109,5 @@ defmodule GtBridge.Analysis do
     end
     |> Enum.uniq()
     |> Enum.sort_by(&{&1.from, &1.to})
-  end
-
-  @doc """
-  I return compile dependency edges reachable from a specific module.
-
-  Transitively follows edges in both directions: upstream (what
-  would cause this module to recompile) and downstream (what
-  recompiles when this module changes).
-  """
-  @spec compile_dep_edges_for(module()) :: [map()]
-  def compile_dep_edges_for(mod) do
-    mod_name = inspect(mod)
-    edges = compile_dep_edges()
-
-    {up, down} =
-      Enum.reduce(edges, {%{}, %{}}, fn e, {u, d} ->
-        {Map.update(u, e.from, [e.to], &[e.to | &1]),
-         Map.update(d, e.to, [e.from], &[e.from | &1])}
-      end)
-
-    reachable =
-      bfs(MapSet.new([mod_name]), [mod_name], up)
-      |> bfs([mod_name], down)
-
-    Enum.filter(edges, &(MapSet.member?(reachable, &1.from) and MapSet.member?(reachable, &1.to)))
-  end
-
-  defp bfs(visited, [], _adj), do: visited
-
-  defp bfs(visited, frontier, adj) do
-    next =
-      Enum.flat_map(frontier, &Map.get(adj, &1, []))
-      |> Enum.uniq()
-      |> Enum.reject(&(&1 in visited))
-
-    bfs(MapSet.union(visited, MapSet.new(next)), next, adj)
   end
 end

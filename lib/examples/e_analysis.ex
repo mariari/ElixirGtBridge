@@ -47,22 +47,6 @@ defmodule Examples.EAnalysis do
   end
 
   ############################################################
-  #                  Doc Coverage Examples                   #
-  ############################################################
-
-  @spec doc_coverage() :: [{module(), Analysis.doc_status()}]
-  example doc_coverage do
-    coverage = Analysis.doc_coverage(:gt_bridge)
-
-    assert length(coverage) > 0
-    assert Enum.all?(coverage, fn {_, s} -> s in [:full, :partial, :none] end)
-    # GtBridge.Eval has a moduledoc
-    assert {GtBridge.Eval, :full} in coverage
-
-    coverage
-  end
-
-  ############################################################
   #                 Supervision Tree Examples                 #
   ############################################################
 
@@ -207,5 +191,75 @@ defmodule Examples.EAnalysis do
     assert is_list(tables)
 
     tables
+  end
+
+  ############################################################
+  #                  Implementors Examples                    #
+  ############################################################
+
+  @spec implementors_of_start_link() :: [map()]
+  example implementors_of_start_link do
+    results = Analysis.implementors(:start_link)
+    assert length(results) > 0
+    assert Enum.all?(results, &Map.has_key?(&1, :module))
+    assert Enum.all?(results, &(&1.name == "start_link"))
+    results
+  end
+
+  @spec implementors_with_arity() :: [map()]
+  example implementors_with_arity do
+    results = Analysis.implementors(:start_link, 1)
+    assert length(results) > 0
+    assert Enum.all?(results, &(&1.arity == 1))
+    results
+  end
+
+  ############################################################
+  #              Function References Examples                 #
+  ############################################################
+
+  @spec references_to_source_file() :: [map()]
+  example references_to_source_file do
+    results = Analysis.function_references(GtBridge.Resolve, :source_file, 1)
+    assert length(results) > 0
+    assert Enum.all?(results, &Map.has_key?(&1, :module))
+    results
+  end
+
+  ############################################################
+  #                  Call Site Examples                       #
+  ############################################################
+
+  @spec call_sites_simple() :: [map()]
+  example call_sites_simple do
+    source = ~s'''
+    defmodule Example do
+      def run do
+        Enum.map([1, 2], &inspect/1)
+        String.trim(" hello ")
+      end
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    modules = Enum.map(sites, & &1.target_module)
+    assert "Enum" in modules
+    assert "String" in modules
+    assert Enum.all?(sites, &Map.has_key?(&1, :line))
+    sites
+  end
+
+  @spec call_sites_with_aliases() :: [map()]
+  example call_sites_with_aliases do
+    source = ~s'''
+    defmodule Example do
+      alias GtBridge.Analysis
+      def run, do: Analysis.module_graph(:gt_bridge)
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    assert Enum.any?(sites, &(&1.target_module == "GtBridge.Analysis"))
+    sites
   end
 end
