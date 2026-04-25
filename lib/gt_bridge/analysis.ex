@@ -536,7 +536,7 @@ defmodule GtBridge.Analysis do
           mod -> module_alias_map(mod) |> Map.merge(extract_alias_map(source))
         end
 
-      calls = ast |> collect_remote_calls() |> resolve_call_aliases(aliases)
+      calls = ast |> collect_remote_calls(context_module) |> resolve_call_aliases(aliases)
 
       # Build a per-module lookup of defined function names for filtering.
       # Includes both def and defp via all_functions/1 (AST-based).
@@ -832,43 +832,79 @@ defmodule GtBridge.Analysis do
     |> Map.new()
   end
 
-  defp collect_remote_calls(ast), do: walk_calls(ast, [])
+  defp collect_remote_calls(ast, context_module) do
+    ctx_str = if context_module, do: inspect(context_module)
+    walk_calls(ast, [], ctx_str)
+  end
 
   # `a |> M.f(b)` parses as {:|>, _, [a, M.f(b)]} but means M.f(a, b),
   # so the right-hand call gets arity length(args) + 1. Walk the left
   # side normally and the right side as a pipe target.
-  defp walk_calls({:|>, _, [left, right]}, acc) do
-    walk_pipe_target(right, walk_calls(left, acc))
+  defp walk_calls({:|>, _, [left, right]}, acc, ctx) do
+    walk_pipe_target(right, walk_calls(left, acc, ctx), ctx)
   end
 
   defp walk_calls(
          {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args},
-         acc
+         acc,
+         ctx
        )
        when is_atom(fun) and is_list(args) do
     acc = [remote_entry(parts, fun, length(args), meta) | acc]
-    Enum.reduce(args, acc, &walk_calls/2)
+    Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
   end
 
-  defp walk_calls({_, _, args}, acc) when is_list(args), do: Enum.reduce(args, acc, &walk_calls/2)
-  defp walk_calls({a, b}, acc), do: walk_calls(b, walk_calls(a, acc))
-  defp walk_calls(items, acc) when is_list(items), do: Enum.reduce(items, acc, &walk_calls/2)
-  defp walk_calls(_, acc), do: acc
+  # Local call: `foo(args)` where the function is defined in the current
+  # module.  Only emitted when ctx is a string (i.e. we have a context
+  # module).  Bogus matches (operators, special forms, kernel macros) are
+  # filtered out by call_sites/2's defined_function_names check.
+  defp walk_calls({fun, meta, args}, acc, ctx)
+       when is_atom(fun) and is_list(args) and is_binary(ctx) do
+    acc = [local_entry(ctx, fun, length(args), meta) | acc]
+    Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
+  end
+
+  defp walk_calls({_, _, args}, acc, ctx) when is_list(args),
+    do: Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
+
+  defp walk_calls({a, b}, acc, ctx), do: walk_calls(b, walk_calls(a, acc, ctx), ctx)
+
+  defp walk_calls(items, acc, ctx) when is_list(items),
+    do: Enum.reduce(items, acc, fn n, a -> walk_calls(n, a, ctx) end)
+
+  defp walk_calls(_, acc, _), do: acc
 
   defp walk_pipe_target(
          {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args},
-         acc
+         acc,
+         ctx
        )
        when is_atom(fun) and is_list(args) do
     acc = [remote_entry(parts, fun, length(args) + 1, meta) | acc]
-    Enum.reduce(args, acc, &walk_calls/2)
+    Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
   end
 
-  defp walk_pipe_target(node, acc), do: walk_calls(node, acc)
+  defp walk_pipe_target({fun, meta, args}, acc, ctx)
+       when is_atom(fun) and is_list(args) and is_binary(ctx) do
+    acc = [local_entry(ctx, fun, length(args) + 1, meta) | acc]
+    Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
+  end
+
+  defp walk_pipe_target(node, acc, ctx), do: walk_calls(node, acc, ctx)
 
   defp remote_entry(parts, fun, arity, meta) do
     %{
       target_module: parts |> Enum.map_join(".", &Atom.to_string/1),
+      function: Atom.to_string(fun),
+      arity: arity,
+      line: meta[:line],
+      column: meta[:column]
+    }
+  end
+
+  defp local_entry(ctx_str, fun, arity, meta) do
+    %{
+      target_module: ctx_str,
       function: Atom.to_string(fun),
       arity: arity,
       line: meta[:line],
