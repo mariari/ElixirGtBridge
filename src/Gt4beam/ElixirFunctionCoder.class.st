@@ -143,9 +143,7 @@ ElixirFunctionCoder >> hasSource [
 
 { #category : 'converting' }
 ElixirFunctionCoder >> asCoderViewModel [
-	^ (showsModuleInHeader == true)
-		ifTrue: [ ElixirFilterFunctionCoderViewModel new coder: self ]
-		ifFalse: [ ElixirFunctionCoderViewModel new coder: self ]
+	^ ElixirFunctionCoderViewModel new coder: self
 ]
 
 { #category : 'accessing' }
@@ -173,11 +171,15 @@ ElixirFunctionCoder >> collapsedText [
 ]
 
 { #category : 'accessing' }
+ElixirFunctionCoder >> showsModuleInHeader [
+	"I control whether the row's headerElementClass is the clickable
+	 Module > function/arity breadcrumb (filter results) or nil
+	 (Functions tab — module is implicit, no need to repeat per row)."
+	^ showsModuleInHeader == true
+]
+
+{ #category : 'accessing' }
 ElixirFunctionCoder >> showsModuleInHeader: aBoolean [
-	"I control whether asCoderViewModel returns the filter VM, whose
-	 headerElementClass is ElixirFunctionCoderHeaderElement (clickable
-	 Module > function/arity breadcrumb). Functions-tab callers leave
-	 it false so the module isn't repeated for every function."
 	showsModuleInHeader := aBoolean
 ]
 
