@@ -844,6 +844,25 @@ defmodule GtBridge.Analysis do
     walk_pipe_target(right, walk_calls(left, acc, ctx), ctx)
   end
 
+  # Function-reference syntax: `M.f/arity` parses as `M.f() / arity`
+  # (zero-arg call divided by an integer).  Without this clause we
+  # would emit M.f/0 and lose the arity, so e.g. h(Mod.handle_call/3)
+  # would expand the wrong function.  Match the / outer node, emit
+  # with the explicit arity, and don't recurse into the inner call.
+  defp walk_calls(
+         {:/, _, [{{:., _, [{:__aliases__, _, parts}, fun]}, meta, []}, arity]},
+         acc,
+         _ctx
+       )
+       when is_atom(fun) and is_integer(arity) do
+    [remote_entry(parts, fun, arity, meta) | acc]
+  end
+
+  defp walk_calls({:/, _, [{fun, meta, []}, arity]}, acc, ctx)
+       when is_atom(fun) and is_integer(arity) and is_binary(ctx) do
+    [local_entry(ctx, fun, arity, meta) | acc]
+  end
+
   defp walk_calls(
          {{:., _, [{:__aliases__, _, parts}, fun]}, meta, args},
          acc,
