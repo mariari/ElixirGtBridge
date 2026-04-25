@@ -25,7 +25,10 @@ ElixirFilterStreamingModel >> newCoderCacheKeyFor: anEntry [
 { #category : 'accessing' }
 ElixirFilterStreamingModel >> newCoderFor: anEntry [
 	"I create an ElixirFunctionCoder for the entry by building
-	 a lightweight module coder for its module."
+	 a lightweight module coder for its module. The coder shows
+	 a clickable Module > function/arity header so the reader
+	 knows which module each filter result comes from and can
+	 spawn module / function docs directly."
 	| modName mc sourcePath |
 	modName := (anEntry attributeAt: #module) asString.
 	sourcePath := [ application evaluateAndWait:
@@ -35,7 +38,9 @@ ElixirFilterStreamingModel >> newCoderFor: anEntry [
 		moduleName: modName;
 		application: application.
 	sourcePath ifNotNil: [ mc sourcePath: sourcePath ].
-	^ ElixirFunctionCoder forEntry: anEntry moduleCoder: mc
+	^ (ElixirFunctionCoder forEntry: anEntry moduleCoder: mc)
+		showsModuleInHeader: true;
+		yourself
 ]
 
 { #category : 'accessing' }

@@ -9,7 +9,8 @@ Class {
 		'arity',
 		'startLine',
 		'endLine',
-		'selfObject'
+		'selfObject',
+		'showsModuleInHeader'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -126,36 +127,23 @@ ElixirFunctionCoder >> arity [
 
 { #category : 'converting' }
 ElixirFunctionCoder >> asCoderViewModel [
-	^ ElixirFunctionCoderViewModel new coder: self
+	^ (showsModuleInHeader == true)
+		ifTrue: [ ElixirFilterFunctionCoderViewModel new coder: self ]
+		ifFalse: [ ElixirFunctionCoderViewModel new coder: self ]
 ]
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> collapsedText [
-	"I show the module name (clickable, jumps to module source) plus
-	 the function/arity. Clicking the module label spawns the module
-	 docs; clicking elsewhere expands the function source inline via
-	 the streaming list's filter."
-	| moduleName fullText text moduleEnd |
-	moduleName := moduleCoder ifNotNil: [ moduleCoder moduleName ] ifNil: [ '?' ].
-	fullText := moduleName, ' > ', functionName, '/', arity asString.
-	text := fullText asRopedText.
-	moduleEnd := moduleName size.
-	text
-		attributes: {
-			BlTextForegroundAttribute paint: (Color fromHexString: '666666').
-			BrTextClickAttribute new
-				action: [ :anEvent :anAttribute |
-					anEvent consumed: true.
-					moduleCoder ifNotNil: [
-						anEvent currentTarget phlow spawnObject:
-							(moduleCoder application evaluateAndWait:
-								'GtBridge.Documentation.for_module(', moduleName, ')') ] ];
-				yourself }
-		from: 1 to: moduleEnd.
-	text
-		attribute: BlFontWeightAttribute bold
-		from: moduleEnd + 4 to: fullText size.
-	^ text
+	^ self signature asRopedText
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> showsModuleInHeader: aBoolean [
+	"I control whether asCoderViewModel returns the filter VM (which
+	 uses ElixirFilterFunctionCoderElement with a clickable Module >
+	 function/arity header). Functions-tab callers leave it false so
+	 the module isn't repeated for every function."
+	showsModuleInHeader := aBoolean
 ]
 
 { #category : 'private' }
