@@ -805,7 +805,7 @@ defmodule GtBridge.Analysis do
   # so the right-hand call gets arity length(args) + 1. Walk the left
   # side normally and the right side as a pipe target.
   defp walk_calls({:|>, _, [left, right]}, acc) do
-    acc |> then(&walk_calls(left, &1)) |> walk_pipe_target(right)
+    walk_pipe_target(right, walk_calls(left, acc))
   end
 
   defp walk_calls(
