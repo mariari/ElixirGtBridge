@@ -150,44 +150,42 @@ defmodule GtBridge.Analysis do
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
     ast_entries =
-      with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-           {:ok, source} <- File.read(path),
-           {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
-        lines = String.split(source, "\n")
+      with_module_source(mod, [], fn source ->
+        case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+          {:ok, ast} ->
+            lines = String.split(source, "\n")
 
-        extract_functions(ast)
-        |> merge_clauses()
-        |> Enum.map(fn f ->
-          start = walk_back_annotations(lines, f.start)
-          source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
-          %{f | start: start} |> Map.put(:source, source_text)
-        end)
-      else
-        _ -> []
-      end
+            extract_functions(ast)
+            |> merge_clauses()
+            |> Enum.map(fn f ->
+              start = walk_back_annotations(lines, f.start)
+              source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
+              %{f | start: start} |> Map.put(:source, source_text)
+            end)
+
+          _ ->
+            []
+        end
+      end)
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
 
     runtime_extra =
-      try do
-        for {n, a} <- mod.__info__(:functions),
-            name_str = Atom.to_string(n),
-            # Skip __struct__, __info__, __views__, etc. — internal/macro
-            # plumbing the user doesn't want in their function list.
-            not String.starts_with?(name_str, "__"),
-            not MapSet.member?(ast_keys, {name_str, a}) do
-          %{
-            name: name_str,
-            arity: a,
-            kind: :def,
-            start: 0,
-            end_line: 0,
-            sig: "#{name_str}/#{a}",
-            source: "# #{name_str}/#{a}, no source"
-          }
-        end
-      rescue
-        _ -> []
+      for {n, a} <- safe_exported_functions(mod),
+          name_str = Atom.to_string(n),
+          # Skip __struct__, __info__, __views__, etc. — internal/macro
+          # plumbing the user doesn't want in their function list.
+          not String.starts_with?(name_str, "__"),
+          not MapSet.member?(ast_keys, {name_str, a}) do
+        %{
+          name: name_str,
+          arity: a,
+          kind: :def,
+          start: 0,
+          end_line: 0,
+          sig: "#{name_str}/#{a}",
+          source: "# #{name_str}/#{a}, no source"
+        }
       end
 
     # Place runtime entries that share a name with an AST entry
@@ -344,14 +342,11 @@ defmodule GtBridge.Analysis do
     base_env = eval_into_env("import #{inspect(mod)}", state.env)
 
     new_env =
-      with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-           {:ok, source} <- File.read(path) do
+      with_module_source(mod, base_env, fn source ->
         source
         |> preamble_directives()
         |> Enum.reduce(base_env, &eval_into_env/2)
-      else
-        _ -> base_env
-      end
+      end)
 
     :sys.replace_state(pid, fn s -> %{s | env: new_env} end)
   end
@@ -363,12 +358,7 @@ defmodule GtBridge.Analysis do
   @doc "I return the alias/import/require lines from a module's source."
   @spec preamble_directives(module()) :: [String.t()]
   def preamble_directives(mod) when is_atom(mod) do
-    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-         {:ok, source} <- File.read(path) do
-      preamble_directives(source)
-    else
-      _ -> []
-    end
+    with_module_source(mod, [], &preamble_directives/1)
   end
 
   def preamble_directives(source) when is_binary(source) do
@@ -451,15 +441,8 @@ defmodule GtBridge.Analysis do
 
     ast_arities = ast_entries |> Enum.map(& &1.arity) |> MapSet.new()
 
-    # Defensive: even though the caller filters for function_exported?
-    # __info__/1, some modules raise inside __info__(:functions) (e.g.
-    # macro-only modules with no compiled function table).
     exported_arities =
-      try do
-        for {n, a} <- mod.__info__(:functions), n == name_atom, do: a
-      rescue
-        _ -> []
-      end
+      for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
 
     extra =
       for a <- exported_arities,
@@ -587,20 +570,13 @@ defmodule GtBridge.Analysis do
   defp defined_function_names(mod_str) do
     mod = Module.concat([mod_str])
 
-    if Code.ensure_loaded?(mod) and function_exported?(mod, :__info__, 1) and
-         GtBridge.Resolve.source_file(mod) != nil do
+    if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
       ast_names = all_functions(mod) |> Enum.map(& &1.name) |> MapSet.new()
 
-      # Defensive: see module_implementors — some modules raise inside
-      # __info__(:functions) despite exporting __info__/1.
       exported_names =
-        try do
-          mod.__info__(:functions)
-          |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
-          |> MapSet.new()
-        rescue
-          _ -> MapSet.new()
-        end
+        safe_exported_functions(mod)
+        |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
+        |> MapSet.new()
 
       MapSet.union(ast_names, exported_names)
     else
@@ -630,10 +606,7 @@ defmodule GtBridge.Analysis do
   end
 
   defp module_alias_map(mod) do
-    case GtBridge.Resolve.source_file(mod) do
-      nil -> %{}
-      path -> path |> File.read!() |> extract_alias_map()
-    end
+    with_module_source(mod, %{}, &extract_alias_map/1)
   end
 
   @doc "I return root applications — apps not depended on by any other loaded app."
@@ -994,6 +967,37 @@ defmodule GtBridge.Analysis do
   ############################################################
   #                   Private Implementation                 #
   ############################################################
+
+  # I return [{name_atom, arity}] from mod.__info__(:functions),
+  # or [] if the module doesn't export __info__/1 or raises.
+  # Several call sites need this: macro-only modules sometimes
+  # raise inside __info__(:functions) despite exporting it, so
+  # the try/rescue is mandatory wherever we call it.
+  defp safe_exported_functions(mod) do
+    if function_exported?(mod, :__info__, 1) do
+      try do
+        mod.__info__(:functions)
+      rescue
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  # I read the source of a module's defining file and pass it to
+  # `fun`, returning whatever `fun` returns.  Returns `default`
+  # when the module has no source file or the file can't be read.
+  # Used by every analysis pass that walks the module's text
+  # (function extraction, editor session, alias map, preamble).
+  defp with_module_source(mod, default, fun) do
+    with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
+         {:ok, source} <- File.read(path) do
+      fun.(source)
+    else
+      _ -> default
+    end
+  end
 
   defp build_sup_node(pid) do
     info =
