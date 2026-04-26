@@ -83,36 +83,30 @@ TElixirNavigationCoder >> browseImplementorsInModule: aResolvedModule function: 
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseReferencesAt: aPosition requesterObject: aRequester [
 	"I find references to the Elixir function at cursor position.
-	 Qualified calls query directly. Bare names route through the
-	 context module if the function is actually defined there;
-	 otherwise — Kernel auto-imports (`elem`), other imports, or
-	 functions we can't resolve — fall back to bare-name implementors
-	 search across all modules.
-
-	 A non-uppercase prefix (`builder.text(...)`, `&1.inserted_at`) is
-	 a runtime variable / capture-arg reference, not a module — same
-	 fallback because we can't know statically which module the
-	 function lives in."
+	 A real module qualifier (uppercase, like `Foo.bar`) restricts
+	 references to that module's function.  Anything else —
+	 variable refs (`builder.text(...)`), capture-arg field access
+	 (`&1.inserted_at`), bare names imported from Kernel (`elem`),
+	 or bare names not defined in the context module — falls back
+	 to references-by-name across all modules via
+	 browseReferencesIn: with a bare name (no dot).  Bare names that
+	 ARE defined in the context module use the context module so
+	 results stay focused."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
-			| resolved looksLikeModule |
+			| target looksLikeModule |
 			looksLikeModule := moduleName notNil
 				and: [ moduleName isNotEmpty
 				and: [ moduleName first isLetter
 				and: [ moduleName first isUppercase ] ] ].
-			(moduleName notNil and: [ looksLikeModule not ])
-				ifTrue: [
-					^ self browseImplementorsIn: functionName requesterObject: aRequester ].
-			moduleName ifNil: [
-				(self functionInContext: functionName) ifFalse: [
-					^ self browseImplementorsIn: functionName requesterObject: aRequester ] ].
-			resolved := moduleName
-				ifNil: [ self contextModuleName ]
-				ifNotNil: [ self resolveModuleName: moduleName ].
-			resolved ifNil: [ ^ self ].
-			self browseReferencesIn: resolved, '.', functionName
-				requesterObject: aRequester ]
+			target := looksLikeModule
+				ifTrue: [ (self resolveModuleName: moduleName), '.', functionName ]
+				ifFalse: [
+					(moduleName isNil and: [ self functionInContext: functionName ])
+						ifTrue: [ self contextModuleName, '.', functionName ]
+						ifFalse: [ functionName ] ].
+			self browseReferencesIn: target requesterObject: aRequester ]
 		ifNone: [ ]
 ]
 
@@ -134,15 +128,24 @@ TElixirNavigationCoder >> functionInContext: aFunctionName [
 
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseReferencesIn: aString requesterObject: aRequester [
-	"I find references to the selected function name."
-	| parts moduleName functionName reply results |
-	parts := aString trimBoth splitOn: '.'.
-	parts size < 2 ifTrue: [ ^ self ].
-	moduleName := (parts copyFrom: 1 to: parts size - 1) joinUsing: '.'.
-	functionName := parts last.
+	"I find references to the selected function name. A qualified
+	 string (Module.fn) restricts to that module; a bare name
+	 (no dot) queries references to that name across all modules
+	 — used as the fallback when we can't statically determine
+	 the target (variable refs, Kernel/imported calls, etc.)."
+	| parts moduleArg functionName reply results trimmed |
+	trimmed := aString trimBoth.
+	parts := trimmed splitOn: '.'.
+	parts size < 2
+		ifTrue: [
+			moduleArg := 'nil'.
+			functionName := parts first ]
+		ifFalse: [
+			moduleArg := (parts copyFrom: 1 to: parts size - 1) joinUsing: '.'.
+			functionName := parts last ].
 	reply := self application evaluateAndWait:
 		'GtBridge.Analysis.function_references(',
-		moduleName, ', :', functionName, ')'.
+		moduleArg, ', :', functionName, ')'.
 	(reply isKindOf: BeamBridgeEvalError) ifTrue: [ ^ self ].
 	results := reply asList.
 	self notifyObjectSpawn:
