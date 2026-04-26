@@ -18,14 +18,19 @@ TElixirNavigationCoder >> browseImplementorsAt: aPosition requesterObject: aRequ
 	 user picks the right arity. Avoids guessing arity from the AST
 	 (which is wrong for pipes, captures, and macro-generated calls).
 
-	 A lowercase prefix (e.g. `builder.text(...)`) is a runtime variable
-	 reference, not a module. We can't statically know which module
-	 `builder` resolves to, so fall back to bare-name search across
-	 every module — same UX as if the user had highlighted just `text`."
+	 A non-uppercase prefix (`builder.text(...)`, `&1.inserted_at`) is
+	 a runtime variable / capture-arg reference, not a module. We
+	 can't know statically which module the function lives in, so
+	 fall back to bare-name search across every module."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
-			(moduleName notNil and: [ moduleName first isUppercase ])
+			| looksLikeModule |
+			looksLikeModule := moduleName notNil
+				and: [ moduleName isNotEmpty
+				and: [ moduleName first isLetter
+				and: [ moduleName first isUppercase ] ] ].
+			looksLikeModule
 				ifTrue: [
 					self
 						browseImplementorsInModule: (self resolveModuleName: moduleName)
@@ -78,19 +83,30 @@ TElixirNavigationCoder >> browseImplementorsInModule: aResolvedModule function: 
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseReferencesAt: aPosition requesterObject: aRequester [
 	"I find references to the Elixir function at cursor position.
-	 Qualified calls query directly. Bare names use context module.
+	 Qualified calls query directly. Bare names route through the
+	 context module if the function is actually defined there;
+	 otherwise — Kernel auto-imports (`elem`), other imports, or
+	 functions we can't resolve — fall back to bare-name implementors
+	 search across all modules.
 
-	 A lowercase prefix (e.g. `builder.text(...)`) is a runtime variable
-	 — we can't know which module text/N actually lives in, so fall
-	 back to the bare-name implementors path so the user can see every
-	 module that defines a `text` function."
+	 A non-uppercase prefix (`builder.text(...)`, `&1.inserted_at`) is
+	 a runtime variable / capture-arg reference, not a module — same
+	 fallback because we can't know statically which module the
+	 function lives in."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
-			| resolved |
-			(moduleName notNil and: [ moduleName first isLowercase ])
+			| resolved looksLikeModule |
+			looksLikeModule := moduleName notNil
+				and: [ moduleName isNotEmpty
+				and: [ moduleName first isLetter
+				and: [ moduleName first isUppercase ] ] ].
+			(moduleName notNil and: [ looksLikeModule not ])
 				ifTrue: [
 					^ self browseImplementorsIn: functionName requesterObject: aRequester ].
+			moduleName ifNil: [
+				(self functionInContext: functionName) ifFalse: [
+					^ self browseImplementorsIn: functionName requesterObject: aRequester ] ].
 			resolved := moduleName
 				ifNil: [ self contextModuleName ]
 				ifNotNil: [ self resolveModuleName: moduleName ].
@@ -98,6 +114,22 @@ TElixirNavigationCoder >> browseReferencesAt: aPosition requesterObject: aReques
 			self browseReferencesIn: resolved, '.', functionName
 				requesterObject: aRequester ]
 		ifNone: [ ]
+]
+
+{ #category : 'navigation' }
+TElixirNavigationCoder >> functionInContext: aFunctionName [
+	"I am true when the bare function name is defined in the current
+	 context module. Used to decide whether C-n on an unqualified call
+	 should query references-in-context or fall back to bare-name
+	 implementors search across all modules."
+	| ctx reply |
+	ctx := self contextModuleName.
+	ctx ifNil: [ ^ false ].
+	reply := [ self application evaluateAndWait:
+		'GtBridge.Analysis.function_in_module?(', ctx, ', "', aFunctionName, '")' ]
+		on: Error do: [ ^ false ].
+	(reply isKindOf: BeamBridgeEvalError) ifTrue: [ ^ false ].
+	^ reply == true
 ]
 
 { #category : 'navigation' }

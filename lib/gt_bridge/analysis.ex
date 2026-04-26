@@ -609,6 +609,20 @@ defmodule GtBridge.Analysis do
     Map.get(aliases, alias_name, alias_name)
   end
 
+  @doc """
+  I am true when `mod` defines a function (or macro-generated export)
+  named `name`.  Used by GT-side C-n to decide whether an unqualified
+  reference should be searched in `mod` (true) or fall back to
+  cross-module implementors search (false).
+  """
+  @spec function_in_module?(module(), String.t() | atom()) :: boolean()
+  def function_in_module?(mod, name) when is_atom(name),
+    do: function_in_module?(mod, Atom.to_string(name))
+
+  def function_in_module?(mod, name) when is_binary(name) do
+    all_functions(mod) |> Enum.any?(&(&1.name == name))
+  end
+
   defp module_alias_map(mod) do
     case GtBridge.Resolve.source_file(mod) do
       nil -> %{}
