@@ -60,24 +60,6 @@ ElixirModuleCoder >> addFunction: newText [
 	^ self saveAndCompile: (String lf join: newLines)
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> announceFunctionsChanged [
-	"I announce that my functions have changed, so the streaming list refreshes."
-	self announce: (GtCoderSourceCodeChanged new coder: self)
-]
-
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> announceSourceChangedAcrossInstances [
-	"I tell every other live ElixirModuleCoder pointing at the same
-	 module to refresh.  Saves can come from a transient coder created
-	 by an inline |> expander; without this broadcast, the long-lived
-	 coder feeding the user's Coder tab keeps showing stale source
-	 because it never hears the per-instance announcement."
-	self announceFunctionsChanged.
-	self class allInstances do: [ :each |
-		(each ~~ self and: [ each moduleName = moduleName ])
-			ifTrue: [ each announceFunctionsChanged ] ]
-]
 
 { #category : 'accessing' }
 ElixirModuleCoder >> application [
@@ -289,9 +271,10 @@ ElixirModuleCoder >> buildSourceViewElement [
 			vm scrollToLine: startLine withCharacterPosition: 1 ].
 		container addChild: vm asElement matchParent ].
 	rebuild value.
-	self announcer
-		when: GtCoderSourceCodeChanged
-		do: [ :ann | rebuild value ].
+	BeamEventAnnouncer default
+		when: BeamModuleRecompiled
+		do: [ :ann | ann mod = moduleName ifTrue: [ rebuild value ] ]
+		for: container.
 	^ container
 ]
 
@@ -437,17 +420,15 @@ ElixirModuleCoder >> moduleName: aString [
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
-	"I write source to disk, format, recompile, and announce the source
-	 change so views listening to me refresh (Source tab, function stream).
-	 Preserves the original file's line ending convention and trailing
-	 newline.
+	"I write source to disk, format, and recompile. Surfaces refresh
+	 via BeamEventAnnouncer — every module the BEAM recompiled (direct
+	 + dep siblings parallel-recompiled for struct propagation) gets a
+	 BeamModuleRecompiled announcement, so subscribed surfaces (Source
+	 tab, function stream, |> expander, future browser/doc coder) all
+	 reach freshness through one channel.
 
-	 hot_reload returns %{recompiled: [...]} listing every module the
-	 BEAM recompiled — direct module plus any dep siblings parallel-
-	 recompiled for struct propagation. I read that list and fan out
-	 BeamModuleRecompiled announcements via BeamEventAnnouncer so
-	 surfaces showing those sibling modules can refresh, not just the
-	 directly-saved one."
+	 Preserves the original file's line ending convention and trailing
+	 newline."
 	| b64 normalized usesCrlf ending result |
 	usesCrlf := self sourceCode includesSubstring: String crlf.
 	ending := usesCrlf ifTrue: [ String crlf ] ifFalse: [ String lf ].
@@ -461,7 +442,6 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 	result := application newCommandFactory
 		<< ('GtBridge.Analysis.hot_reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
-	self announceSourceChangedAcrossInstances.
 	self announceBeamRecompiledFrom: result.
 	^ result
 ]
