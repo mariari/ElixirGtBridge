@@ -60,7 +60,12 @@ ElixirFunctionStreamingModel >> newItemsStream [
 
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
-	"I re-query function entries from the module coder and refresh my stream."
-	self refreshItemsStreamDueTo: 'functions reordered'.
-	coders := Dictionary new
+	"I re-query function entries from the module coder and refresh my
+	 stream — but I keep the existing coder cache.  Saving one function
+	 announces a source change which lands here; clearing the cache
+	 would force every coder to be recreated and lose the user's
+	 expansion state.  The saved coder's source is already refreshed
+	 in-place by ElixirFunctionCoder>>saveFunction, and unchanged
+	 functions don't need new coders."
+	self refreshItemsStreamDueTo: 'functions reordered'
 ]
