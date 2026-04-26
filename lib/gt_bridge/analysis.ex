@@ -1199,6 +1199,9 @@ defmodule GtBridge.Analysis do
      (excludes the currently running eval module)
   3. Persists compiled beams to ebin
   4. Recompiles the main project via IEx.Helpers.recompile
+  5. Broadcasts a `%GtBridge.Events.ModuleEvent{kind: :recompiled}` for each
+     module that was compiled. On parse/compile failure, broadcasts a
+     `%ModuleEvent{kind: :compile_failed}` and reraises.
 
   Returns :ok.
   """
@@ -1217,36 +1220,84 @@ defmodule GtBridge.Analysis do
     app = Application.get_application(mod)
     main_app = Mix.Project.config()[:app]
 
-    case app do
-      nil ->
-        # Standalone module — no app to persist into or propagate across.
-        :ok
+    sibling_mods =
+      case app do
+        nil ->
+          # Standalone module — no app to persist into or propagate across.
+          []
 
-      ^main_app ->
-        # Main project — IEx.recompile handles manifest-driven recompilation.
-        :ok
+        ^main_app ->
+          # Main project — IEx.recompile handles manifest-driven recompilation.
+          []
 
-      _ ->
-        # Dependency — persist the directly compiled modules, then
-        # compile all siblings in one pass for struct propagation.
-        # Exclude __ENV__.file to avoid purging the running code.
-        for {m, binary} <- compiled, do: persist_beam(m, binary)
+        _ ->
+          # Dependency — persist the directly compiled modules, then
+          # compile all siblings in one pass for struct propagation.
+          # Exclude __ENV__.file to avoid purging the running code.
+          for {m, binary} <- compiled, do: persist_beam(m, binary)
 
-        self_path = __ENV__.file |> Path.expand()
+          self_path = __ENV__.file |> Path.expand()
 
-        siblings =
-          app_source_files(app)
-          |> Enum.reject(&(&1 in [abs_path, self_path]))
+          siblings =
+            app_source_files(app)
+            |> Enum.reject(&(&1 in [abs_path, self_path]))
 
-        {:ok, _mods, _} =
-          Kernel.ParallelCompiler.compile(siblings,
-            each_module: fn _file, m, binary -> persist_beam(m, binary) end
-          )
-    end
+          {:ok, mods, _} =
+            Kernel.ParallelCompiler.compile(siblings,
+              each_module: fn _file, m, binary -> persist_beam(m, binary) end
+            )
+
+          mods
+      end
 
     IEx.Helpers.recompile()
+    broadcast_recompiled(compiled, sibling_mods, content)
+    :ok
+  rescue
+    e in [CompileError, SyntaxError, TokenMissingError] ->
+      GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+        kind: :compile_failed,
+        mod: nil,
+        errors: [compile_error_payload(e)]
+      })
+
+      reraise e, __STACKTRACE__
+  end
+
+  defp broadcast_recompiled(compiled, sibling_mods, content) do
+    source_hash = :erlang.phash2(content)
+
+    for {m, _} <- compiled do
+      GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+        kind: :recompiled,
+        mod: m,
+        source_hash: source_hash
+      })
+    end
+
+    for m <- sibling_mods do
+      GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+        kind: :recompiled,
+        mod: m
+      })
+    end
+
     :ok
   end
+
+  defp compile_error_payload(e) do
+    %{
+      phase: error_phase(e),
+      file: Map.get(e, :file),
+      line: Map.get(e, :line),
+      column: Map.get(e, :column),
+      message: Exception.message(e)
+    }
+  end
+
+  defp error_phase(%CompileError{}), do: :compile
+  defp error_phase(%SyntaxError{}), do: :parse
+  defp error_phase(%TokenMissingError{}), do: :parse
 
   defp app_source_files(app) do
     {:ok, mods} = :application.get_key(app, :modules)
