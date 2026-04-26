@@ -245,12 +245,22 @@ ElixirFunctionCoder >> initializeShortcuts: addOns [
 
 { #category : 'initialization' }
 ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
+	"The bridge sometimes hands `#kind` back as a BeamAtomObject (one-off
+	 evaluateAndWait calls) and sometimes as a plain ByteString (the
+	 streaming-coder pipeline that paints rows in the Functions tab),
+	 depending on which serializer path the value travelled through.
+	 Normalise both to a Smalltalk symbol so isType / collapsedText
+	 don't have to care."
+	| rawKind |
 	moduleCoder := anElixirModuleCoder.
 	functionName := (anEntry attributeAt: #name) asString.
 	arity := anEntry attributeAt: #arity.
 	startLine := anEntry attributeAt: #start.
 	endLine := anEntry attributeAt: #end_line.
-	kind := (anEntry attributeAt: #kind) symbol.
+	rawKind := anEntry attributeAt: #kind.
+	kind := (rawKind respondsTo: #symbol)
+		ifTrue: [ rawKind symbol ]
+		ifFalse: [ rawKind asString asSymbol ].
 	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
 ]
 
