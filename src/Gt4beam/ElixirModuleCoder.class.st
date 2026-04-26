@@ -450,7 +450,15 @@ ElixirModuleCoder >> moduleName [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> moduleName: aString [
-	moduleName := aString
+	"Canonicalize on input: strip the 'Elixir.' atom prefix that the
+	 inspector path passes through (e.g. 'Elixir.LocalUpload.Uploads.Upload').
+	 BeamModuleRecompiled events carry the bare form (BEAM's
+	 GtBridge.Analysis.module_name/1 strips it too), so storing the
+	 bare form here makes the mod-name match in onBeamModuleRecompiled:
+	 just work regardless of which input path constructed me."
+	moduleName := (aString beginsWith: 'Elixir.')
+		ifTrue: [ aString copyFrom: 8 to: aString size ]
+		ifFalse: [ aString ]
 ]
 
 { #category : 'actions' }

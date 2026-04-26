@@ -177,6 +177,30 @@ BeamEventBusExamples >> twoStreamingModelsBothRefresh [
 	^ sm2
 ]
 
+{ #category : 'examples - module-name normalization' }
+BeamEventBusExamples >> moduleNamePrefixIsStrippedOnInput [
+	"I assert that ElixirModuleCoder canonicalises moduleName to the
+	 bare form regardless of whether the caller passes the raw atom
+	 string ('Elixir.Foo.Bar') or the bare name ('Foo.Bar').
+
+	 Without this normalisation, BeamModuleRecompiled events (which
+	 always carry the bare form) silently never match coders built
+	 by the inspector path (which passes the prefixed form), and
+	 every open Functions tab stays stale on save. Lock it in."
+	<gtExample>
+	| prefixed bare |
+	prefixed := ElixirModuleCoder new
+		moduleName: 'Elixir.Foo.Bar';
+		yourself.
+	bare := ElixirModuleCoder new
+		moduleName: 'Foo.Bar';
+		yourself.
+	self assert: prefixed moduleName equals: 'Foo.Bar'.
+	self assert: bare moduleName equals: 'Foo.Bar'.
+	self assert: prefixed moduleName equals: bare moduleName.
+	^ { prefixed. bare }
+]
+
 { #category : 'examples - source tab' }
 BeamEventBusExamples >> sourceTabRefreshesOnSave [
 	"I build a Source tab element on a coder, save the module via the
