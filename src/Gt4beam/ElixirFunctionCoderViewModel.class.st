@@ -40,10 +40,7 @@ ElixirFunctionCoderViewModel >> newCompletionStrategy [
 { #category : 'actions' }
 ElixirFunctionCoderViewModel >> save [
 	"I delegate to the coder model's single save method.
-	 Called from Ctrl-S via requestSave.  Type rows have a function-
-	 shaped splice path that would mangle a typedstruct block, so
-	 swallow the save without doing damage."
-	self coderModel isType ifTrue: [ ^ false ].
+	 Called from Ctrl-S via requestSave."
 	self coderModel saveFunction.
 	^ true
 ]
