@@ -13,13 +13,22 @@ Class {
 
 { #category : 'building' }
 ElixirFunctionExpanderAttribute >> buildExpandedElement [
-	"I return a module header + Elixir coder for the target function."
+	"I return a module header + Elixir coder for the target function.
+	 Ctrl-S inside the inline coder splices the edited text back into
+	 the target module's source file via the same line-range splice
+	 path the Functions tab uses."
 	| coderModel vm |
 	coderModel := GtElixirCoderModel new.
 	coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
 	coderModel contextModuleName: targetModule.
 	coderModel sourceCode: (GtCoderExplicitStringSource new source: self fetchSource).
 	vm := coderModel asCoderViewModel.
+	vm
+		when: GtSourceCoderViewModelSaveRequested
+		do: [ :ann |
+			self saveSource: coderModel currentSourceString.
+			coderModel sourceCode: (GtCoderExplicitStringSource new source: self fetchSource).
+			ann consumed: true ].
 	^ BlElement new
 		layout: BlLinearLayout vertical;
 		constraintsDo: [ :c | c horizontal matchParent. c vertical fitContent ];
@@ -38,6 +47,24 @@ ElixirFunctionExpanderAttribute >> buildHeader [
 		functionName: functionName
 		arity: arity
 		application: application
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderAttribute >> saveSource: newSource [
+	"I splice newSource into the target module's source file at this
+	 expander's function/arity position.  Builds a transient module
+	 coder so it can reuse spliceFunction:forFunction:arity: — the
+	 splice is line-range based on start/end_line from all_functions,
+	 so it works for both function and type rows."
+	| path mc |
+	path := application evaluateAndWait:
+		'GtBridge.Resolve.source_file(', targetModule, ')'.
+	(path isString and: [ path asFileReference exists ]) ifFalse: [ ^ self ].
+	mc := ElixirModuleCoder new
+		moduleName: targetModule;
+		application: application;
+		sourcePath: path.
+	mc spliceFunction: newSource forFunction: functionName arity: arity
 ]
 
 { #category : 'private' }
