@@ -302,8 +302,22 @@ ElixirCoderBrowser >> initialize [
 	self layout: BlLinearLayout horizontal.
 	self constraintsDo: [ :c |
 		c horizontal matchParent.
-		c vertical matchParent ]
+		c vertical matchParent ].
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
+		to: self
 ]
+
+{ #category : 'announcements' }
+ElixirCoderBrowser >> onBeamModuleRecompiled: anAnnouncement [
+	"I invalidate my cached node tree so a fresh fetch picks up
+	 module-detail changes (function count, doc presence, source flag).
+	 Always refresh — checking whether the recompiled mod is in scope
+	 would need a per-event app lookup, and the tree rebuild on a
+	 small set is cheap relative to the alternative of staying stale."
+	rawNodes := nil.
+	self refreshSidebarTree
 
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> moduleInfoForApplication: anAppName [

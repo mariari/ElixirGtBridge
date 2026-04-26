@@ -201,6 +201,47 @@ BeamEventBusExamples >> moduleNamePrefixIsStrippedOnInput [
 	^ { prefixed. bare }
 ]
 
+{ #category : 'examples - browser' }
+BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
+	"I assert ElixirCoderBrowser drops its rawNodes cache when a
+	 module recompiles. Without this, the sidebar tree shows the
+	 module set from when the browser opened — new modules added
+	 to an app via hot-reload, and module-detail changes (function
+	 count, doc presence), stay invisible until the browser is closed
+	 and reopened. Locking the auto-invalidation in.
+
+	 Returns the (post-recompile) browser for inspection."
+	<gtExample>
+	| browser before path coder original |
+	"Scope to hot_reload_test so rawNodes is small + fast (an unscoped
+	 browser would hit every loaded app's beams — slow for a test)."
+	browser := ElixirCoderBrowser new
+		application: BeamLinkApplication uniqueInstance;
+		scopedApplicationName: 'hot_reload_test';
+		yourself.
+	"Force the lazy rawNodes to populate so we have a baseline reference."
+	before := browser rawNodes.
+	self assert: before isNotNil.
+
+	"Trigger a real BeamModuleRecompiled via a no-op save (HotReloadTest
+	 source written back unchanged still recompiles + fires the event)."
+	path := BeamLinkApplication uniqueInstance evaluateAndWait:
+		'GtBridge.Resolve.source_file(HotReloadTest)'.
+	coder := ElixirModuleCoder new
+		application: BeamLinkApplication uniqueInstance;
+		moduleName: 'HotReloadTest';
+		sourcePath: path;
+		yourself.
+	original := coder sourceCode.
+	coder saveAndCompile: original.
+
+	"Re-reading rawNodes recomputes — different array instance proves
+	 the cache was actually invalidated."
+	self assert: browser rawNodes ~~ before
+		description: 'rawNodes should be re-fetched after BeamModuleRecompiled'.
+	^ browser
+]
+
 { #category : 'examples - end-to-end UI' }
 BeamEventBusExamples >> functionsTabUpdatesOnSaveViaScripter [
 	"I script the full real-world chain end-to-end:
