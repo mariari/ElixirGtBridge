@@ -61,9 +61,23 @@ defmodule GtBridge.Xref do
       {:error, {:already_started, _}} -> :ok
     end
 
-    add_all_apps()
+    # Suppress xref's "N unresolved calls" warnings — they flood the REPL
+    # with noise from third-party libs we don't care about.
+    :xref.set_default(@xref_server, warnings: false, verbose: false)
+
     EventBroker.subscribe_me([%Events.AnyModuleEvent{}])
-    {:ok, []}
+
+    # Defer the heavy add_directory loop to handle_continue so the
+    # supervision tree finishes start-up immediately and BEAM doesn't
+    # block on a few seconds of initial indexing. Queries that arrive
+    # during indexing queue in our mailbox and run after.
+    {:ok, [], {:continue, :index_apps}}
+  end
+
+  @impl true
+  def handle_continue(:index_apps, state) do
+    add_all_apps()
+    {:noreply, state}
   end
 
   @impl true
