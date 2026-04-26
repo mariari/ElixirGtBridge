@@ -201,6 +201,73 @@ BeamEventBusExamples >> moduleNamePrefixIsStrippedOnInput [
 	^ { prefixed. bare }
 ]
 
+{ #category : 'examples - end-to-end UI' }
+BeamEventBusExamples >> functionsTabUpdatesOnSaveViaScripter [
+	"I script the full real-world chain end-to-end:
+
+	 1. Build an ElixirModuleCoder via the INSPECTOR path (prefixed
+	    'Elixir.HotReloadTest' name) — same code path the bug came in on.
+	 2. Build the Functions tab element from that coder.
+	 3. Wrap in a BlScripter so the element gets a real BlSpace and the
+	    async streams resolve.
+	 4. Trigger a save via the model API.
+	 5. Wait for the deferred tasks the announcement chain enqueues.
+	 6. Assert the streaming view model received the GtStreamingCodersStreamChanged
+	    that buildSourceViewElement / refreshStream produces — proving the
+	    chain reached refreshStream and not just the announcer.
+
+	 If the prefix-stripping regresses OR onBeamModuleRecompiled stops
+	 calling refreshStream, the received collection stays empty and this
+	 example goes red."
+	<gtExample>
+	| coder path element scripter sm received original markerSource |
+	path := BeamLinkApplication uniqueInstance evaluateAndWait:
+		'GtBridge.Resolve.source_file(HotReloadTest)'.
+	self assert: path isNotNil description: 'HotReloadTest must be loaded'.
+
+	"Note the prefixed name — same as the real inspector path"
+	coder := ElixirModuleCoder new
+		application: BeamLinkApplication uniqueInstance;
+		moduleName: 'Elixir.HotReloadTest';
+		sourcePath: path;
+		yourself.
+	self assert: coder moduleName equals: 'HotReloadTest'.
+
+	element := coder buildFunctionsViewElement.
+	scripter := BlScripter new
+		element: element;
+		yourself.
+	scripter wait forEmptySpaceTaskQueue.
+
+	"buildFunctionsViewElement returns a container whose second child
+	 is the ElixirFunctionStreamingElement — find it and walk to the model."
+	sm := (element children
+		detect: [ :c | c isKindOf: ElixirFunctionStreamingElement ])
+		streamingCodersViewModel streamingCodersModel.
+	received := OrderedCollection new.
+	sm
+		when: GtStreamingCodersStreamChanged
+		do: [ :a | received add: a ]
+		for: #scripterTap.
+
+	original := coder sourceCode.
+	"Insert a new def INSIDE the module (before the closing 'end')."
+	markerSource := original
+		copyReplaceAll: 'def hello, do: :world'
+		with: 'def hello, do: :world
+  def added_via_scripter, do: :ok'.
+
+	[ coder saveAndCompile: markerSource.
+		scripter wait forEmptySpaceTaskQueue.
+		self assert: received isNotEmpty
+			description: 'save should reach refreshStream and fire GtStreamingCodersStreamChanged' ]
+		ensure: [
+			sm unsubscribe: #scripterTap.
+			coder saveAndCompile: original ].
+
+	^ scripter
+]
+
 { #category : 'examples - source tab' }
 BeamEventBusExamples >> sourceTabRefreshesOnSave [
 	"I build a Source tab element on a coder, save the module via the
