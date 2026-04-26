@@ -25,10 +25,6 @@ ElixirFunctionStreamingModel >> moduleCoder [
 { #category : 'accessing' }
 ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 	moduleCoder := anElixirModuleCoder.
-	moduleCoder weak
-		when: GtCoderSourceCodeChanged
-		send: #refreshStream
-		to: self.
 	BeamEventAnnouncer default weak
 		when: BeamModuleRecompiled
 		send: #onBeamModuleRecompiled:
