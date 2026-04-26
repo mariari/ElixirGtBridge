@@ -5,7 +5,8 @@ Class {
 		'targetModule',
 		'functionName',
 		'arity',
-		'application'
+		'application',
+		'currentCoderModel'
 	],
 	#category : 'Gt4beam',
 	#package : 'Gt4beam'
@@ -16,7 +17,13 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 	"I return a module header + Elixir coder for the target function.
 	 Ctrl-S inside the inline coder splices the edited text back into
 	 the target module's source file via the same line-range splice
-	 path the Functions tab uses."
+	 path the Functions tab uses.
+
+	 The coderModel is stashed in currentCoderModel so the
+	 BeamModuleRecompiled subscription set up in initialize can refresh
+	 the inline source when the target module recompiles externally
+	 (edited from another coder in the same image, an Emacs save once
+	 the file watcher lands, etc.)."
 	| coderModel vm |
 	coderModel := GtElixirCoderModel new.
 	coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
@@ -29,6 +36,7 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 			self saveSource: coderModel currentSourceString.
 			coderModel sourceCode: (GtCoderExplicitStringSource new source: self fetchSource).
 			ann consumed: true ].
+	currentCoderModel := coderModel.
 	^ BlElement new
 		layout: BlLinearLayout vertical;
 		constraintsDo: [ :c | c horizontal matchParent. c vertical fitContent ];
@@ -88,7 +96,21 @@ ElixirFunctionExpanderAttribute >> initialize [
 	self attributesCreatingBlock: [
 		BrTextAdornmentDynamicAttribute new
 			beAppend;
-			stencil: [ self buildExpandedElement ] ]
+			stencil: [ self buildExpandedElement ] ].
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onTargetModuleRecompiled:
+		to: self
+]
+
+{ #category : 'announcements' }
+ElixirFunctionExpanderAttribute >> onTargetModuleRecompiled: anAnnouncement [
+	"I refresh my inline coder's source if the recompiled module is
+	 my target. No-op if I haven't been expanded yet (no model held)
+	 or if the announcement is for a different module."
+	anAnnouncement mod = targetModule ifTrue: [
+		currentCoderModel ifNotNil: [ :cm |
+			cm sourceCode: (GtCoderExplicitStringSource new source: self fetchSource) ] ]
 ]
 
 { #category : 'printing' }
