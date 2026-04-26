@@ -318,6 +318,7 @@ ElixirCoderBrowser >> onBeamModuleRecompiled: anAnnouncement [
 	 small set is cheap relative to the alternative of staying stale."
 	rawNodes := nil.
 	self refreshSidebarTree
+]
 
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> moduleInfoForApplication: anAppName [

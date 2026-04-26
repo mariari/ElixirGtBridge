@@ -2,7 +2,7 @@
 I am the GT-side singleton announcer for BEAM events received from the
 bridge.
 
-I sit between the bridge's HTTP/SSE inbound channel (Elixir-side
+I sit between the bridge HTTP/SSE inbound channel (Elixir-side
 EventBroker) and Bloc surfaces that want to react to module recompiles,
 compile failures, and module removals.
 

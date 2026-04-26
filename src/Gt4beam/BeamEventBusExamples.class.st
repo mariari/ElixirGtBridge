@@ -73,7 +73,7 @@ BeamEventBusExamples >> compileFailedDoesNotMatchRecompiled [
 	"I subscribe to BeamModuleRecompiled and fire a BeamCompileFailed.
 	 Returns the (empty) received collection — the typed Announcer
 	 dispatch correctly filters by class so failed-compile events
-	 don't trigger surface refreshes."
+	 do not trigger surface refreshes."
 	<gtExample>
 	| tag received |
 	tag := Object new.
@@ -94,7 +94,7 @@ BeamEventBusExamples >> saveFiresBeamModuleRecompiled [
 	"I save HotReloadTest via a coder and observe that
 	 BeamEventAnnouncer fires BeamModuleRecompiled. Proves the
 	 GT-side wiring (saveAndCompile reads the recompiled list from
-	 hot_reload's response and announces).
+	 the hot_reload response and announces).
 
 	 Returns the received announcements — at minimum one for
 	 HotReloadTest, possibly more if dep-siblings recompiled too."
@@ -125,7 +125,7 @@ BeamEventBusExamples >> twoCodersSeeSameUpdateAfterSave [
 	"I create two independent ElixirModuleCoders for HotReloadTest,
 	 edit hello/0 via the first, and verify the SECOND coder reads
 	 fresh source.  Functions tab is BEAM-backed so the second
-	 coder doesn't need its own subscription — it just queries the
+	 coder does not need its own subscription — it just queries the
 	 BEAM, whose ETS cache is invalidated by CacheReaper.
 
 	 Returns a Dictionary with both coders so callers can inspect
@@ -152,7 +152,7 @@ BeamEventBusExamples >> twoCodersSeeSameUpdateAfterSave [
 { #category : 'examples - cross-coder' }
 BeamEventBusExamples >> twoStreamingModelsBothRefresh [
 	"I create two independent streaming models for HotReloadTest, save
-	 via the first's coder, and verify the SECOND streaming model's
+	 via the first coder, and verify the SECOND streaming model
 	 underlying moduleCoder reads fresh source after the save.
 
 	 Both streaming models subscribe to BeamModuleRecompiled in their
@@ -160,7 +160,7 @@ BeamEventBusExamples >> twoStreamingModelsBothRefresh [
 	 functionEntries surface keeps us off private state while still
 	 proving the cross-instance refresh chain end-to-end.
 
-	 Returns the second streaming model so it's inspectable."
+	 Returns the second streaming model so it is inspectable."
 	<gtExample>
 	| sm1 sm2 original markerSource entry |
 	sm1 := self streamingModel.
@@ -214,7 +214,7 @@ BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
 	<gtExample>
 	| browser before path coder original |
 	"Scope to hot_reload_test so rawNodes is small + fast (an unscoped
-	 browser would hit every loaded app's beams — slow for a test)."
+	 browser would hit every loaded app beams — slow for a test)."
 	browser := ElixirCoderBrowser new
 		application: BeamLinkApplication uniqueInstance;
 		scopedApplicationName: 'hot_reload_test';
@@ -313,7 +313,7 @@ BeamEventBusExamples >> functionsTabUpdatesOnSaveViaScripter [
 BeamEventBusExamples >> sourceTabRefreshesOnSave [
 	"I build a Source tab element on a coder, save the module via the
 	 same coder, and verify the inner element was rebuilt (object
-	 identity changes — buildSourceViewElement's rebuild block
+	 identity changes — buildSourceViewElement rebuild block
 	 removeChildren + addChild a new one)."
 	<gtExample>
 	| coder original markerSource container childBefore childAfter |
