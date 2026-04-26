@@ -8,6 +8,7 @@ Class {
 		'moduleName',
 		'application',
 		'focusLine',
+		'focusFunctionTarget',
 		'sessionId',
 		'selfObject',
 		'saving'
@@ -143,10 +144,17 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 	streamingElement := ElixirFunctionStreamingElement new
 		streamingCodersViewModel: vm;
 		yourself.
-	focusStart := focusLine ifNotNil: [ :lines |
-		lines isArray ifTrue: [ lines first ] ifFalse: [ lines ] ].
-	focusStart ifNotNil: [
-		vm scrollToTarget: (ElixirFunctionScrollTarget new startLine: focusStart) ].
+	"Caller-supplied focusFunctionTarget wins (works for macro-generated
+	 entries with no source line, and for source-having entries when
+	 the caller knows the function name).  Otherwise build a startLine
+	 target from focusLine."
+	focusFunctionTarget
+		ifNotNil: [ vm scrollToTarget: focusFunctionTarget ]
+		ifNil: [
+			focusStart := focusLine ifNotNil: [ :lines |
+				lines isArray ifTrue: [ lines first ] ifFalse: [ lines ] ].
+			focusStart ifNotNil: [
+				vm scrollToTarget: (ElixirFunctionScrollTarget new startLine: focusStart) ] ].
 	container
 		addChild: addRow;
 		addChild: streamingElement matchParent.
@@ -302,6 +310,14 @@ ElixirModuleCoder >> focusLine [
 { #category : 'accessing' }
 ElixirModuleCoder >> focusLine: aLineNumber [
 	focusLine := aLineNumber
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> focusFunctionTarget: aTarget [
+	"I take an ElixirFunctionScrollTarget directly so callers that
+	 know the function name+arity (BeamDocumentationObject>>gtCoderFor:)
+	 can land on macro-generated entries that share startLine = 0."
+	focusFunctionTarget := aTarget
 ]
 
 { #category : 'accessing' }
