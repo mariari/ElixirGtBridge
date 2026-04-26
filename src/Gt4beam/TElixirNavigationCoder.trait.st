@@ -16,17 +16,22 @@ TElixirNavigationCoder >> browseImplementorsAt: aPosition requesterObject: aRequ
 	"I find implementors of the Elixir function at cursor position.
 	 Both qualified and bare-name calls spawn a search filter — the
 	 user picks the right arity. Avoids guessing arity from the AST
-	 (which is wrong for pipes, captures, and macro-generated calls)."
+	 (which is wrong for pipes, captures, and macro-generated calls).
+
+	 A lowercase prefix (e.g. `builder.text(...)`) is a runtime variable
+	 reference, not a module. We can't statically know which module
+	 `builder` resolves to, so fall back to bare-name search across
+	 every module — same UX as if the user had highlighted just `text`."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
-			moduleName
-				ifNotNil: [
+			(moduleName notNil and: [ moduleName first isUppercase ])
+				ifTrue: [
 					self
 						browseImplementorsInModule: (self resolveModuleName: moduleName)
 						function: functionName
 						requesterObject: aRequester ]
-				ifNil: [
+				ifFalse: [
 					self browseImplementorsIn: functionName requesterObject: aRequester ] ]
 		ifNone: [ ]
 ]
@@ -73,11 +78,19 @@ TElixirNavigationCoder >> browseImplementorsInModule: aResolvedModule function: 
 { #category : 'navigation' }
 TElixirNavigationCoder >> browseReferencesAt: aPosition requesterObject: aRequester [
 	"I find references to the Elixir function at cursor position.
-	 Qualified calls query directly. Bare names use context module."
+	 Qualified calls query directly. Bare names use context module.
+
+	 A lowercase prefix (e.g. `builder.text(...)`) is a runtime variable
+	 — we can't know which module text/N actually lives in, so fall
+	 back to the bare-name implementors path so the user can see every
+	 module that defines a `text` function."
 	self
 		detectElixirFunctionAt: aPosition
 		ifFound: [ :moduleName :functionName |
 			| resolved |
+			(moduleName notNil and: [ moduleName first isLowercase ])
+				ifTrue: [
+					^ self browseImplementorsIn: functionName requesterObject: aRequester ].
 			resolved := moduleName
 				ifNil: [ self contextModuleName ]
 				ifNotNil: [ self resolveModuleName: moduleName ].
