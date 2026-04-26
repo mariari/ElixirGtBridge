@@ -170,6 +170,8 @@ defmodule GtBridge.Analysis do
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
 
+    specs = beam_specs_by_arity(mod)
+
     runtime_extra =
       for {n, a} <- safe_exported_functions(mod),
           name_str = Atom.to_string(n),
@@ -184,7 +186,7 @@ defmodule GtBridge.Analysis do
           start: 0,
           end_line: 0,
           sig: "#{name_str}/#{a}",
-          source: "# #{name_str}/#{a}, no source"
+          source: synth_no_source(name_str, a, Map.get(specs, {n, a}))
         }
       end
 
@@ -444,6 +446,8 @@ defmodule GtBridge.Analysis do
     exported_arities =
       for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
 
+    specs = beam_specs_by_arity(mod)
+
     extra =
       for a <- exported_arities,
           arity == nil or a == arity,
@@ -456,7 +460,7 @@ defmodule GtBridge.Analysis do
           start: 0,
           end_line: 0,
           sig: "#{name_str}/#{a}",
-          source: "# #{name_str}/#{a}, no source"
+          source: synth_no_source(name_str, a, Map.get(specs, {name_atom, a}))
         }
       end
 
@@ -856,6 +860,33 @@ defmodule GtBridge.Analysis do
       []
     end
   end
+
+  # I return %{{name, arity} => formatted_spec_string} for every
+  # function in the module that the BEAM has a typespec for.  Used
+  # to enrich macro-generated function entries (which have no source)
+  # with a synthesized @spec line so the user sees the type info
+  # even though there's no AST.
+  defp beam_specs_by_arity(mod) do
+    case Code.Typespec.fetch_specs(mod) do
+      {:ok, specs} ->
+        Map.new(specs, fn {{name, arity}, [spec | _]} ->
+          formatted = Code.Typespec.spec_to_quoted(name, spec) |> Macro.to_string()
+          {{name, arity}, formatted}
+        end)
+
+      _ ->
+        %{}
+    end
+  end
+
+  # I build the placeholder source for a function with no AST entry.
+  # When the BEAM has a typespec for it I prepend an @spec line so the
+  # type info shows up in the editor; otherwise just the comment.
+  defp synth_no_source(name_str, arity, nil),
+    do: "# #{name_str}/#{arity}, no source"
+
+  defp synth_no_source(name_str, arity, spec_string),
+    do: "@spec #{spec_string}\n# #{name_str}/#{arity}, no source"
 
   # I read the source of a module's defining file and pass it to
   # `fun`, returning whatever `fun` returns.  Returns `default`
