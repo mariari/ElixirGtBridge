@@ -660,9 +660,17 @@ defmodule GtBridge.Analysis do
     # leaves the whole source on a single line as far as the
     # tokenizer is concerned, so multi-line snippets returned []
     # call sites and the editor showed no |> triangles.  Normalize
-    # all common variants to \n before parsing.
+    # all common variants to \n before hashing/parsing so
+    # semantically-equivalent sources cache to the same key.
     source = source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
 
+    GtBridge.CacheReaper.cached(
+      {:call_sites, context_module, :erlang.phash2(source)},
+      fn -> compute_call_sites(source, context_module) end
+    )
+  end
+
+  defp compute_call_sites(source, context_module) do
     with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
       aliases =
         case context_module do

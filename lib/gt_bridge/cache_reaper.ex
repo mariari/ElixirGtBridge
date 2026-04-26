@@ -23,6 +23,7 @@ defmodule GtBridge.CacheReaper do
 
   - `start_link/1` — supervised start
   - `table/0` — name of the ETS table for cache consumers
+  - `cached/2` — read-through cache helper for consumers
   """
 
   use GenServer
@@ -39,6 +40,27 @@ defmodule GtBridge.CacheReaper do
 
   @spec table() :: atom()
   def table, do: @table
+
+  @doc """
+  I read `key` from the cache table and return the stored value on hit.
+  On miss I evaluate `fun`, store the result, and return it.
+
+  Concurrent races between two processes computing the same key are
+  benign: both produce the same value for a deterministic `fun`, and the
+  second insert overwrites the first with identical data.
+  """
+  @spec cached(term(), (-> term())) :: term()
+  def cached(key, fun) do
+    case :ets.lookup(@table, key) do
+      [{^key, val}] ->
+        val
+
+      [] ->
+        val = fun.()
+        :ets.insert(@table, {key, val})
+        val
+    end
+  end
 
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)

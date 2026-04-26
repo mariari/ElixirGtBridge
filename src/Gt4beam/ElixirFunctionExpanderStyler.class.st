@@ -61,7 +61,15 @@ ElixirFunctionExpanderStyler >> nextIndex [
 ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	"I query the BEAM for resolvable call sites and attach expander
 	 triangles using GT's expander framework. Each gets a unique ID
-	 so expand state persists across re-styles."
+	 (resetting lastIndex per cycle) so expand state persists across
+	 re-styles.
+
+	 Two-tier cache: cachedHash/cachedSites short-circuits the BEAM
+	 round-trip for back-to-back styles of the same source. On miss
+	 the BEAM-side :gtbridge_cache (keyed
+	 {:call_sites, contextModule, sourceHash}) serves cross-coder
+	 hits lock-free and is invalidated by CacheReaper when modules
+	 recompile via the EventBroker bus."
 	| source hash sites b64 query |
 	text := aText.
 	lastIndex := 0.
