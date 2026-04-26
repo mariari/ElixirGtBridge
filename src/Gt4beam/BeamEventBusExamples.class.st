@@ -204,27 +204,33 @@ BeamEventBusExamples >> moduleNamePrefixIsStrippedOnInput [
 { #category : 'examples - browser' }
 BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
 	"I assert ElixirCoderBrowser drops its rawNodes cache when a
-	 module recompiles. Without this, the sidebar tree shows the
-	 module set from when the browser opened — new modules added
-	 to an app via hot-reload, and module-detail changes (function
-	 count, doc presence), stay invisible until the browser is closed
-	 and reopened. Locking the auto-invalidation in.
+	 module recompiles. Without this the sidebar shows the module
+	 set from when the browser opened — module-detail changes
+	 (function count, doc presence) stay invisible until close +
+	 reopen.
 
-	 Returns the (post-recompile) browser for inspection."
+	 Browser subscribes only when added to the scene graph, so the
+	 BlScripter wrap is load-bearing — without it, no subscription,
+	 no invalidation. Scope to hot_reload_test so rawNodes population
+	 is cheap (unscoped browser hits every loaded app via
+	 module_details, ~50+ round trips per save — exactly what
+	 overloaded the bridge before this safety fix landed)."
 	<gtExample>
-	| browser before path coder original |
-	"Scope to hot_reload_test so rawNodes is small + fast (an unscoped
-	 browser would hit every loaded app beams — slow for a test)."
+	| browser scripter before path coder original |
 	browser := ElixirCoderBrowser new
 		application: BeamLinkApplication uniqueInstance;
 		scopedApplicationName: 'hot_reload_test';
 		yourself.
-	"Force the lazy rawNodes to populate so we have a baseline reference."
+	scripter := BlScripter new
+		element: browser;
+		yourself.
+	scripter wait forEmptySpaceTaskQueue.
+
+	"Force the lazy rawNodes to populate."
 	before := browser rawNodes.
 	self assert: before isNotNil.
 
-	"Trigger a real BeamModuleRecompiled via a no-op save (HotReloadTest
-	 source written back unchanged still recompiles + fires the event)."
+	"Trigger a real BeamModuleRecompiled via a no-op save."
 	path := BeamLinkApplication uniqueInstance evaluateAndWait:
 		'GtBridge.Resolve.source_file(HotReloadTest)'.
 	coder := ElixirModuleCoder new
@@ -234,6 +240,7 @@ BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
 		yourself.
 	original := coder sourceCode.
 	coder saveAndCompile: original.
+	scripter wait forEmptySpaceTaskQueue.
 
 	"Re-reading rawNodes recomputes — different array instance proves
 	 the cache was actually invalidated."

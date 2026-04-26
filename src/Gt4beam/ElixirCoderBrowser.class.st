@@ -302,22 +302,42 @@ ElixirCoderBrowser >> initialize [
 	self layout: BlLinearLayout horizontal.
 	self constraintsDo: [ :c |
 		c horizontal matchParent.
-		c vertical matchParent ].
+		c vertical matchParent ]
+]
+
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onAddedToSceneGraph [
+	"I subscribe to BeamModuleRecompiled only while actually visible,
+	 so background/orphaned browser instances do not fan out heavy
+	 BEAM round trips per save event."
+	super onAddedToSceneGraph.
 	BeamEventAnnouncer default weak
 		when: BeamModuleRecompiled
 		send: #onBeamModuleRecompiled:
 		to: self
 ]
 
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onRemovedFromSceneGraph [
+	"I unsubscribe when removed so recompile events stop reaching me
+	 the moment my window closes."
+	super onRemovedFromSceneGraph.
+	BeamEventAnnouncer default unsubscribe: self
+]
+
 { #category : 'announcements' }
 ElixirCoderBrowser >> onBeamModuleRecompiled: anAnnouncement [
-	"I invalidate my cached node tree so a fresh fetch picks up
-	 module-detail changes (function count, doc presence, source flag).
-	 Always refresh — checking whether the recompiled mod is in scope
-	 would need a per-event app lookup, and the tree rebuild on a
-	 small set is cheap relative to the alternative of staying stale."
-	rawNodes := nil.
-	self refreshSidebarTree
+	"I just invalidate the cached node tree. I do NOT auto-refresh
+	 the sidebar — refreshSidebarTree fans out applicationNodes which
+	 (when unscoped) hits every loaded app via module_details, easily
+	 50+ BEAM round trips. Per save. Per live browser. That overloaded
+	 the bridge into request-fail cascades.
+
+	 Next time the user interacts with the filter input or otherwise
+	 triggers refreshSidebarTree, the lazy rawNodes will refetch
+	 from scratch. Trade auto-refresh UX for resource safety until
+	 a smaller-blast-radius refresh path is available."
+	rawNodes := nil
 ]
 
 { #category : 'as yet unclassified' }
