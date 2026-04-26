@@ -540,6 +540,14 @@ defmodule GtBridge.Analysis do
   """
   @spec call_sites(String.t(), module() | nil) :: [map()]
   def call_sites(source, context_module \\ nil) do
+    # Smalltalk text uses CR (\r, 0x0D) as line separator while
+    # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
+    # leaves the whole source on a single line as far as the
+    # tokenizer is concerned, so multi-line snippets returned []
+    # call sites and the editor showed no |> triangles.  Normalize
+    # all common variants to \n before parsing.
+    source = source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
+
     with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
       aliases =
         case context_module do
