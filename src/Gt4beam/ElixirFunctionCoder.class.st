@@ -248,14 +248,26 @@ ElixirFunctionCoder >> initializeShortcuts: addOns [
 
 { #category : 'initialization' }
 ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
-	"The bridge sometimes hands `#kind` back as a BeamAtomObject (one-off
+	moduleCoder := anElixirModuleCoder.
+	self refreshFromEntry: anEntry
+]
+
+{ #category : 'initialization' }
+ElixirFunctionCoder >> refreshFromEntry: anEntry [
+	"I refresh my function/type metadata and source from a new BEAM
+	 entry.  Called both during initial construction and when a peer
+	 save (e.g. via a |> expander on the same module) shifts my line
+	 range or reformats my body; the streaming Functions tab caches
+	 row coders by name/arity, so without this the cached row keeps
+	 displaying the pre-save text.
+
+	 The bridge sometimes hands `#kind` back as a BeamAtomObject (one-off
 	 evaluateAndWait calls) and sometimes as a plain ByteString (the
 	 streaming-coder pipeline that paints rows in the Functions tab),
 	 depending on which serializer path the value travelled through.
 	 Normalise both to a Smalltalk symbol so isType / collapsedText
 	 don't have to care."
 	| rawKind |
-	moduleCoder := anElixirModuleCoder.
 	functionName := (anEntry attributeAt: #name) asString.
 	arity := anEntry attributeAt: #arity.
 	startLine := anEntry attributeAt: #start.

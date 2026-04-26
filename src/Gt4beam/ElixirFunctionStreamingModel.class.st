@@ -61,11 +61,15 @@ ElixirFunctionStreamingModel >> newItemsStream [
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
 	"I re-query function entries from the module coder and refresh my
-	 stream — but I keep the existing coder cache.  Saving one function
-	 announces a source change which lands here; clearing the cache
-	 would force every coder to be recreated and lose the user's
-	 expansion state.  The saved coder's source is already refreshed
-	 in-place by ElixirFunctionCoder>>saveFunction, and unchanged
-	 functions don't need new coders."
+	 stream.  I keep the existing coder cache so the user doesn't lose
+	 their expansion state, but I push fresh source/line metadata into
+	 each cached coder — saves can come from peer paths (a |> expander,
+	 a different ElixirModuleCoder for the same module) that don't
+	 touch this list's row coders directly."
+	moduleCoder functionEntries do: [ :entry |
+		| key cached |
+		key := self newCoderCacheKeyFor: entry.
+		cached := mutex critical: [ coders at: key ifAbsent: [ nil ] ].
+		cached ifNotNil: [ cached refreshFromEntry: entry ] ].
 	self refreshItemsStreamDueTo: 'functions reordered'
 ]
