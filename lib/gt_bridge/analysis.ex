@@ -203,43 +203,55 @@ defmodule GtBridge.Analysis do
 
     siblings_by_name = Enum.group_by(siblings, & &1.name)
 
+    type_extras = type_entries(mod)
+
+    {placed_types, orphan_types} = Enum.split_with(type_extras, &(&1.start > 0))
+
     {grouped, _} =
-      ast_entries
+      (ast_entries ++ placed_types)
       |> Enum.sort_by(& &1.start)
-      |> Enum.flat_map_reduce(MapSet.new(), fn ast_entry, seen ->
-        if MapSet.member?(seen, ast_entry.name) do
-          {[ast_entry], seen}
+      |> Enum.flat_map_reduce(MapSet.new(), fn entry, seen ->
+        if MapSet.member?(seen, entry.name) do
+          {[entry], seen}
         else
-          sibs = siblings_by_name |> Map.get(ast_entry.name, []) |> Enum.sort_by(& &1.arity)
-          {sibs ++ [ast_entry], MapSet.put(seen, ast_entry.name)}
+          sibs = siblings_by_name |> Map.get(entry.name, []) |> Enum.sort_by(& &1.arity)
+          {sibs ++ [entry], MapSet.put(seen, entry.name)}
         end
       end)
 
-    grouped ++ orphans ++ type_entries(mod)
+    grouped ++ orphans ++ orphan_types
   end
 
   # I return entries for every @type / @opaque / @typep on `mod`, in the
   # same shape as function entries.  The `t/0` row of a typedstruct module
-  # gets the typedstruct block as source so users see the field list with
-  # working `|>` triangles; everything else falls back to a rendered
-  # `@type name() :: body` line.
+  # gets the typedstruct block as source (and that block's start line) so
+  # the row sorts in source order with the rest of the module's
+  # definitions; @type / @opaque / @typep declarations get their own
+  # source line.  Types we can't locate in source fall back to start = 0
+  # and a rendered `@type name() :: body` line.
   defp type_entries(mod) do
     case Code.Typespec.fetch_types(mod) do
       {:ok, types} ->
-        ts_block = typedstruct_block_source(mod)
+        info = type_source_info(mod)
 
         Enum.map(types, fn {kind, {name, _, args}} = entry ->
           arity = length(args)
           name_str = Atom.to_string(name)
 
+          {start, end_line, source} =
+            case Map.get(info, name) do
+              {s, e, src} -> {s, e, src}
+              nil -> {0, 0, render_type_body(entry)}
+            end
+
           %{
             name: name_str,
             arity: arity,
             kind: kind,
-            start: 0,
-            end_line: 0,
+            start: start,
+            end_line: end_line,
             sig: "#{name_str}/#{arity}",
-            source: type_entry_source(name, arity, entry, ts_block)
+            source: source
           }
         end)
 
@@ -248,22 +260,32 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  defp type_entry_source(:t, 0, _entry, ts_block) when is_binary(ts_block), do: ts_block
-
-  defp type_entry_source(_name, _arity, {_kind, type_data}, _ts_block) do
+  defp render_type_body({_kind, type_data}) do
     "@type " <> (Code.Typespec.type_to_quoted(type_data) |> Macro.to_string())
   end
 
-  # I return the `typedstruct do ... end` block as source text, or nil
-  # when the module's source isn't available or doesn't contain one.
-  defp typedstruct_block_source(mod) do
-    with_module_source(mod, nil, fn source ->
-      with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true),
-           {s, e} when is_integer(s) <- find_typedstruct_lines(ast) do
-        lines = String.split(source, "\n")
-        Enum.slice(lines, (s - 1)..(e - 1)) |> Enum.join("\n")
-      else
-        _ -> nil
+  # I return %{type_name_atom => {start, end_line, source}} for everything
+  # we can locate in `mod`'s source — typedstruct blocks (mapped to the
+  # `t` type) and @type / @opaque / @typep declarations.  typedstruct wins
+  # on collision since the block is more useful than its synthesized
+  # `@type t :: %Mod{...}`.
+  defp type_source_info(mod) do
+    with_module_source(mod, %{}, fn source ->
+      case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+        {:ok, ast} ->
+          lines = String.split(source, "\n")
+          decl_info = find_type_decl_locations(ast, lines)
+
+          ts_info =
+            case find_typedstruct_lines(ast) do
+              {s, e} -> %{t: {s, e, slice_lines(lines, s, e)}}
+              _ -> %{}
+            end
+
+          Map.merge(decl_info, ts_info)
+
+        _ ->
+          %{}
       end
     end)
   end
@@ -282,6 +304,30 @@ defmodule GtBridge.Analysis do
 
     found
   end
+
+  defp find_type_decl_locations(ast, lines) do
+    {_, found} =
+      Macro.prewalk(ast, %{}, fn
+        {:@, meta,
+         [
+           {kind, _,
+            [{:"::", _, [{name, _, _args} | _]}]}
+         ]} = node,
+        acc
+        when kind in [:type, :opaque, :typep] and is_atom(name) ->
+          s = Keyword.get(meta, :line)
+          e = get_in(meta, [:end_of_expression, :line]) || s
+          {node, Map.put(acc, name, {s, e, slice_lines(lines, s, e)})}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    found
+  end
+
+  defp slice_lines(lines, s, e),
+    do: Enum.slice(lines, (s - 1)..(e - 1)) |> Enum.join("\n")
 
   defp merge_clauses(entries) do
     # Merge consecutive entries with the same name/arity/kind

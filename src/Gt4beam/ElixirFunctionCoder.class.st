@@ -137,9 +137,13 @@ ElixirFunctionCoder >> arity [
 { #category : 'testing' }
 ElixirFunctionCoder >> hasSource [
 	"I am false for macro-generated functions (the analysis emits
-	 entries with start = 0 for runtime exports without an AST).
-	 Save/Delete/Move actions are nonsensical for such entries."
-	^ startLine isNotNil and: [ startLine > 0 ]
+	 entries with start = 0 for runtime exports without an AST) and
+	 for type entries (typedstruct's t/0 has start > 0 pointing at
+	 the typedstruct block, but the splice path is function-shaped
+	 — saving would mangle the block).  Save/Delete/Move actions
+	 are nonsensical for both kinds."
+	^ self isType not
+		and: [ startLine isNotNil and: [ startLine > 0 ] ]
 ]
 
 { #category : 'converting' }
