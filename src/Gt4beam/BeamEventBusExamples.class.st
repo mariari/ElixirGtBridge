@@ -176,3 +176,45 @@ BeamEventBusExamples >> twoStreamingModelsBothRefresh [
 		ensure: [ sm1 moduleCoder saveAndCompile: original ].
 	^ sm2
 ]
+
+{ #category : 'examples - source tab' }
+BeamEventBusExamples >> sourceTabRefreshesOnSave [
+	"I build a Source tab element on a coder, save the module via the
+	 same coder, and verify the inner element was rebuilt (object
+	 identity changes — buildSourceViewElement's rebuild block
+	 removeChildren + addChild a new one)."
+	<gtExample>
+	| coder original markerSource container childBefore childAfter |
+	coder := self moduleCoder.
+	container := coder buildSourceViewElement.
+	childBefore := container children first.
+	original := coder sourceCode.
+	markerSource := original copyReplaceAll: ':world' with: ':sourceTabRefresh'.
+	[ coder saveAndCompile: markerSource.
+		childAfter := container children first.
+		self assert: childBefore ~~ childAfter
+			description: 'Source tab inner element should be rebuilt on save' ]
+		ensure: [ coder saveAndCompile: original ].
+	^ container
+]
+
+{ #category : 'examples - source tab' }
+BeamEventBusExamples >> peerSourceTabRefreshesOnSave [
+	"I build a Source tab on coder1, save via coder2 (different
+	 instance, same module), and verify coder1's Source tab was
+	 rebuilt — proving cross-instance Source-tab refresh works."
+	<gtExample>
+	| coder1 coder2 original markerSource container childBefore childAfter |
+	coder1 := self moduleCoder.
+	coder2 := self moduleCoder.
+	container := coder1 buildSourceViewElement.
+	childBefore := container children first.
+	original := coder1 sourceCode.
+	markerSource := original copyReplaceAll: ':world' with: ':peerRefresh'.
+	[ coder2 saveAndCompile: markerSource.
+		childAfter := container children first.
+		self assert: childBefore ~~ childAfter
+			description: 'Source tab on peer coder should rebuild on cross-instance save' ]
+		ensure: [ coder1 saveAndCompile: original ].
+	^ container
+]

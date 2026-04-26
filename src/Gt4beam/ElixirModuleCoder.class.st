@@ -233,10 +233,38 @@ ElixirModuleCoder >> coderModelForSource: sourceText [
 	^ vm
 ]
 
+{ #category : 'initialization' }
+ElixirModuleCoder >> initialize [
+	"I subscribe (weakly) to BeamEventAnnouncer once per instance and
+	 translate global module events into a local GtCoderSourceCodeChanged
+	 on my own announcer.  This lets local subscribers (Source tab, etc.)
+	 keep their cheap closure-based subscription pattern without leaking
+	 against the global singleton — closures captured against `self
+	 announcer` die naturally when I'm GC'd."
+	super initialize.
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
+		to: self
+]
+
+{ #category : 'announcements' }
+ElixirModuleCoder >> onBeamModuleRecompiled: anAnnouncement [
+	"I republish a matching global recompile event as a local
+	 GtCoderSourceCodeChanged so my own announcer-based subscribers
+	 (Source tab rebuild, etc.) react.  I am the bridge between the
+	 global module-event bus and per-coder local announcer chains."
+	anAnnouncement mod = moduleName ifTrue: [
+		self announce: (GtCoderSourceCodeChanged new coder: self) ]
+]
+
 { #category : 'private' }
 ElixirModuleCoder >> buildSourceViewElement [
 	"I build a self-refreshing container for the Source tab. The inner
-	 coder is rebuilt whenever BeamModuleRecompiled fires for my module.
+	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me —
+	 my #initialize subscribes weakly to the global bus and republishes
+	 matching events as local GtCoderSourceCodeChanged, so the closure
+	 captured here lives only as long as I do.
 	 If focusLine is set, I scroll to that line after rendering."
 	| container rebuild |
 	container := BlElement new
@@ -271,10 +299,9 @@ ElixirModuleCoder >> buildSourceViewElement [
 			vm scrollToLine: startLine withCharacterPosition: 1 ].
 		container addChild: vm asElement matchParent ].
 	rebuild value.
-	BeamEventAnnouncer default
-		when: BeamModuleRecompiled
-		do: [ :ann | ann mod = moduleName ifTrue: [ rebuild value ] ]
-		for: container.
+	self announcer
+		when: GtCoderSourceCodeChanged
+		do: [ :ann | rebuild value ].
 	^ container
 ]
 
