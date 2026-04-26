@@ -36,14 +36,11 @@ ElixirFunctionExpanderStyler >> application: anApp [
 
 { #category : 'accessing' }
 ElixirFunctionExpanderStyler >> contextModuleName [
-	"I return the module name from the coder if available."
+	"I return the module name from the coder. Every Elixir coder that
+	 attaches me — GtElixirCoderModel, ElixirModuleCoder,
+	 ElixirFunctionCoder — implements #contextModuleName."
 	^ self coderViewModel ifNotNil: [ :vm |
-		vm coderModel ifNotNil: [ :coder |
-			(coder respondsTo: #contextModuleName)
-				ifTrue: [ coder contextModuleName ]
-				ifFalse: [
-					(coder respondsTo: #moduleName)
-						ifTrue: [ coder moduleName ] ] ] ]
+		vm coderModel ifNotNil: [ :coder | coder contextModuleName ] ]
 ]
 
 { #category : 'initialization' }

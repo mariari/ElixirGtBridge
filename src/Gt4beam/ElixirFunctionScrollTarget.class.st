@@ -15,18 +15,17 @@ ElixirFunctionScrollTarget >> applicableTo: aCoderViewModel [
 	"I prefer name+arity matching when set — that's the only way to
 	 land on macro-generated entries (which all have startLine = 0,
 	 so a startLine match would land on the first one alphabetically).
-	 Fall back to startLine when only that's set."
+	 Fall back to startLine when only that's set.
+
+	 Only ElixirFunctionStreamingElement scrolls me, and its rows are
+	 always ElixirFunctionCoder — no respondsTo: dispatch needed."
 	| coder |
 	coder := aCoderViewModel coder.
-	functionName isNotNil
-		ifTrue: [
-			^ (coder respondsTo: #functionName)
-				and: [ coder functionName = functionName
-				and: [ arity isNil or: [ coder arity = arity ] ] ] ].
-	startLine isNotNil
-		ifTrue: [
-			^ (coder respondsTo: #startLine)
-				and: [ coder startLine = startLine ] ].
+	functionName isNotNil ifTrue: [
+		^ coder functionName = functionName
+			and: [ arity isNil or: [ coder arity = arity ] ] ].
+	startLine isNotNil ifTrue: [
+		^ coder startLine = startLine ].
 	^ false
 ]
 

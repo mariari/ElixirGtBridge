@@ -248,6 +248,14 @@ ElixirModuleCoder >> initialize [
 		to: self
 ]
 
+{ #category : 'accessing' }
+ElixirModuleCoder >> contextModuleName [
+	"Common interface with GtElixirCoderModel and ElixirFunctionCoder
+	 — lets context-aware tooling (styler, completion) call one
+	 method regardless of which Elixir coder it's attached to."
+	^ moduleName
+]
+
 { #category : 'announcements' }
 ElixirModuleCoder >> onBeamModuleRecompiled: anAnnouncement [
 	"I republish a matching global recompile event as a local
