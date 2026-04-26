@@ -68,31 +68,54 @@ defmodule GtBridge.Xref do
     EventBroker.subscribe_me([%Events.AnyModuleEvent{}])
 
     # Defer the heavy add_directory loop to handle_continue so the
-    # supervision tree finishes start-up immediately and BEAM doesn't
-    # block on a few seconds of initial indexing. Queries that arrive
-    # during indexing queue in our mailbox and run after.
-    {:ok, [], {:continue, :index_apps}}
+    # supervision tree finishes start-up immediately. Track ready
+    # state so queries arriving during indexing return empty
+    # immediately rather than blocking — better perceived startup
+    # latency for the GT image.
+    {:ok, %{ready: false}, {:continue, :index_apps}}
   end
 
   @impl true
   def handle_continue(:index_apps, state) do
-    add_all_apps()
+    # Spawn the heavy indexing in a Task so our GenServer mailbox stays
+    # free for queries. Queries arriving while the Task runs see
+    # state.ready = false and return empty immediately, unblocking the
+    # caller. xref serializes its own operations internally, so the
+    # Task and any later xref calls coexist safely at the xref server.
+    pid = self()
+
+    Task.start(fn ->
+      add_all_apps()
+      GenServer.cast(pid, :indexing_done)
+    end)
+
     {:noreply, state}
   end
 
   @impl true
+  def handle_cast(:indexing_done, state) do
+    {:noreply, %{state | ready: true}}
+  end
+
+  @impl true
+  def handle_call({:q, _query}, _from, %{ready: false} = state) do
+    # Indexing still in progress. Return empty rather than make the
+    # caller wait — features like C-n will show no results briefly
+    # then work once handle_continue finishes.
+    {:reply, {:ok, []}, state}
+  end
+
   def handle_call({:q, query}, _from, state) do
     {:reply, :xref.q(@xref_server, query), state}
   end
 
-  @impl true
   def handle_cast({:replace, mod}, state) do
-    do_replace(mod)
+    if state.ready, do: do_replace(mod)
     {:noreply, state}
   end
 
   @impl true
-  def handle_info(%Event{body: %ModuleEvent{kind: :recompiled, mod: mod}}, state)
+  def handle_info(%Event{body: %ModuleEvent{kind: :recompiled, mod: mod}}, %{ready: true} = state)
       when is_atom(mod) do
     do_replace(mod)
     {:noreply, state}
