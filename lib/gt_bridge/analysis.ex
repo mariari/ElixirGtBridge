@@ -485,10 +485,15 @@ defmodule GtBridge.Analysis do
 
   Each result has `:module` (calling module), `:function` (calling function),
   and `:arity`.
+
+  When `mod` is nil I match callers of `name/arity` regardless of
+  target module — used by GT-side C-n when the call is a runtime
+  variable (`builder.text(...)`, `&1.inserted_at`) or an unqualified
+  Kernel/imported function and we can't statically know the target.
   """
-  @spec function_references(module(), atom(), non_neg_integer() | nil) :: [map()]
+  @spec function_references(module() | nil, atom(), non_neg_integer() | nil) :: [map()]
   def function_references(mod, name, arity \\ nil) do
-    target_app = Application.get_application(mod)
+    target_app = mod && Application.get_application(mod)
 
     apps_to_scan(target_app)
     |> Enum.flat_map(fn app ->
@@ -496,7 +501,7 @@ defmodule GtBridge.Analysis do
         case :xref.q(server, ~c"E") do
           {:ok, edges} ->
             for {{from_mod, from_fn, from_ar}, {to_mod, to_fn, to_ar}} <- edges,
-                to_mod == mod,
+                mod == nil or to_mod == mod,
                 to_fn == name,
                 arity == nil or to_ar == arity,
                 from_mod != mod,
@@ -523,6 +528,7 @@ defmodule GtBridge.Analysis do
   # main project — scanning all deps would be slow and noisy.
   # For project/dep targets, scan the target app, main project,
   # and direct dependents.
+  # nil target means "no specific target" — scan main + non-infra deps.
   defp apps_to_scan(target_app) do
     main = Mix.Project.config()[:app]
 
