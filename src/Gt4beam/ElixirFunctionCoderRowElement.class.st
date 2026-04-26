@@ -37,16 +37,21 @@ ElixirFunctionCoderRowElement >> onPostTextualCoderViewModelChanged [
 { #category : 'hooks' }
 ElixirFunctionCoderRowElement >> updateSidebarTint [
 	"Paint #sidebar pink for macro-generated coders (hasSource = false),
-	 framework grey otherwise.  We must explicitly set the grey on
-	 has-source rows because BrSimpleList recycles row elements: a
-	 row that was previously painted pink (when bound to a no-source
-	 VM) needs its pink cleared when rebound to a has-source VM,
-	 not just left alone."
+	 framework grey otherwise.  Type entries (typedstruct's t/0, @type
+	 definitions) get the framework grey too — they have synthesized
+	 source and a pink tint would falsely suggest 'no source'.
+
+	 We must explicitly set the grey on has-source rows because
+	 BrSimpleList recycles row elements: a row that was previously
+	 painted pink (when bound to a no-source VM) needs its pink
+	 cleared when rebound to a has-source VM, not just left alone."
 	self hasTextualCoderViewModel ifFalse: [ ^ self ].
 	self
 		childNamed: #sidebar
 		ifFound: [ :aSidebar |
-			aSidebar background: (self textualCoderViewModel coder hasSource
+			| coder |
+			coder := self textualCoderViewModel coder.
+			aSidebar background: ((coder hasSource or: [ coder isType ])
 				ifTrue: [ self theme button defaultBorderColor ]
 				ifFalse: [ Color fromHexString: 'FFE0E6' ]) ]
 		ifNone: [  ]
