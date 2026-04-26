@@ -296,7 +296,7 @@ ElixirFunctionCoder >> moveBy: anOffset [
 	 Move Up on the first real function found a start=0 sibling at
 	 the previous index and crashed."
 	| entries myIndex targetIndex |
-	entries := (moduleCoder functionEntries asList
+	entries := (moduleCoder functionEntries
 		select: [ :e | (e attributeAt: #start) > 0 ])
 		sort: [ :a :b | (a attributeAt: #start) < (b attributeAt: #start) ].
 	myIndex := entries detectIndex: [ :e | (e attributeAt: #start) = startLine ] ifNone: [ ^ self ].
@@ -349,7 +349,7 @@ ElixirFunctionCoder >> refreshLinesAfterSwap [
 	 I re-find my entry by name+arity+source contents match."
 	| entries mySource myEntry |
 	mySource := self currentSourceText asString trimmed.
-	entries := moduleCoder functionEntries asList.
+	entries := moduleCoder functionEntries.
 	myEntry := entries detect: [ :e |
 		(e attributeAt: #name) asString = functionName
 			and: [ (e attributeAt: #arity) = arity

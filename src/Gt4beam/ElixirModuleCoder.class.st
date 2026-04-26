@@ -335,10 +335,19 @@ ElixirModuleCoder >> focusFunctionTarget: aTarget [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> functionEntries [
-	"I return all function entries with line ranges, annotations, and source text."
-	^ [ application evaluateAndWait:
+	"I return all function entries with line ranges, annotations, and source text.
+
+	 Always returns an Array. The bridge sometimes hands the result back
+	 as a BeamProxyObject (lazy proxy for the Elixir list), sometimes as
+	 an already-deserialized Array — we materialize the proxy here so
+	 every caller gets a uniform iterable type."
+	| result |
+	result := [ application evaluateAndWait:
 		'GtBridge.Analysis.all_functions(', moduleName, ')' ]
-		on: Error do: [ #() ]
+		on: Error do: [ #() ].
+	^ (result isKindOf: BeamProxyObject)
+		ifTrue: [ result asList ]
+		ifFalse: [ result ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -401,7 +410,7 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 ElixirModuleCoder >> hasFunctions [
 	"I return true if the bridge can enumerate my functions.
 	 Precompiled modules without debug info return empty."
-	^ [ (self functionEntries asList) isNotEmpty ]
+	^ [ self functionEntries isNotEmpty ]
 		on: Error do: [ false ]
 ]
 

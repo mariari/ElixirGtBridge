@@ -55,7 +55,7 @@ ElixirFunctionStreamingModel >> newItemsStream [
 	 their AST counterpart and parks orphan macro-generated entries
 	 at the end, so re-sorting by start would just lump every
 	 start: 0 entry at the top."
-	^ moduleCoder functionEntries asList asAsyncStream
+	^ moduleCoder functionEntries asAsyncStream
 ]
 
 { #category : 'as yet unclassified' }

@@ -35,7 +35,7 @@ ElixirHotReloadExamples >> functionCoder [
 	<gtExample>
 	| modCoder entries funcCoder |
 	modCoder := self moduleCoder.
-	entries := modCoder functionEntries asList.
+	entries := modCoder functionEntries.
 	self assert: entries isNotEmpty.
 	funcCoder := ElixirFunctionCoder new.
 	funcCoder initializeFromEntry: entries first moduleCoder: modCoder.
