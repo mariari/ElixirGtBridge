@@ -597,9 +597,29 @@ defmodule GtBridge.Analysis do
         |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
         |> MapSet.new()
 
-      MapSet.union(ast_names, exported_names)
+      ast_names
+      |> MapSet.union(exported_names)
+      |> MapSet.union(defined_type_names(mod))
     else
       MapSet.new()
+    end
+  end
+
+  # I return the set of @type / @opaque / @typep names defined on
+  # `mod`, as strings.  Used by the call_sites filter so type
+  # references like `String.t()` inside @spec / typedstruct field
+  # types pass the "is this defined in the target module" check —
+  # without this, the walker would emit them as remote calls and
+  # then have them filtered out (since `t` isn't a function).
+  defp defined_type_names(mod) do
+    case Code.Typespec.fetch_types(mod) do
+      {:ok, types} ->
+        for {_kind, {name, _, _}} <- types,
+            into: MapSet.new(),
+            do: Atom.to_string(name)
+
+      _ ->
+        MapSet.new()
     end
   end
 
@@ -622,6 +642,43 @@ defmodule GtBridge.Analysis do
 
   def function_in_module?(mod, name) when is_binary(name) do
     all_functions(mod) |> Enum.any?(&(&1.name == name))
+  end
+
+  @doc """
+  I return the source for a function in `mod` matching `name`/`arity`,
+  or — when no such function exists — the rendered body of an @type
+  with that name/arity.  Used by the inline `|>` expander, which
+  attaches both to function calls and to type references in @spec /
+  typedstruct field types.  Returns nil when neither exists.
+  """
+  @spec function_or_type_source(module(), String.t(), non_neg_integer()) :: String.t() | nil
+  def function_or_type_source(mod, name, arity) do
+    case Enum.find(all_functions(mod), &(&1.name == name and &1.arity == arity)) do
+      %{source: src} ->
+        src
+
+      nil ->
+        type_body_source(mod, String.to_atom(name), arity)
+    end
+  end
+
+  defp type_body_source(mod, name_atom, arity) do
+    case Code.Typespec.fetch_types(mod) do
+      {:ok, types} ->
+        case Enum.find(types, fn {_kind, {n, _, args}} ->
+               n == name_atom and length(args) == arity
+             end) do
+          nil ->
+            nil
+
+          {_kind, type_data} ->
+            "@type " <>
+              (Code.Typespec.type_to_quoted(type_data) |> Macro.to_string())
+        end
+
+      _ ->
+        nil
+    end
   end
 
   defp module_alias_map(mod) do
