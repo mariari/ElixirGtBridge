@@ -33,11 +33,11 @@ ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 
 { #category : 'announcements' }
 ElixirFunctionStreamingModel >> onBeamModuleRecompiled: anAnnouncement [
-	"I refresh if the recompiled module matches mine.  This catches
-	 dep-sibling recompiles (Foo's save triggers Bar's recompile via
-	 ParallelCompiler — Bar's GtCoderSourceCodeChanged never fires
-	 since Bar wasn't directly saved, but BeamEventAnnouncer carries
-	 every module in hot_reload's recompiled list)."
+	"I refresh if the recompiled module matches mine.  Catches both
+	 the directly-saved module and any dep siblings the BEAM
+	 ParallelCompiler recompiled in the same hot_reload pass —
+	 hot_reload's response carries all of them, saveAndCompile fans
+	 out one BeamModuleRecompiled per module, and I match by name."
 	anAnnouncement mod = moduleCoder moduleName ifTrue: [
 		self refreshStream ]
 ]

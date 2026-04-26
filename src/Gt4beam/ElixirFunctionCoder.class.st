@@ -287,8 +287,8 @@ ElixirFunctionCoder >> moduleCoder [
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> moveBy: anOffset [
 	"I swap myself with my neighbor at myIndex + anOffset.
-	 swapFunctions:with: calls saveAndCompile: which announces the
-	 source change — no explicit announceFunctionsChanged needed.
+	 swapFunctions:with: calls saveAndCompile: which fires
+	 BeamModuleRecompiled — surfaces refresh through that bus.
 
 	 Filter out macro-generated entries (start = 0) before computing
 	 indices: those have no file location, so swapping with one would

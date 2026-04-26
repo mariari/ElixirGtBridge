@@ -236,7 +236,7 @@ ElixirModuleCoder >> coderModelForSource: sourceText [
 { #category : 'private' }
 ElixirModuleCoder >> buildSourceViewElement [
 	"I build a self-refreshing container for the Source tab. The inner
-	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me.
+	 coder is rebuilt whenever BeamModuleRecompiled fires for my module.
 	 If focusLine is set, I scroll to that line after rendering."
 	| container rebuild |
 	container := BlElement new
