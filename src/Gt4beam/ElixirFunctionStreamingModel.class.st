@@ -26,9 +26,24 @@ ElixirFunctionStreamingModel >> moduleCoder [
 ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 	moduleCoder := anElixirModuleCoder.
 	moduleCoder weak
-		when: GtCoderSourceCodeChanged 
-		send: #refreshStream 
+		when: GtCoderSourceCodeChanged
+		send: #refreshStream
+		to: self.
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
 		to: self
+]
+
+{ #category : 'announcements' }
+ElixirFunctionStreamingModel >> onBeamModuleRecompiled: anAnnouncement [
+	"I refresh if the recompiled module matches mine.  This catches
+	 dep-sibling recompiles (Foo's save triggers Bar's recompile via
+	 ParallelCompiler — Bar's GtCoderSourceCodeChanged never fires
+	 since Bar wasn't directly saved, but BeamEventAnnouncer carries
+	 every module in hot_reload's recompiled list)."
+	anAnnouncement mod = moduleCoder moduleName ifTrue: [
+		self refreshStream ]
 ]
 
 { #category : 'streaming' }

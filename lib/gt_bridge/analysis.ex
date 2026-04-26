@@ -1211,9 +1211,11 @@ defmodule GtBridge.Analysis do
      module that was compiled. On parse/compile failure, broadcasts a
      `%ModuleEvent{kind: :compile_failed}` and reraises.
 
-  Returns :ok.
+  Returns `%{recompiled: [String.t()]}` — every module the call recompiled,
+  as bare names without the `"Elixir."` prefix so GT-side handlers can
+  match them against `ElixirModuleCoder >> moduleName` directly.
   """
-  @spec hot_reload(String.t(), String.t()) :: :ok
+  @spec hot_reload(String.t(), String.t()) :: %{recompiled: [String.t()]}
   def hot_reload(path, content) do
     File.write!(path, content)
     Mix.Tasks.Format.run([path])
@@ -1260,7 +1262,7 @@ defmodule GtBridge.Analysis do
 
     IEx.Helpers.recompile()
     broadcast_recompiled(compiled, sibling_mods, content)
-    :ok
+    %{recompiled: recompiled_names(compiled, sibling_mods)}
   rescue
     e in [CompileError, SyntaxError, TokenMissingError] ->
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
@@ -1270,6 +1272,15 @@ defmodule GtBridge.Analysis do
       })
 
       reraise e, __STACKTRACE__
+  end
+
+  defp recompiled_names(compiled, sibling_mods) do
+    direct = for {m, _} <- compiled, do: m
+    Enum.map(direct ++ sibling_mods, &module_name/1)
+  end
+
+  defp module_name(mod) do
+    mod |> to_string() |> String.replace_prefix("Elixir.", "")
   end
 
   defp broadcast_recompiled(compiled, sibling_mods, content) do
