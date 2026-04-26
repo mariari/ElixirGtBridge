@@ -66,6 +66,19 @@ ElixirModuleCoder >> announceFunctionsChanged [
 	self announce: (GtCoderSourceCodeChanged new coder: self)
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> announceSourceChangedAcrossInstances [
+	"I tell every other live ElixirModuleCoder pointing at the same
+	 module to refresh.  Saves can come from a transient coder created
+	 by an inline |> expander; without this broadcast, the long-lived
+	 coder feeding the user's Coder tab keeps showing stale source
+	 because it never hears the per-instance announcement."
+	self announceFunctionsChanged.
+	self class allInstances do: [ :each |
+		(each ~~ self and: [ each moduleName = moduleName ])
+			ifTrue: [ each announceFunctionsChanged ] ]
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> application [
 	^ application
@@ -432,7 +445,7 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 	result := application newCommandFactory
 		<< ('GtBridge.Analysis.hot_reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
-	self announceFunctionsChanged.
+	self announceSourceChangedAcrossInstances.
 	^ result
 ]
 
