@@ -215,7 +215,72 @@ defmodule GtBridge.Analysis do
         end
       end)
 
-    grouped ++ orphans
+    grouped ++ orphans ++ type_entries(mod)
+  end
+
+  # I return entries for every @type / @opaque / @typep on `mod`, in the
+  # same shape as function entries.  The `t/0` row of a typedstruct module
+  # gets the typedstruct block as source so users see the field list with
+  # working `|>` triangles; everything else falls back to a rendered
+  # `@type name() :: body` line.
+  defp type_entries(mod) do
+    case Code.Typespec.fetch_types(mod) do
+      {:ok, types} ->
+        ts_block = typedstruct_block_source(mod)
+
+        Enum.map(types, fn {kind, {name, _, args}} = entry ->
+          arity = length(args)
+          name_str = Atom.to_string(name)
+
+          %{
+            name: name_str,
+            arity: arity,
+            kind: kind,
+            start: 0,
+            end_line: 0,
+            sig: "#{name_str}/#{arity}",
+            source: type_entry_source(name, arity, entry, ts_block)
+          }
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  defp type_entry_source(:t, 0, _entry, ts_block) when is_binary(ts_block), do: ts_block
+
+  defp type_entry_source(_name, _arity, {_kind, type_data}, _ts_block) do
+    "@type " <> (Code.Typespec.type_to_quoted(type_data) |> Macro.to_string())
+  end
+
+  # I return the `typedstruct do ... end` block as source text, or nil
+  # when the module's source isn't available or doesn't contain one.
+  defp typedstruct_block_source(mod) do
+    with_module_source(mod, nil, fn source ->
+      with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true),
+           {s, e} when is_integer(s) <- find_typedstruct_lines(ast) do
+        lines = String.split(source, "\n")
+        Enum.slice(lines, (s - 1)..(e - 1)) |> Enum.join("\n")
+      else
+        _ -> nil
+      end
+    end)
+  end
+
+  defp find_typedstruct_lines(ast) do
+    {_, found} =
+      Macro.prewalk(ast, nil, fn
+        {:typedstruct, meta, [[do: _]]} = node, nil ->
+          s = Keyword.get(meta, :line)
+          e = get_in(meta, [:end, :line]) || s
+          {node, {s, e}}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    found
   end
 
   defp merge_clauses(entries) do
@@ -597,29 +662,9 @@ defmodule GtBridge.Analysis do
         |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
         |> MapSet.new()
 
-      ast_names
-      |> MapSet.union(exported_names)
-      |> MapSet.union(defined_type_names(mod))
+      MapSet.union(ast_names, exported_names)
     else
       MapSet.new()
-    end
-  end
-
-  # I return the set of @type / @opaque / @typep names defined on
-  # `mod`, as strings.  Used by the call_sites filter so type
-  # references like `String.t()` inside @spec / typedstruct field
-  # types pass the "is this defined in the target module" check —
-  # without this, the walker would emit them as remote calls and
-  # then have them filtered out (since `t` isn't a function).
-  defp defined_type_names(mod) do
-    case Code.Typespec.fetch_types(mod) do
-      {:ok, types} ->
-        for {_kind, {name, _, _}} <- types,
-            into: MapSet.new(),
-            do: Atom.to_string(name)
-
-      _ ->
-        MapSet.new()
     end
   end
 
@@ -645,39 +690,16 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I return the source for a function in `mod` matching `name`/`arity`,
-  or — when no such function exists — the rendered body of an @type
-  with that name/arity.  Used by the inline `|>` expander, which
-  attaches both to function calls and to type references in @spec /
-  typedstruct field types.  Returns nil when neither exists.
+  I return the source for a function or type in `mod` matching
+  `name`/`arity`.  Used by the inline `|>` expander, which attaches
+  both to function calls and to type references in @spec / typedstruct
+  field types.  Returns nil when no entry matches.
   """
   @spec function_or_type_source(module(), String.t(), non_neg_integer()) :: String.t() | nil
   def function_or_type_source(mod, name, arity) do
     case Enum.find(all_functions(mod), &(&1.name == name and &1.arity == arity)) do
-      %{source: src} ->
-        src
-
-      nil ->
-        type_body_source(mod, String.to_atom(name), arity)
-    end
-  end
-
-  defp type_body_source(mod, name_atom, arity) do
-    case Code.Typespec.fetch_types(mod) do
-      {:ok, types} ->
-        case Enum.find(types, fn {_kind, {n, _, args}} ->
-               n == name_atom and length(args) == arity
-             end) do
-          nil ->
-            nil
-
-          {_kind, type_data} ->
-            "@type " <>
-              (Code.Typespec.type_to_quoted(type_data) |> Macro.to_string())
-        end
-
-      _ ->
-        nil
+      %{source: src} -> src
+      nil -> nil
     end
   end
 

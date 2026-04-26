@@ -10,7 +10,8 @@ Class {
 		'startLine',
 		'endLine',
 		'selfObject',
-		'showsModuleInHeader'
+		'showsModuleInHeader',
+		'kind'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -148,10 +149,11 @@ ElixirFunctionCoder >> asCoderViewModel [
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> collapsedText [
-	"Macro-generated entries (start = 0) get a trailing '(no source)'
-	 hint so the user can tell at a glance there's nothing to expand
-	 to and that Save/Delete/Move are unavailable.  The function name
-	 stays visible — the row itself is still useful for Help/Run.
+	"Macro-generated entries (start = 0, kind = def) get a trailing
+	 '(no source)' hint so the user can tell at a glance there's
+	 nothing to expand to and that Save/Delete/Move are unavailable.
+	 Type entries (kind = type) expand to a typedstruct block or @type
+	 body, so they don't need the warning — show the signature plain.
 
 	 We highlight via a light-pink BACKGROUND on the suffix.  Per-
 	 character foreground attributes get clobbered when GT's
@@ -161,7 +163,7 @@ ElixirFunctionCoder >> collapsedText [
 	 overwriting per-char foreground).  Backgrounds aren't set at
 	 the element level, so a per-char background tint survives."
 	| text |
-	(startLine isNotNil and: [ startLine > 0 ])
+	(self isType or: [ startLine isNotNil and: [ startLine > 0 ] ])
 		ifTrue: [ ^ self signature asRopedText ].
 	text := (self signature, ' (no source)') asRopedText.
 	text
@@ -248,6 +250,7 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 	arity := anEntry attributeAt: #arity.
 	startLine := anEntry attributeAt: #start.
 	endLine := anEntry attributeAt: #end_line.
+	kind := (anEntry attributeAt: #kind) symbol.
 	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
 ]
 
@@ -343,6 +346,18 @@ ElixirFunctionCoder >> selfObject [ ^ selfObject
 
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> selfObject: anObject [ selfObject := anObject
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> isType [
+	"I am true for entries that came from Code.Typespec.fetch_types/1
+	 (rendered as typedstruct blocks or @type bodies)."
+	^ kind == #type or: [ kind == #opaque or: [ kind == #typep ] ]
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> kind [
+	^ kind
 ]
 
 { #category : 'accessing' }
