@@ -14,7 +14,8 @@ defmodule GtBridge.Supervisor do
       {GtBridge.Http.Supervisor, []},
       {GtBridge.Views, [name: GtBridge.Views]},
       {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]},
-      {GtBridge.CacheReaper, []}
+      {GtBridge.CacheReaper, []},
+      {GtBridge.Xref, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

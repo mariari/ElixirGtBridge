@@ -28,11 +28,20 @@ defmodule GtBridge.Analysis do
   """
   @spec module_graph(atom()) :: [edge()]
   def module_graph(app) do
-    with_xref(app, fn server ->
-      {:ok, pairs} = :xref.q(server, ~c"E ||| V")
+    app_mods = MapSet.new(modules(app))
 
-      for {{from, _, _}, {to, _, _}} <- pairs, from != to, uniq: true, do: {from, to}
-    end)
+    case GtBridge.Xref.q(~c"E") do
+      {:ok, edges} ->
+        for {{from, _, _}, {to, _, _}} <- edges,
+            MapSet.member?(app_mods, from),
+            MapSet.member?(app_mods, to),
+            from != to,
+            uniq: true,
+            do: {from, to}
+
+      _ ->
+        []
+    end
   end
 
   @doc "I return the modules that `mod` calls."
@@ -591,58 +600,29 @@ defmodule GtBridge.Analysis do
   """
   @spec function_references(module() | nil, atom(), non_neg_integer() | nil) :: [map()]
   def function_references(mod, name, arity \\ nil) do
-    target_app = mod && Application.get_application(mod)
+    case GtBridge.Xref.q(~c"E") do
+      {:ok, edges} ->
+        callers =
+          for {{from_mod, from_fn, from_ar}, {to_mod, to_fn, to_ar}} <- edges,
+              mod == nil or to_mod == mod,
+              to_fn == name,
+              arity == nil or to_ar == arity,
+              from_mod != mod,
+              uniq: true do
+            {from_mod, Atom.to_string(from_fn), from_ar}
+          end
 
-    apps_to_scan(target_app)
-    |> Enum.flat_map(fn app ->
-      with_xref(app, fn server ->
-        case :xref.q(server, ~c"E") do
-          {:ok, edges} ->
-            for {{from_mod, from_fn, from_ar}, {to_mod, to_fn, to_ar}} <- edges,
-                mod == nil or to_mod == mod,
-                to_fn == name,
-                arity == nil or to_ar == arity,
-                from_mod != mod,
-                uniq: true do
-              {from_mod, Atom.to_string(from_fn), from_ar}
-            end
+        callers
+        |> Enum.uniq()
+        |> Enum.flat_map(fn {from_mod, from_name, from_ar} ->
+          all_functions(from_mod)
+          |> Enum.filter(fn f -> f.name == from_name and f.arity == from_ar end)
+          |> Enum.map(&Map.put(&1, :module, inspect(from_mod)))
+        end)
+        |> Enum.sort_by(&{&1.module, &1.name})
 
-          _ ->
-            []
-        end
-      end)
-    end)
-    |> Enum.uniq()
-    |> Enum.flat_map(fn {from_mod, from_name, from_ar} ->
-      all_functions(from_mod)
-      |> Enum.filter(fn f -> f.name == from_name and f.arity == from_ar end)
-      |> Enum.map(&Map.put(&1, :module, inspect(from_mod)))
-    end)
-    |> Enum.sort_by(&{&1.module, &1.name})
-  end
-
-  # I return apps worth scanning for references.
-  # For infrastructure targets (Enum, Kernel, etc.) only scan the
-  # main project — scanning all deps would be slow and noisy.
-  # For project/dep targets, scan the target app, main project,
-  # and direct dependents.
-  # nil target means "no specific target" — scan main + non-infra deps.
-  defp apps_to_scan(target_app) do
-    main = Mix.Project.config()[:app]
-
-    if MapSet.member?(@infrastructure_apps, target_app) do
-      [main] |> Enum.reject(&is_nil/1)
-    else
-      dependents =
-        for {app, _, _} <- Application.loaded_applications(),
-            not MapSet.member?(@infrastructure_apps, app),
-            dep <- Application.spec(app, :applications) || [],
-            dep == target_app,
-            do: app
-
-      ([target_app, main | dependents] -- [nil])
-      |> Enum.uniq()
-      |> Enum.reject(&MapSet.member?(@infrastructure_apps, &1))
+      _ ->
+        []
     end
   end
 
@@ -1176,28 +1156,6 @@ defmodule GtBridge.Analysis do
   defp module_has_doc?(mod), do: module_doc_info(mod) |> elem(1)
 
   defp has_source?(mod), do: GtBridge.Resolve.source_file(mod) != nil
-
-  defp with_xref(app, fun) do
-    server = :"gt_xref_#{app}"
-
-    case beam_path(app) do
-      nil ->
-        []
-
-      path ->
-        :xref.start(server)
-        :xref.add_directory(server, path)
-        result = fun.(server)
-        :xref.stop(server)
-        result
-    end
-  end
-
-  defp beam_path(app) do
-    Application.app_dir(app, "ebin") |> String.to_charlist()
-  rescue
-    _ -> nil
-  end
 
   @doc """
   I hot-reload a source file and its dependents.
