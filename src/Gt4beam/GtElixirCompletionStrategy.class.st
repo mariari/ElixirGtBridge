@@ -78,10 +78,16 @@ GtElixirCompletionStrategy >> ensureSessionImports [
 
 { #category : 'private' }
 GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
+	"I read the application via #application — both GtElixirCoderModel
+	 (snippets, lazy-inits) and ElixirFunctionCoder (delegates to
+	 moduleCoder, already running) implement it.  An earlier version
+	 called #initializeApplication which only exists on GtElixirCoderModel,
+	 so completion silently returned [] for function-coder rows because
+	 the DNU was caught by the on:Error guard around fetchCompletionsFor:."
 	| application serverAddress url response payload |
 	coderModel ifNil: [ ^ #() ].
 	self ensureSessionImports.
-	application := coderModel initializeApplication.
+	application := coderModel application.
 	application ifNil: [ ^ #() ].
 	serverAddress := application settings serverSocketAddress.
 	url := 'http://' , serverAddress ipOrName , ':'
