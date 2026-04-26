@@ -485,6 +485,17 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 	result := application newCommandFactory
 		<< ('GtBridge.Analysis.hot_reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
+	(result isKindOf: BeamBridgeEvalError) ifTrue: [
+		"BEAM eval failed (compile error, file IO, etc.). Surface in the
+		 Transcript so the user sees it instead of silent stale-UI; don't
+		 fan out BeamModuleRecompiled because nothing actually recompiled.
+		 Future: lift to a BeamCompileFailed announcement once the
+		 radical-save error sliver UI lands."
+		Transcript
+			show: 'ElixirModuleCoder >> saveAndCompile failed for ', moduleName, ': ';
+			show: result printString;
+			cr.
+		^ result ].
 	self announceBeamRecompiledFrom: result.
 	^ result
 ]
@@ -492,11 +503,12 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 { #category : 'actions' }
 ElixirModuleCoder >> announceBeamRecompiledFrom: aResult [
 	"I extract the recompiled module list from a hot_reload result
-	 and fan out BeamModuleRecompiled announcements, one per module."
-	| list |
-	list := [ (aResult attributeAt: #recompiled) asList ]
-		on: Error do: [ #() ].
-	list do: [ :modName |
+	 and fan out BeamModuleRecompiled announcements, one per module.
+
+	 No error guard here on purpose: saveAndCompile filters error
+	 wrappers before calling me, so any DNU on attributeAt: is a real
+	 bug (mis-shaped success response) and should surface."
+	(aResult attributeAt: #recompiled) asList do: [ :modName |
 		BeamEventAnnouncer default announce:
 			(BeamModuleRecompiled mod: modName sourceHash: nil) ]
 ]
