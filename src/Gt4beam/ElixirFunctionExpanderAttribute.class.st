@@ -42,18 +42,17 @@ ElixirFunctionExpanderAttribute >> buildHeader [
 
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> fetchSource [
-	"I fetch the target function's source from the BEAM."
-	^ [ | fns match |
-		fns := (application evaluateAndWait:
-			'GtBridge.Analysis.all_functions(', targetModule, ')') asList.
-		match := fns
-			detect: [ :f | (f attributeAt: #name) asString = functionName
-				and: [ (f attributeAt: #arity) asInteger = arity ] ]
-			ifNone: [ nil ].
-		match
-			ifNotNil: [ (match attributeAt: #source) asString ]
-			ifNil: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ] ]
-		on: Error do: [ '# error fetching source' ]
+	"I fetch the target's source from the BEAM. Tries the function
+	 first, then falls back to an @type with the same name/arity —
+	 lets the inline expander work for both `Mod.fun(...)` calls and
+	 `Mod.t()` type references in @spec / typedstruct field types."
+	| reply |
+	reply := application evaluateAndWait:
+		'GtBridge.Analysis.function_or_type_source(',
+		targetModule, ', "', functionName, '", ', arity asString, ')'.
+	^ reply
+		ifNil: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ]
+		ifNotNil: [ reply asString ]
 ]
 
 { #category : 'initialization' }
