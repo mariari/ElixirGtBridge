@@ -1,6 +1,8 @@
 Class {
 	#name : 'ElixirFunctionCoder',
 	#superclass : 'GtSourceCoder',
+	#traits : 'TElixirNavigationCoder',
+	#classTraits : 'TElixirNavigationCoder classTrait',
 	#instVars : [
 		'moduleCoder',
 		'functionName',
