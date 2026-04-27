@@ -31,6 +31,46 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
+{ #category : 'compile deps' }
+BeamMondrianHelpers class >> compileDepsOn: aMondrian edges: edges highlightModules: highlightSet application: anApp [
+	"I render a compile dependency graph. Modules in highlightSet
+	 are colored blue, others light gray. Clicking spawns docs."
+	| allNodes |
+	edges ifEmpty: [ ^ self ].
+	allNodes := ((edges collect: [ :e |
+		(e attributeAt: #from) asString ])
+		, (edges collect: [ :e |
+		(e attributeAt: #to) asString ])) asSet asArray sorted.
+	aMondrian nodes
+		shape: [ :n |
+			| short color el |
+			short := n copyReplaceAll: 'Elixir.' with: ''.
+			color := (highlightSet includes: n)
+				ifTrue: [ Color fromHexString: '#d4e6f1' ]
+				ifFalse: [ Color fromHexString: '#f0f0f0' ].
+			el := BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: short;
+				padding: (BlInsets all: 4);
+				background: color;
+				geometry: (BlRoundedRectangleGeometry cornerRadius: 4).
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				evt consumed: true.
+				evt currentTarget phlow spawnObject:
+					(anApp evaluateAndWait:
+						'GtBridge.Documentation.for_module(', n, ')') ].
+			el ];
+		with: allNodes.
+	aMondrian edges
+		stencil: [ self edgeStencil ];
+		connect: edges
+			from: [ :e | (e attributeAt: #from) asString ]
+			to: [ :e | (e attributeAt: #to) asString ].
+	aMondrian layout horizontalDominanceTree
+		nodeDistance: 10;
+		levelDistance: 40
+]
+
 { #category : 'stencils' }
 BeamMondrianHelpers class >> edgeStencil [
 	^ BlParabollaArcElement new
@@ -126,15 +166,20 @@ BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThresho
 					ifTrue: [ Color fromHexString: '#d4e6f1' ]
 					ifFalse: [ Color fromHexString: '#d5f5e3' ] ].
 			el := self nodeLabeled: label color: color onClick: [ :evt | ].
-			el addEventHandlerOn: BlClickEvent do: [ :evt | | pidStr cleaned |
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				| pidStr cleaned expr |
 				evt consumed: true.
 				pidStr := node at: #pid ifAbsent: [ nil ].
 				pidStr ifNotNil: [
-					cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+					expr := (isPool or: [ label beginsWith: '#PID' ])
+						ifTrue: [
+							cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+							'IEx.Helpers.pid("', cleaned, '")' ]
+						ifFalse: [ label first = $:
+							ifTrue: [ label ]
+							ifFalse: [ 'Elixir.', label ] ].
 					evt currentTarget phlow spawnObject:
-						(anApp newCommandFactory
-							<< ('IEx.Helpers.pid("', cleaned, '")');
-							sendAndWait) ] ].
+						(anApp newCommandFactory << expr; sendAndWait) ] ].
 			el ];
 		with: allNodes.
 	aMondrian edges stencil: [ self edgeStencil ];
