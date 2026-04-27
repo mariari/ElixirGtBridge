@@ -64,6 +64,11 @@ defmodule GtBridge.Resolve do
     case GtBridge.Analysis.all_functions(module) do
       funs when is_list(funs) ->
         case Enum.find(funs, &(&1.name == name_str and &1.arity == arity)) do
+          # Macro-generated entries have start: 0 / end_line: 0 — no
+          # actual line range to scroll to.  Returning {0, 0} would
+          # have GT match every start: 0 entry (all of them, alphabetically
+          # first wins) instead of nothing.
+          %{start: 0} -> nil
           nil -> nil
           f -> {f.start, f.end_line}
         end
@@ -82,5 +87,7 @@ defmodule GtBridge.Resolve do
     else
       _ -> nil
     end
+  rescue
+    _ in [UndefinedFunctionError, ArgumentError, FunctionClauseError] -> nil
   end
 end
