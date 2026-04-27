@@ -8,7 +8,22 @@ Class {
 
 { #category : 'accessing' }
 ElixirFunctionCoderViewModel >> elementClass [
-	^ GtExpandableSourceCoderElement
+	"I use ElixirFunctionCoderRowElement so the row can paint
+	 its sidebar based on the coder's hasSource state."
+	^ ElixirFunctionCoderRowElement
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoderViewModel >> headerElementClass [
+	"I show the clickable Module > function/arity breadcrumb only
+	 for filter results — Functions-tab callers leave the coder's
+	 showsModuleInHeader flag false so the module isn't repeated
+	 per row.  GtSourceCoderContentElement>>onTextualCoderViewModelChanged
+	 mounts the returned class as the first child of the collapsed
+	 and expanded content elements when this is non-nil."
+	^ self coder showsModuleInHeader
+		ifTrue: [ ElixirFunctionCoderHeaderElement ]
+		ifFalse: [ nil ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -24,16 +39,8 @@ ElixirFunctionCoderViewModel >> newCompletionStrategy [
 
 { #category : 'actions' }
 ElixirFunctionCoderViewModel >> save [
-	"I splice the current editor text back into the module source at
-	 my function's line range, save and recompile. Called from Ctrl-S
-	 via GtSourceCoderSaveShortcut → requestSave → save.
-	 currentSourceString lives on the coder model (GtSourceCoder), not
-	 on the view model — route through coderModel."
-	| coder |
-	coder := self coderModel.
-	coder moduleCoder
-		spliceFunction: coder currentSourceString
-		fromLine: coder startLine
-		toLine: coder endLine.
+	"I delegate to the coder model's single save method.
+	 Called from Ctrl-S via requestSave."
+	self coderModel saveFunction.
 	^ true
 ]
