@@ -30,7 +30,9 @@ defmodule Examples.EHotReload do
   @spec add_function() :: [{atom(), non_neg_integer()}]
   example add_function do
     with_reload(HotReloadTest, &inject_before_end(&1, "def __test__, do: :it_works"), fn ->
-      assert HotReloadTest.__test__() == :it_works
+      # apply/3 because __test__/0 is injected at runtime — static
+      # analysis can't see it, so a direct call would warn.
+      assert apply(HotReloadTest, :__test__, []) == :it_works
       HotReloadTest.__info__(:functions)
     end)
   end
@@ -42,7 +44,11 @@ defmodule Examples.EHotReload do
     {path, _} = source_for(HotReloadTest)
 
     with_reload(HotReloadTest, &String.replace(&1, "do: :world", "do: :modified"), fn ->
-      assert HotReloadTest.hello() == :modified
+      # apply/3 because the static type of `HotReloadTest.hello/0`
+      # is `:world` (its compile-time definition); the test mutates
+      # it to return `:modified`, and a direct call would trigger
+      # the `:world == :modified` disjoint-types warning.
+      assert apply(HotReloadTest, :hello, []) == :modified
       File.read!(path)
     end)
   end
@@ -60,7 +66,9 @@ defmodule Examples.EHotReload do
           HotReloadTest.Builder,
           &inject_before_end(&1, ~s(def extra, do: %Config{}.extra)),
           fn ->
-            result = HotReloadTest.Builder.extra()
+            # apply/3: `extra/0` is injected at runtime via the
+            # outer with_reload's transform.
+            result = apply(HotReloadTest.Builder, :extra, [])
             assert result == "propagated"
             result
           end
