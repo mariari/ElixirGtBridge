@@ -155,7 +155,7 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(source, hint, bindings, aliases, env \\ %Macro.Env{}) do
+  defp complete_local_or_var(source, hint, bindings, aliases, env) do
     struct_fields = struct_fields_for(source, hint)
 
     if struct_fields != [] do
