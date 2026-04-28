@@ -119,21 +119,13 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 		title: 'Fanout';
 		priority: 5;
 		painting: [ :aMondrian |
-			| nodes edges subscribersOf labels colors |
+			| nodes edges labels colors |
 			nodes := OrderedCollection new.
 			edges := OrderedCollection new.
 			labels := IdentityDictionary new.
 			colors := IdentityDictionary new.
 
-			"Safely extract subscriber receivers from an Announcer."
-			subscribersOf := [ :ann |
-				[ ann subscriptions subscriptions
-					ifNil: [ #() ]
-					ifNotNil: [ :subs | subs collect: [ :s | s subscriber ] ] ]
-					on: Error do: [ #() ] ].
-
-			"Dispatcher root: the class itself.  Default singleton: the
-			 actual instance."
+			"Dispatcher root + default singleton."
 			nodes add: self.
 			labels at: self put: 'dispatcher'.
 			colors at: self put: (Color fromHexString: '#fce8e6').
@@ -155,8 +147,7 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 
 			"Subscriber group nodes — one Array per (announcer, receiver-class)
 			 pair so the picture stays readable when many of the same kind
-			 listen to the same announcer.  Clicking opens an inspector on
-			 the receiver Array."
+			 listen to the same announcer."
 			(OrderedCollection new
 				add: self default -> 'default';
 				addAll: (self announcers keys asArray sorted collect: [ :k |
@@ -165,7 +156,7 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 					| ann annLabel byClass |
 					ann := pair key.
 					annLabel := pair value.
-					byClass := (subscribersOf value: ann)
+					byClass := (BeamMondrianHelpers subscribersOf: ann)
 						groupedBy: [ :s | s class name ].
 					byClass keysAndValuesDo: [ :className :receivers |
 						| groupNode |
@@ -176,22 +167,11 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 						colors at: groupNode put: (Color gray alpha: 0.15).
 						edges add: ann -> groupNode ] ].
 
-			aMondrian nodes
-				shape: [ :n |
-					BrLabel new
-						aptitude: BrGlamorousLabelAptitude new;
-						text: (labels at: n);
-						padding: (BlInsets all: 6);
-						background: (colors at: n);
-						geometry: (BlRoundedRectangleGeometry cornerRadius: 6) ];
-				with: nodes asArray.
-
-			aMondrian edges
-				connect: edges asArray from: #key to: #value.
-
-			aMondrian layout horizontalTree
-				nodeDistance: 8;
-				levelDistance: 40 ]
+			BeamMondrianHelpers
+				paintLabeledGraphOn: aMondrian
+				nodes: nodes edges: edges
+				labels: labels colors: colors
+				layout: [ :l | l horizontalTree nodeDistance: 8; levelDistance: 40 ] ]
 ]
 
 { #category : 'accessing' }

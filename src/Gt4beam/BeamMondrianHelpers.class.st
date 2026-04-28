@@ -147,6 +147,43 @@ BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock 
 			c vertical fitContent ]
 ]
 
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> paintLabeledGraphOn: aMondrian nodes: nodes edges: edges labels: labels colors: colors layout: aLayoutBlock [
+	"I render the boilerplate shared by every gt-view that paints a
+	 labeled+colored node graph (BeamEventAnnouncer fanout, the
+	 BeamModuleAnnouncement subscriber view, the three
+	 BeamModuleSourceCache views).  Callers populate `nodes`,
+	 `edges`, `labels` and `colors` with their domain-specific data;
+	 I run the same `BrLabel` stencil + edge connect + layout dance.
+
+	 `aLayoutBlock` receives `aMondrian layout` so the caller can
+	 pick `horizontalTree` vs `verticalTree` plus distances; that's
+	 the only piece that varies between callers."
+	aMondrian nodes
+		shape: [ :n |
+			BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: (labels at: n);
+				padding: (BlInsets all: 6);
+				background: (colors at: n);
+				geometry: (BlRoundedRectangleGeometry cornerRadius: 6) ];
+		with: nodes asArray.
+	aMondrian edges
+		connect: edges asArray from: #key to: #value.
+	aLayoutBlock value: aMondrian layout
+]
+
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> subscribersOf: anAnnouncer [
+	"I return the receiver objects subscribed to `anAnnouncer`,
+	 swallowing missing-API errors with an empty array.  Used by
+	 the FRP-shape gt-views that introspect Announcer state."
+	^ [ anAnnouncer subscriptions subscriptions
+		ifNil: [ #() ]
+		ifNotNil: [ :subs | subs collect: [ :s | s subscriber ] ] ]
+		on: Error do: [ #() ]
+]
+
 { #category : 'supervision' }
 BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThreshold: threshold application: anApp [
 	"I render a colored supervision tree with pool collapsing."
