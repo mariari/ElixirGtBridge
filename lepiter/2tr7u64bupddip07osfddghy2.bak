@@ -1,0 +1,514 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:26.320511+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:26.320511+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "DmA/QsYdQkSADesS6ot/Ww=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Streaming list of expandable coder elements. Used for the module Functions tab and the C-m / C-n filter results."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:30.218293+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:30.218293+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "2t9VNF0OQ4i91HEvkLlkgQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtClass:name=GtStreamingCodersModel}} — items via {{gtMethod:name=GtStreamingCodersModel>>newItemsStream}}, coder per item via `newCoderFor:`, cache key via `newCoderCacheKeyFor:`."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:32.473009+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:32.473009+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "2zMeibVqQOqpKNFhy0KBsw=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtClass:name=GtStreamingCodersViewModel}} — holds the scroll target. Re-emits the model's stream change as `GtStreamingCodersViewModelStreamChanged`. {{gtMethod:name=GtStreamingCodersViewModel>>scrollToTarget:}} announces `GtStreamingCodersViewModelScrollTargetChanged`."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:34.803183+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:31:34.803183+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "RVkJTRIBQs2EdRHR0wkGrg=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtClass:name=ElixirFunctionStreamingElement}} — subscribes to both announcements. Updates its `BrSimpleList` items provider on stream change; calls `list scrollToItemSuchThat:offset:` on scroll target change."
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:27.876938+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:27.876938+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "LWTWjy6cT1Smz5TvFoEoQg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## The chain\n\n`Model → ViewModel → Element`, announcements between layers."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:43.969181+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:43.969181+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "yuBnvCbYQ1+qShHz4dBF6A=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Async loading\n\nItems load asynchronously — `scrollToIndex:` won't work. Predicate-based `scrollToItemSuchThat:offset:` returns a promise and waits for a matching item. Hence {{gtClass:name=ElixirFunctionScrollTarget}} + {{gtMethod:name=GtStreamingCodersViewModel>>scrollToTarget:}}. Reference: {{gtMethod:name=GtPharoStreamingMethodsCoderElement>>updateScrollTarget:}}."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:46.918332+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:31:46.918332+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "6K2mnS7PRReBpUWAmciK/g=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Refresh\n\nAfter wiring the VM to the element, call `streaming refreshItemsStreamDueTo: 'reason'`. Examples: {{gtMethod:name=ElixirModuleCoder>>buildFunctionsViewElement}}, {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}}."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:38:18.277307+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:38:18.277307+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "qZI95eriToe3MBYDhZtnbQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtClass:name=ElixirFunctionStreamingModel}} — module Functions tab."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:38:20.5289+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:38:20.5289+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "tr+fBqjSRtSfrRUzZYGpUQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtClass:name=ElixirFilterStreamingModel}} — C-m / C-n filter results."
+						},
+						{
+							"__type" : "elementSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668111+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668111+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "3P1NDm4URfa0LCEUL8x03w=="
+							},
+							"code" : "GtStreamingCodersModel gtSubclassesFor: GtPhlowView new",
+							"elementHeight" : 153,
+							"codeHeight" : 50,
+							"codeVisible" : false
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:38:15.17538+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:38:15.17538+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "3YcxA3wyR4qjWDEP84SS5g=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Our subclasses"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"exampleSelector" : "sourceViewScrollsToFocusLine",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"exampleSelector" : "sourceViewNoScrollWithoutFocusLine",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:37.799365+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:37.799365+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "HgKwxLIdTG+PuzzXWpZ4gA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Examples\n\nThe Functions tab uses this pattern. Source-view scroll examples exercise it indirectly:"
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.176805+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.176805+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Streaming coders pattern"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "da2f088f-7e68-471b-a7ba-f199f272be2f"
+	}
+}
