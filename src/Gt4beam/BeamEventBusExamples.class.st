@@ -326,30 +326,31 @@ BeamEventBusExamples >> recompileEventCarriesFunctionsInline [
 
 { #category : 'examples - payload' }
 BeamEventBusExamples >> saveCachesFunctionEntriesOnCoder [
-	"I assert that after saveAndCompile, the directly-saved module's
-	 ElixirModuleCoder has its function-entry cache populated from the
-	 announcement payload — the next `functionEntries` call returns
-	 the cache without a bridge call.
+	"I assert that after saveAndCompile, the per-module
+	 `BeamModuleSourceCache` holds the freshly-compiled entries —
+	 the next `coder functionEntries` call returns the cache list
+	 without a bridge round-trip.
 
-	 Concrete proof of the FRP win: after a save, the coder's
-	 cachedFunctionEntries is non-nil; calls into `functionEntries`
-	 short-circuit on it instead of round-tripping
+	 Concrete proof of the FRP win: the recompile event primes the
+	 cache via `BeamModuleSourceCache>>onBeamModuleRecompiled:`;
+	 `coder functionEntries` reads from it instead of round-tripping
 	 `Analysis.all_functions/1`."
 	<gtExample>
-	| coder original entriesAfter |
+	| coder original cache entriesAfter |
 	coder := self moduleCoder.
 	original := coder sourceCode.
+	cache := BeamModuleSourceCache for: 'HotReloadTest'.
 	"Make sure the cache starts empty so we observe the side-effect."
-	coder cacheFunctionEntries: nil.
+	cache clear.
 	[ coder saveAndCompile: original ]
 		ensure: [ coder saveAndCompile: original ].
-	self assert: coder cachedFunctionEntries isNotNil
-		description: 'save should populate function-entry cache via announcement payload'.
-	"And the cached version is what `functionEntries` returns now —
-	 same identity, no bridge call."
+	self assert: cache entries isNotEmpty
+		description: 'save should populate per-module cache via announcement payload'.
+	"And `functionEntries` returns the cache list — same identity,
+	 no bridge call."
 	entriesAfter := coder functionEntries.
-	self assert: entriesAfter == coder cachedFunctionEntries
-		description: 'functionEntries should hand back the cache, not refetch'.
+	self assert: entriesAfter == cache entries
+		description: 'functionEntries should return the cache list, not refetch'.
 	^ coder
 ]
 
