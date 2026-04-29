@@ -185,22 +185,6 @@ BeamDocumentationObject >> gtExecutableFunctionsFor: aView [
 					mod, ', :', fn, ', ', arity asString, ')' ] ]
 ]
 
-{ #category : 'gt-views' }
-BeamDocumentationObject >> gtSourceFor: aView [
-	"I override to hide the Source tab — the Coder tab already
-	 has Source as an internal tab."
-	^ aView empty
-]
-
-{ #category : 'gt-extensions' }
-BeamDocumentationObject >> remoteViewsInContext: aContext [
-	"I return empty — remote view declarations (Module Doc,
-	 Functions, Types) are redundant as top-level tabs since the
-	 Coder's Help tab already shows them. They're still accessible
-	 via gtRemoteViewsFor: inside the Help tab."
-	^ #()
-]
-
 { #category : 'gt-search' }
 BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 	<gtSearch>
@@ -223,4 +207,20 @@ BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 		send: [ :each |
 			self evaluateAndWait:
 				'GtBridge.Documentation.for_function(', each first, ', :', each second, ', ', each third asString, ')' ]
+]
+
+{ #category : 'gt-views' }
+BeamDocumentationObject >> gtSourceFor: aView [
+	"I override to hide the Source tab — the Coder tab already
+	 has Source as an internal tab."
+	^ aView empty
+]
+
+{ #category : 'gt-extensions' }
+BeamDocumentationObject >> remoteViewsInContext: aContext [
+	"I return empty — remote view declarations (Module Doc,
+	 Functions, Types) are redundant as top-level tabs since the
+	 Coder's Help tab already shows them. They're still accessible
+	 via gtRemoteViewsFor: inside the Help tab."
+	^ #()
 ]

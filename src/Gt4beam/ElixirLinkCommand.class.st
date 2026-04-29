@@ -10,16 +10,6 @@ Class {
 }
 
 { #category : 'accessing' }
-ElixirLinkCommand >> sessionId [
-	^ sessionId
-]
-
-{ #category : 'accessing' }
-ElixirLinkCommand >> sessionId: aString [
-	sessionId := aString
-]
-
-{ #category : 'accessing' }
 ElixirLinkCommand >> codeForRemote [
 	^ Character lf join: self instructions
 ]
@@ -36,4 +26,14 @@ ElixirLinkCommand >> gtViewCodeForRemoteFor: aView [
 		title: 'Command string' translated;
 		text: [ self codeForRemote ];
 		priority: 15
+]
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId: aString [
+	sessionId := aString
 ]

@@ -9,7 +9,7 @@ Class {
 		'tabGroup',
 		'rpBox'
 	],
-	#category : 'Gt4beam-Serialization',
+	#category : 'Gt4beam-Inspector',
 	#package : 'Gt4beam',
 	#tag : 'Serialization'
 }
@@ -22,23 +22,6 @@ BeamProxyToggleCompositeTool class >> fromModes: modes [
 	modes do: [ :mode | composite addTool: mode tool ].
 	composite proxyObject: modes first object.
 	^ composite
-]
-
-{ #category : 'initialization' }
-BeamProxyToggleCompositeTool >> initialize [
-	super initialize.
-	subState := 'Remote'.
-	cachedProxies := Dictionary new
-]
-
-{ #category : 'accessing' }
-BeamProxyToggleCompositeTool >> proxyObject [
-	^ proxyObject
-]
-
-{ #category : 'accessing' }
-BeamProxyToggleCompositeTool >> proxyObject: anObject [
-	proxyObject := anObject
 ]
 
 { #category : 'rendering' }
@@ -57,6 +40,45 @@ BeamProxyToggleCompositeTool >> asElementDo: aOneArgBlock [
 	tabGroup enqueueTask: (BlTaskAction new action: [
 		self installProxyToggle ]).
 	^ aOneArgBlock cull: tabGroup
+]
+
+{ #category : 'private' }
+BeamProxyToggleCompositeTool >> attachRpBoxToSelectedTab [
+	"I move the R/P box to whichever tab element is selected."
+	| tabBar |
+	tabBar := tabGroup children second children first children first.
+	rpBox removeFromParent.
+	tabBar children do: [ :tabElem |
+		tabElem viewModel isSelected ifTrue: [
+			tabElem addChild: rpBox ] ]
+]
+
+{ #category : 'rendering' }
+BeamProxyToggleCompositeTool >> buildToggleButton: aLabel active: aBoolean action: aBlock [
+	"I build a single R or P button."
+	^ BlElement new
+		geometry: (BlRoundedRectangleGeometry cornerRadius: 2);
+		layout: BlFrameLayout new;
+		constraintsDo: [ :c |
+			c horizontal fitContent. c vertical matchParent ];
+		background: (aBoolean
+			ifTrue: [ Color lightGray ] ifFalse: [ Color transparent ]);
+		padding: (BlInsets top: 0 right: 6 bottom: 0 left: 6);
+		addChild: (BrLabel new
+			aptitude: (BrGlamorousLabelAptitude new fontSize: 9);
+			text: (aLabel asRopedText foreground: Color black);
+			constraintsDo: [ :c |
+				c frame horizontal alignCenter.
+				c frame vertical alignCenter ]);
+		addEventHandlerOn: BlClickEvent do: [ :evt |
+			evt consumed: true. aBlock value ]
+]
+
+{ #category : 'initialization' }
+BeamProxyToggleCompositeTool >> initialize [
+	super initialize.
+	subState := 'Remote'.
+	cachedProxies := Dictionary new
 ]
 
 { #category : 'rendering' }
@@ -82,27 +104,6 @@ BeamProxyToggleCompositeTool >> installProxyToggle [
 	self attachRpBoxToSelectedTab.
 	tabGroup when: BrTabSelectedEvent do: [ :evt |
 		self onTabSelected ]
-]
-
-{ #category : 'rendering' }
-BeamProxyToggleCompositeTool >> buildToggleButton: aLabel active: aBoolean action: aBlock [
-	"I build a single R or P button."
-	^ BlElement new
-		geometry: (BlRoundedRectangleGeometry cornerRadius: 2);
-		layout: BlFrameLayout new;
-		constraintsDo: [ :c |
-			c horizontal fitContent. c vertical matchParent ];
-		background: (aBoolean
-			ifTrue: [ Color lightGray ] ifFalse: [ Color transparent ]);
-		padding: (BlInsets top: 0 right: 6 bottom: 0 left: 6);
-		addChild: (BrLabel new
-			aptitude: (BrGlamorousLabelAptitude new fontSize: 9);
-			text: (aLabel asRopedText foreground: Color black);
-			constraintsDo: [ :c |
-				c frame horizontal alignCenter.
-				c frame vertical alignCenter ]);
-		addEventHandlerOn: BlClickEvent do: [ :evt |
-			evt consumed: true. aBlock value ]
 ]
 
 { #category : 'private' }
@@ -144,13 +145,12 @@ BeamProxyToggleCompositeTool >> onTabSelected [
 	self attachRpBoxToSelectedTab
 ]
 
-{ #category : 'private' }
-BeamProxyToggleCompositeTool >> attachRpBoxToSelectedTab [
-	"I move the R/P box to whichever tab element is selected."
-	| tabBar |
-	tabBar := tabGroup children second children first children first.
-	rpBox removeFromParent.
-	tabBar children do: [ :tabElem |
-		tabElem viewModel isSelected ifTrue: [
-			tabElem addChild: rpBox ] ]
+{ #category : 'accessing' }
+BeamProxyToggleCompositeTool >> proxyObject [
+	^ proxyObject
+]
+
+{ #category : 'accessing' }
+BeamProxyToggleCompositeTool >> proxyObject: anObject [
+	proxyObject := anObject
 ]

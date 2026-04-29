@@ -1,15 +1,10 @@
 Class {
 	#name : 'BeamInspectorModeCollector',
 	#superclass : 'GtPhlowCollector',
-	#category : 'Gt4beam-Serialization',
+	#category : 'Gt4beam-Inspector',
 	#package : 'Gt4beam',
 	#tag : 'Serialization'
 }
-
-{ #category : 'defaults' }
-BeamInspectorModeCollector >> defaultPragmaNames [
-	^ #( gtInspectorMode )
-]
 
 { #category : 'collecting' }
 BeamInspectorModeCollector >> buildSelfMode [
@@ -62,4 +57,9 @@ BeamInspectorModeCollector >> collectDeclared [
 			on: Error do: [ :e | mode ].
 		mode ].
 	^ modes reject: [ :m | m isEmpty ]
+]
+
+{ #category : 'defaults' }
+BeamInspectorModeCollector >> defaultPragmaNames [
+	^ #( gtInspectorMode )
 ]
