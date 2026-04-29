@@ -36,7 +36,17 @@ TElixirNavigationCoder >> addNavigationContextMenuAddOns: ignoredAst to: coderAd
 		addContextMenuItemFrom: GtSourceCoderBrowseReferencesShortcut new
 		group: BrMenuItemGroupConfiguration navigation
 		withId: nil
-		to: coderAddOns) ifNotNil: [ :anAction | anAction priority: 11 ]
+		to: coderAddOns) ifNotNil: [ :anAction | anAction priority: 11 ].
+	(self
+		addContextMenuItemFrom: GtSourceCoderSaveShortcut new
+		group: BrMenuItemGroupConfiguration editing
+		withId: nil
+		to: coderAddOns) ifNotNil: [ :anAction | anAction priority: 1 ].
+	(self
+		addContextMenuItemFrom: GtSourceCoderDiscardChangesShortcut new
+		group: BrMenuItemGroupConfiguration editing
+		withId: nil
+		to: coderAddOns) ifNotNil: [ :anAction | anAction priority: 2 ]
 ]
 
 { #category : 'requirements' }

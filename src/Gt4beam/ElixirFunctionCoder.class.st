@@ -111,8 +111,7 @@ ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 	anAddOns
 		addMainAction: 'Save' translated
 		icon: BrGlamorousVectorIcons accept
-		action: [ :aCoderVM :anElement |
-			anElement phlow spawnObject: self saveFunction ]
+		action: [ :aCoderVM :anElement | self saveFunction ]
 		id: #elixirFunctionSaveAction
 ]
 
@@ -194,14 +193,19 @@ ElixirFunctionCoder >> initializeAddOns: addOns [
 		addStyler: ElixirFunctionExpanderStyler new
 ]
 
-{ #category : 'add-ons' }
+{ #category : 'as yet unclassified' }
 ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
+	"Populate the action bar imperatively in display order. Save
+	 leftmost matches `GtPharoMethodCoder`; Discard is contributed
+	 separately via `<gtAstCoderAddOns: 2>` and only when modified."
 	super initializeAddOns: addOns viewModel: aViewModel.
-	self addSaveAddOnsTo: addOns to: aViewModel from: self.
-	self addDeleteAddOnsTo: addOns to: aViewModel from: self.
-	self addMoveAddOnsTo: addOns to: aViewModel from: self.
-	self addRunAddOnsTo: addOns to: aViewModel from: self.
-	self addHelpAddOnsTo: addOns to: aViewModel from: self
+	#(addSaveAddOnsTo:to:from:
+	  addRunAddOnsTo:to:from:
+	  addHelpAddOnsTo:to:from:
+	  addMoveAddOnsTo:to:from:
+	  addDeleteAddOnsTo:to:from:)
+		do: [ :sel |
+			self perform: sel with: addOns with: aViewModel with: self ]
 ]
 
 { #category : 'initialization' }
@@ -227,6 +231,23 @@ ElixirFunctionCoder >> isType [
 { #category : 'accessing' }
 ElixirFunctionCoder >> kind [
 	^ kind
+]
+
+{ #category : 'add-ons' }
+ElixirFunctionCoder >> modifiedAddOnsFor: anAst into: coderAddOns [
+	<gtAstCoderAddOns: 2>
+	"I add the ✗ Discard main action only when there are pending
+	 edits — mirrors `GtPharoMethodCoder >> modifiedMessageAstFor:
+	 into:`. The framework re-runs me whenever the coder's modified
+	 state changes, so the action appears on first edit and
+	 disappears on save."
+	self hasSource ifFalse: [ ^ self ].
+	self isModified ifFalse: [ ^ self ].
+	coderAddOns
+		addMainAction: 'Discard changes' translated
+		icon: BrGlamorousVectorIcons cancel
+		action: [ :aCoderUIModel :anElement | aCoderUIModel discardChanges ]
+		id: #elixirFunctionDiscardAction
 ]
 
 { #category : 'accessing' }
