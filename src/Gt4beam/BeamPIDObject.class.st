@@ -29,12 +29,6 @@ BeamPIDObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'views - helpers' }
-BeamPIDObject >> childrenTree [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
-]
-
 { #category : 'gt-extensions' }
 BeamPIDObject >> gtDefaultInspectorTool [
 	"I collect inspector modes via <gtInspectorMode> pragmas."
@@ -43,27 +37,6 @@ BeamPIDObject >> gtDefaultInspectorTool [
 		fromObject: self;
 		collect.
 	^ BeamProxyToggleCompositeTool fromModes: modes
-]
-
-{ #category : 'gt-extensions' }
-BeamPIDObject >> inspectorModeName [
-	^ 'Pid'
-]
-
-{ #category : 'inspector-modes' }
-BeamPIDObject >> gtStateMode: aMode [
-	<gtInspectorMode>
-	| state |
-	state := [ self process_state ] on: Error do: [ nil ].
-	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
-	^ aMode
-		name: 'State';
-		priority: 20;
-		object: state;
-		tool: (state gtRemoteSideInspectorTool
-			name: 'State';
-			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
-			withLabelAndIconAptitude)
 ]
 
 { #category : 'as yet unclassified' }
@@ -80,6 +53,22 @@ BeamPIDObject >> gtInformationFor: aView [
 		column: 'Value'
 			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
 		send: #value
+]
+
+{ #category : 'inspector-modes' }
+BeamPIDObject >> gtStateMode: aMode [
+	<gtInspectorMode>
+	| state |
+	state := [ self process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'State';
+		priority: 20;
+		object: state;
+		tool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
 ]
 
 { #category : 'as yet unclassified' }
@@ -121,6 +110,11 @@ BeamPIDObject >> information [
 		pair first -> pair second ]) asDictionary
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> isEvaluatorProcess [
 	" I determine if I'm the same process as the current evaluator.
@@ -144,4 +138,3 @@ BeamPIDObject >> printOn: str [
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
-
