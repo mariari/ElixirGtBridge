@@ -286,7 +286,7 @@
 					"__type" : "time",
 					"time" : {
 						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2026-04-29T20:07:30.404966+08:00"
+						"dateAndTimeString" : "2026-04-29T20:07:34.721251+08:00"
 					}
 				},
 				"uid" : {
@@ -296,7 +296,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "For more details on the internals "
+				"string" : "For more details on the internals you can read [[Hot-Reload Internals]]"
 			}
 		]
 	},
