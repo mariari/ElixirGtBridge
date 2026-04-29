@@ -7,7 +7,7 @@ Class {
 		'tool',
 		'object'
 	],
-	#category : 'Gt4beam-Serialization',
+	#category : 'Gt4beam-Inspector',
 	#package : 'Gt4beam',
 	#tag : 'Serialization'
 }

@@ -4,9 +4,9 @@ Class {
 	#instVars : [
 		'rawData'
 	],
-	#category : 'Gt4beam-Serialization',
+	#category : 'Gt4beam-Views',
 	#package : 'Gt4beam',
-	#tag : 'Serialization'
+	#tag : 'Views'
 }
 
 { #category : 'as yet unclassified' }

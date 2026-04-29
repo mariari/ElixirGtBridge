@@ -1,7 +1,7 @@
 Class {
 	#name : 'GtSmaCCTokenValueStylerRule',
 	#superclass : 'GtSmaCCTokenStylerRule',
-	#category : 'Gt4beam',
+	#category : 'Gt4beam-Styling',
 	#package : 'Gt4beam'
 }
 

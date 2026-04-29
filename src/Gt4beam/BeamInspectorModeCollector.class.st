@@ -1,7 +1,7 @@
 Class {
 	#name : 'BeamInspectorModeCollector',
 	#superclass : 'GtPhlowCollector',
-	#category : 'Gt4beam-Serialization',
+	#category : 'Gt4beam-Inspector',
 	#package : 'Gt4beam',
 	#tag : 'Serialization'
 }
