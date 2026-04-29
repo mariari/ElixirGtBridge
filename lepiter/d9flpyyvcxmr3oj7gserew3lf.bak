@@ -311,7 +311,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## ElixirSearchFilter protocol\n\nFive methods on a {{gtClass:name=GtSearchFilter}} subclass:\n\n- {{gtMethod:name=ElixirSearchFilter>>defaultFilterScope}} — items as async stream.\n- {{gtMethod:name=ElixirSearchFilter>>matches:}} — always true (results are pre-filtered).\n- {{gtMethod:name=ElixirSearchFilter>>gtDisplayOn:}} — title.\n- {{gtMethod:name=ElixirSearchFilter >> =}} + {{gtMethod:name=ElixirSearchFilter >> hash}} — identity for deduplication.\n- {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}} — overrides to render via streaming coders (see [[Streaming coders pattern]])."
+				"string" : "## ElixirSearchFilter protocol\n\nSix methods on a {{gtClass:name=GtSearchFilter}} subclass:\n\n- {{gtMethod:name=ElixirSearchFilter>>defaultFilterScope}} — items as async stream.\n- {{gtMethod:name=ElixirSearchFilter>>matches:}} — always true (results are pre-filtered).\n- {{gtMethod:name=ElixirSearchFilter>>gtDisplayOn:}} — title.\n- {{gtMethod:name=ElixirSearchFilter >> =}} + {{gtMethod:name=ElixirSearchFilter >> hash}} — identity for deduplication.\n- {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}} — overrides to render via streaming coders (see [[Streaming coders pattern]])."
 			},
 			{
 				"__type" : "textSnippet",

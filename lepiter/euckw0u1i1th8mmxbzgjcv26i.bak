@@ -40,43 +40,6 @@
 					"__type" : "textStyle"
 				},
 				"string" : "## Implementation Notes for the GT-side Elixir Bridge\n\nThis page documents how the GT-side components of the bridge work, their relationships, and the GT framework patterns they reuse. It exists to save the rediscovery cost when extending or debugging.\n\nEach section answers: what does this component do, what GT class does it integrate with, and what's the lifecycle."
-			},
-			{
-				"__type" : "textSnippet",
-				"children" : {
-					"__type" : "snippets",
-					"items" : [ ]
-				},
-				"createEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
-				},
-				"createTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2026-04-29T20:01:06.489619+08:00"
-					}
-				},
-				"editEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
-				},
-				"editTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2026-04-29T20:01:24.795906+08:00"
-					}
-				},
-				"uid" : {
-					"__type" : "uid",
-					"uidString" : "KMtOxwfRS7iVm8XfV16aEA=="
-				},
-				"paragraphStyle" : {
-					"__type" : "textStyle"
-				},
-				"string" : "Most pages in the implementation section are generated, but care has been put to make sure the text is somewhat reasonable."
 			}
 		]
 	},
