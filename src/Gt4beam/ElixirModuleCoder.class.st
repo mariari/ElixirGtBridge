@@ -504,6 +504,18 @@ ElixirModuleCoder >> onBeamModuleEntriesUpdated: anAnnouncement [
 ]
 
 { #category : 'actions' }
+ElixirModuleCoder >> remove [
+	"I delete my source file and invalidate the GT-side caches that
+	 would otherwise report me as still resolved.  The next time a
+	 styler runs, references to me get a wrench again."
+	sourcePath asFileReference ensureDelete.
+	BeamModuleResolution default
+		recordResolved: #()
+		unresolved: { moduleName }.
+	(BeamModuleSourceCache for: moduleName) clear
+]
+
+{ #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
 	"I write source to disk, format, and recompile. Surfaces refresh
 	 via BeamEventAnnouncer — every module the BEAM recompiled (direct
