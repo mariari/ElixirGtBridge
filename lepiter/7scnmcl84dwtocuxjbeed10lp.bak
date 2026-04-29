@@ -1,0 +1,440 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:05.289364+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:05.289364+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "HvLbFPkHSimXIr/qMupfjA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Save a module from GT and the inspector shows the new function list before you blink: no manual refresh, no polling, no follow-up bridge call. One round trip carries the work and the result. Below: the properties that make that true. (The GT-side bus is on the BEAM Event Architecture page.)"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:12.370912+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:12.370912+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "07oxkCHaTVKq1PYO3TkDGA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## One round trip carries the new state\n\nThe `recompiled` response embeds the new function list inline for the directly-saved module (`mod`, `source_hash`, `functions` straight from `GtBridge.Analysis.all_functions/1`). Subscribers re-render from the response alone. Sibling modules that ParallelCompiler propagated through come bare; their consumers refetch lazily."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:21.210058+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:21.210058+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "yZtkjXjDT6muOTeNCBuDCQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Order of operations is load-bearing\n\n`reload/2` runs: normalise line endings (Smalltalk text is CR; otherwise `Code.string_to_quoted` sees one giant line), `File.write!`, `Mix.Tasks.Format.run`, wipe `:elixir_modules` ETS (defeats Elixir's duplicate-module guard), `Code.compile_file/1`, branch on app to propagate to siblings, `IEx.Helpers.recompile/0` as a safety net, then `GtBridge.Events.broadcast/1`.\n\nBroadcast is last, so subscribers never observe a half-applied recompile."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:31.654307+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:31.654307+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "LR1Ve2K9S46+Lt0tRMlLcw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Saving a dep works the same as saving the project\n\nMix-driven `IEx.Helpers.recompile/0` only sees the main project. For files under `deps/`, `reload/2` writes the compiled `.beam` to the dep's `ebin` and runs `Kernel.ParallelCompiler.compile/2` over its sibling source files so struct or behaviour changes propagate.\n\nSibling enumeration uses `:application.get_key(app, :modules)`, never `Code.ensure_loaded?/1`. The latter actively loads through the OTP code server: ~120 modules in a loop is 5-10s of serialised work that times out the eval session."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:40.055709+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:40.055709+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "nVyGAj74Qp2PxWj6Ol9uaQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Slow saves never crash the bridge\n\nCompiles routinely exceed the 5s `GenServer.call` default, especially after `mix deps.get` or wide-graph propagation. With it, the calling Cowboy worker would crash, log a `(:timeout, ...)` exit, and queue subsequent saves behind dead-process retries. `GtBridge.Eval` sets `@call_timeout :infinity`: a long compile is a UI delay, not a crash storm."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:49.009269+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:49.009269+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "1mY08xOUQhCt0rj0KnPrdA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## A failed compile cannot fan out a stale \"recompiled\" event\n\nOn compile error `reload/2` broadcasts `%ModuleEvent{kind: :compile_failed}` (so caches can clear) and reraises. The error rides back through {{gtClass:name=BeamBridgeEvalError}}, gets lifted into a {{gtClass:name=BeamBridgeEvalSignal}} at the {{gtClass:name=BeamLinkApplication}} boundary, and {{gtMethod:name=ElixirModuleCoder>>saveAndCompile:}} catches it and skips the announcement. Crucial: a failed compile must not fan out \"I recompiled\", or caches mark the module resolved against last-known-good source. The error surfaces in GT's error bar; the cache stays untouched."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:56.448051+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:50:56.448051+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "CzLmMNX+SQ626420ou2KYA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Footgun: `IEx.recompile/0` purges runtime `add_pathz`\n\nThe unconditional `IEx.Helpers.recompile/0` resets the code path to the boot-time `Mix` view. Anything added at runtime via `Code.add_pathz/1` gets wiped on every save. The failure mode shows up hours in: a working dep stops resolving and the user has no idea what changed (they just hit Ctrl-S). Dependencies must live in `mix.exs`."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:03.811635+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:03.811635+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "WTcypQRZQfGn6AMLYjpaLg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Hand-off to the bus\n\nThe GT side of the round trip is one method, {{gtMethod:name=ElixirModuleCoder>>announceBeamRecompiledFrom:}}: it iterates the `recompiled` list and calls {{gtMethod:name=BeamEventAnnouncer class>>announceRecompiledFrom:}} per entry. Everything from there - cache writers, expander filters, browser invalidation, weak subscriptions, bridge-restart lifecycle - lives in the BEAM Event Architecture page."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:11.550769+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:11.550769+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "zAW/57JxTUKE9JpGXlxywQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## End-to-end example\n\nThe example below opens a function coder over a fixture, edits the body, saves, and verifies the bridge round trip propagated the new source back to the cache:"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:18.368987+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:18.368987+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "JAPA1lyUSL2swR5FOTlckA=="
+				},
+				"code" : "ElixirHotReloadExamples new saveFunctionEditsBody"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:23.606932+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:51:23.606932+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "3dUohdg5S++AfaAMCQCRAw=="
+				},
+				"code" : "\"And this proves a save followed by another save doesn't drop the\n first edit (regression coverage for a state-corruption bug we hit\n around the IEx.recompile path-purge interaction).\"\nElixirHotReloadExamples new doubleSavePreservesSource"
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-29T19:34:21.800275+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-29T19:34:21.800275+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Hot-Reload Internals"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "4d7e19ca-cc9a-4062-bab4-c1837d7c8a83"
+	}
+}

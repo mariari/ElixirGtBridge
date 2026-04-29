@@ -277,7 +277,7 @@
 							"paragraphStyle" : {
 								"__type" : "textStyle"
 							},
-							"string" : "Private helpers: {{gtMethod:name=TElixirNavigationCoder>>navigateToQualified:function:requesterObject:}}, {{gtMethod:name=TElixirNavigationCoder>>functionDocsQueryFor:function:}}, {{gtMethod:name=TElixirNavigationCoder>>functionDocsQueryFor:name:arity:}}, {{gtMethod:name=TElixirNavigationCoder>>moduleDocsQuery:}} — query builders and the qualified-call spawn path."
+							"string" : "**Lesson learned:** an earlier version dispatched C-m through private helpers (`navigateToQualified:function:requesterObject:`, `functionDocsQueryFor:...`, `moduleDocsQuery:`) that spawned docs directly for qualified calls and only filtered for unqualified ones. The split dispatch was confusing — sometimes the user wants the implementors filter even on a qualified call (multiple arities, cross-module overrides). The trait was simplified so C-m *always* spawns the implementors filter via {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsInModule:function:requesterObject:}}, and those private helpers were removed."
 						}
 					]
 				},
@@ -548,7 +548,7 @@
 							},
 							"exampleSelector" : "cursorDetectsQualifiedCall",
 							"previewHeight" : 200,
-							"previewShowSelector" : "gtViewsFor:",
+							"previewShowSelector" : "gtPrintFor:",
 							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
 							"codeExpanded" : true,
 							"previewExpanded" : false,
