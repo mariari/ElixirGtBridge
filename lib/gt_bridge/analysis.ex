@@ -792,10 +792,19 @@ defmodule GtBridge.Analysis do
     :defoverridable
   ]
 
+  # User-level macros that expand to function definitions and
+  # whose AST source we want captured so the inspector shows the
+  # body. Without this allowlist they fall through to the runtime
+  # export path and render as "(no source)".
+  @function_def_macros [:example]
+
   defp function_entry({kind, meta, [head | _]}) when is_atom(kind) do
     kind_str = Atom.to_string(kind)
 
     cond do
+      kind in @function_def_macros ->
+        function_entry_for("def", head, meta)
+
       not String.starts_with?(kind_str, "def") ->
         []
 
@@ -835,9 +844,14 @@ defmodule GtBridge.Analysis do
   end
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
-  defp function_head({name, _, args}) when is_list(args), do: {name, length(args)}
-  defp function_head({name, _, _}), do: {name, 0}
+  defp function_head({name, _, args}) when is_atom(name) and is_list(args),
+    do: {name, length(args)}
+  defp function_head({name, _, _}) when is_atom(name), do: {name, 0}
   defp function_head(name) when is_atom(name), do: {name, 0}
+  # Catch-all so non-name heads (e.g. `__aliases__` tuples wrapped
+  # by some macro form) fall through to the case clause's `[]`
+  # branch instead of raising FunctionClauseError.
+  defp function_head(_), do: nil
 
   defp module_doc_info(mod) do
     try do
