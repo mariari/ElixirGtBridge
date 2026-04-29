@@ -54,6 +54,22 @@ ElixirApplicationAnalysis >> buildTreeNode: aLabel from: entries [
 		, info) asDictionary
 ]
 
+{ #category : 'private' }
+ElixirApplicationAnalysis >> compileDepsViewLabeled: aLabel query: aQuery appModules: appModules [
+	"I build a single mondrian compile-deps sub-view."
+	^ GtPhlowEmptyView new mondrian
+		title: aLabel;
+		painting: [ :aMondrian |
+			| edges |
+			edges := [ (self application evaluateAndWait: aQuery) asList ]
+				on: Error do: [ #() ].
+			BeamMondrianHelpers
+				compileDepsOn: aMondrian
+				edges: edges
+				highlightModules: appModules
+				application: self application ]
+]
+
 { #category : 'accessing' }
 ElixirApplicationAnalysis >> description [
 	^ description
@@ -74,6 +90,32 @@ ElixirApplicationAnalysis >> gtActionSystemOverviewFor: anAction [
 ]
 
 { #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtCompileDepsFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show compile-time dependency edges with sub-tabs for
+	 app-only (internal deps) and full (including external).
+	 App modules are blue, external deps are light gray."
+	| appModules edges |
+	edges := [ (self application evaluateAndWait:
+		'GtBridge.HotReload.compile_dep_edges(app: ', self name resolve, ')') asList ]
+		on: Error do: [ #() ].
+	edges isEmpty ifTrue: [ ^ aView empty ].
+	appModules := [ (self modules asList collect: [ :m | m symbol asString ]) asSet ]
+		on: Error do: [ Set new ].
+	^ aView composite
+		title: 'Compile deps';
+		priority: 22;
+		views: {
+			self compileDepsViewLabeled: 'Internal'
+				query: 'GtBridge.HotReload.compile_dep_edges(app: ', self name resolve, ', internal: true)'
+				appModules: appModules.
+			self compileDepsViewLabeled: 'All'
+				query: 'GtBridge.HotReload.compile_dep_edges(app: ', self name resolve, ')'
+				appModules: appModules }
+]
+
+{ #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtDependencyGraphFor: aView [
 	<gtView>
 	<gtBeamView>
@@ -84,7 +126,7 @@ ElixirApplicationAnalysis >> gtDependencyGraphFor: aView [
 			BeamMondrianHelpers
 				appDepGraphOn: aMondrian
 				trees: { self application evaluateAndWait:
-					'GtBridge.Analysis.app_dep_tree(', self name resolve, ')' }
+					'GtBridge.DepGraph.app_dep_tree(', self name resolve, ')' }
 				apps: systemAnalysis appsByName
 				color: (Color fromHexString: '#e8f0fe') ]
 ]
@@ -229,7 +271,7 @@ ElixirApplicationAnalysis >> gtReverseDepsFor: aView [
 			BeamMondrianHelpers
 				appDepGraphOn: aMondrian
 				trees: { self application evaluateAndWait:
-					'GtBridge.Analysis.app_reverse_dep_tree(', self name resolve, ')' }
+					'GtBridge.DepGraph.app_reverse_dep_tree(', self name resolve, ')' }
 				apps: systemAnalysis appsByName
 				color: (Color fromHexString: '#f0e8fe') ]
 ]
