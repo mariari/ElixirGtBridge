@@ -274,6 +274,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725499+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725499+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "CJTzPvdXQxWunR6COcUVfg=="
+							},
 							"paragraphStyle" : {
 								"__type" : "textStyle"
 							},
@@ -546,6 +572,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725512+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725512+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "DkWbhgW9T9eOzpc/fHLPJQ=="
+							},
 							"exampleSelector" : "cursorDetectsQualifiedCall",
 							"previewHeight" : 200,
 							"previewShowSelector" : "gtPrintFor:",
@@ -559,6 +611,32 @@
 							"children" : {
 								"__type" : "snippets",
 								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725518+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725518+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "LqFoT4VzTNG/W1MgBbYvgA=="
 							},
 							"exampleSelector" : "cmBareFunctionShowsImplementors",
 							"previewHeight" : 200,
@@ -574,6 +652,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725523+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725523+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "Qi5+I1amTruzCHwKUC+27w=="
+							},
 							"exampleSelector" : "cmNavigatesToFunction",
 							"previewHeight" : 200,
 							"previewShowSelector" : "gtViewsFor:",
@@ -587,6 +691,32 @@
 							"children" : {
 								"__type" : "snippets",
 								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725529+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725529+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "LlvB5m4KQLSNJjfX+hDHLg=="
 							},
 							"exampleSelector" : "cnShowsReferences",
 							"previewHeight" : 200,
