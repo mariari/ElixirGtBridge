@@ -4,9 +4,9 @@ Class {
 	#instVars : [
 		'process'
 	],
-	#category : 'Gt4beam-Processess',
+	#category : 'Gt4beam-Processes',
 	#package : 'Gt4beam',
-	#tag : 'Processess'
+	#tag : 'Processes'
 }
 
 { #category : 'accessing' }
