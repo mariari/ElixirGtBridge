@@ -111,7 +111,7 @@ defmodule GtBridge.View do
 
   @spec get_view_specs(any(), GenServer.server()) :: list(map())
   def get_view_specs(object, module, server \\ GtBridge.Views) do
-    views = GtBridge.Views.lookup(server, module)
+    views = lookup_with_lazy_register(module, server)
     builder = GtBridge.Phlow.Builder
 
     Enum.map(views, fn {mod, fun} ->
@@ -119,6 +119,21 @@ defmodule GtBridge.View do
       view_module = view_result.__struct__
       apply(view_module, :as_dict, [view_result])
     end)
+  end
+
+  # If the eager startup scan hasn't reached this module yet (or it
+  # hails from a consumer app whose code wasn't loaded at boot), the
+  # module's struct guarantees it's loaded by the time we have an
+  # instance — so a self-registering miss is safe.
+  defp lookup_with_lazy_register(module, server) do
+    views = GtBridge.Views.lookup(server, module)
+
+    if Enum.empty?(views) and function_exported?(module, :__views__, 0) do
+      register(module, server)
+      GtBridge.Views.lookup(server, module)
+    else
+      views
+    end
   end
 
   ############################################################
