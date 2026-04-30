@@ -126,6 +126,18 @@ BeamModuleResolution >> onBeamModuleRecompiled: anAnnouncement [
 		resolved add: name ]
 ]
 
+{ #category : 'subscriptions' }
+BeamModuleResolution >> onBeamModuleSourceRemoved: anAnnouncement [
+	"Source artifact for the named module is gone.  Move it from
+	 `resolved` to `unresolved` so the next styler pass paints a wrench
+	 on references to it."
+	anAnnouncement mod ifNotNil: [ :modName |
+		| name |
+		name := modName asString.
+		resolved remove: name ifAbsent: [  ].
+		unresolved add: name ]
+]
+
 { #category : 'updating' }
 BeamModuleResolution >> recordResolved: aResolvedSet unresolved: anUnresolvedSet [
 	"I incorporate a bridge response classifying a batch of
@@ -148,12 +160,16 @@ BeamModuleResolution >> resolved [
 
 { #category : 'subscriptions' }
 BeamModuleResolution >> subscribe [
-	"I subscribe weakly to recompile events on the wildcard channel.
-	 Weak means the announcer doesn't keep me alive — only my
-	 class-side `default` reference and consumers' use of me do."
+	"I subscribe weakly to recompile + source-removed events on the
+	 wildcard channel.  Weak means the announcer doesn't keep me alive —
+	 only my class-side `default` reference and consumers' use of me do."
 	BeamEventAnnouncer default weak
 		when: BeamModuleRecompiled
 		send: #onBeamModuleRecompiled:
+		to: self.
+	BeamEventAnnouncer default weak
+		when: BeamModuleSourceRemoved
+		send: #onBeamModuleSourceRemoved:
 		to: self
 ]
 
