@@ -241,42 +241,44 @@ ElixirModuleCoder >> buildSourceViewElement [
 	 matching events as local GtCoderSourceCodeChanged, so the closure
 	 captured here lives only as long as I do.
 	 If focusLine is set, I scroll to that line after rendering."
+
 	| container rebuild |
 	container := BlElement new
-		layout: BlLinearLayout vertical;
-		constraintsDo: [ :c |
-			c horizontal matchParent.
-			c vertical matchParent ].
-	rebuild := [
-		| coderModel vm element |
+			layout: BlLinearLayout vertical;
+			constraintsDo: [ :c | 
+				c horizontal matchParent.
+				c vertical matchParent ].
+	rebuild := [ | coderModel vm element |
 		container removeChildren.
 		coderModel := GtElixirCoderModel new.
 		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
 		coderModel contextModuleName: moduleName.
-		coderModel sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
+		coderModel
+			sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
 		vm := coderModel asCoderViewModel.
 		vm expanded: true.
 		vm
 			when: GtSourceCoderViewModelSaveRequested
-			do: [ :ann |
+			do: [ :ann | 
 				self saveAndCompile: coderModel currentSourceString.
 				ann consumed: true ].
-		focusLine ifNotNil: [ :lines |
-			| startLine source pos |
-			startLine := lines isArray
-				ifTrue: [ lines first ]
-				ifFalse: [ lines ].
-			source := self sourceCode.
-			pos := 0.
-			1 to: (startLine - 1 min: source lines size) do: [ :i |
-				pos := pos + (source lines at: i) size + 1 ].
-			vm moveCursorTo: pos.
-			vm scrollToLine: startLine withCharacterPosition: 1 ].
+		focusLine
+			ifNotNil: [ :lines | 
+				| startLine source pos |
+				startLine := lines isArray ifTrue: [ lines first ] ifFalse: [ lines ].
+				source := self sourceCode.
+				pos := 0.
+				1
+					to: (startLine - 1 min: source lines size)
+					do: [ :i | pos := pos + (source lines at: i) size + 1 ].
+				vm moveCursorTo: pos.
+				vm scrollToLine: startLine withCharacterPosition: 1 ].
 		container addChild: vm asElement matchParent ].
 	rebuild value.
 	self announcer
 		when: GtCoderSourceCodeChanged
-		do: [ :ann | rebuild value ].
+		do: [ :ann | rebuild value ]
+		for: self.
 	^ container
 ]
 
@@ -505,14 +507,12 @@ ElixirModuleCoder >> onBeamModuleEntriesUpdated: anAnnouncement [
 
 { #category : 'actions' }
 ElixirModuleCoder >> remove [
-	"I delete my source file and invalidate the GT-side caches that
-	 would otherwise report me as still resolved.  The next time a
-	 styler runs, references to me get a wrench again."
+	"I delete my source file, purge the BEAM module (otherwise
+	 resolution stays `resolved`), and announce."
 	sourcePath asFileReference ensureDelete.
-	BeamModuleResolution default
-		recordResolved: #()
-		unresolved: { moduleName }.
-	(BeamModuleSourceCache for: moduleName) clear
+	self application
+		evaluateAndWait: 'GtBridge.HotReload.purge_module(', moduleName, ')'.
+	BeamEventAnnouncer announceSourceRemoved: moduleName
 ]
 
 { #category : 'actions' }
@@ -566,7 +566,12 @@ ElixirModuleCoder >> selfObject: anObject [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> sourceCode [
-	^ sourcePath asFileReference contents
+	"Return '' when the source file is gone (post-`remove` rebuilds
+	 hit me before the coder pane is dismissed)."
+	| ref |
+	sourcePath ifNil: [ ^ '' ].
+	ref := sourcePath asFileReference.
+	^ ref exists ifTrue: [ ref contents ] ifFalse: [ '' ]
 ]
 
 { #category : 'accessing' }

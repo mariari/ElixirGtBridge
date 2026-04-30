@@ -403,10 +403,22 @@ BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
 
 { #category : 'subscriptions' }
 BeamModuleSourceCache >> onBeamModuleSourceRemoved: anAnnouncement [
-	"Source file for my module was deleted.  Drop cached source and
-	 entries so consumers fall back to the bridge (which will return
-	 empty / unresolved) instead of serving stale text."
-	self clear
+	"Source file for my module was deleted.  Clear caches and fan
+	 out the same narrow events as a recompile would, so wrench
+	 stylers and module surfaces invalidate immediately instead of
+	 showing stale source until the next keypress."
+	| previousFunctions |
+	previousFunctions := sources keys.
+	self clear.
+	previousFunctions do: [ :key |
+		(BeamEventAnnouncer for: mod) announce:
+			(BeamModuleSourceChanged
+				mod: mod
+				function: key first
+				arity: key second
+				source: nil) ].
+	(BeamEventAnnouncer for: mod) announce:
+		(BeamModuleEntriesUpdated mod: mod entries: #())
 ]
 
 { #category : 'querying' }
