@@ -363,6 +363,10 @@ defmodule GtBridge.Analysis do
     Enum.flat_map(body, &function_entry/1)
   end
 
+  defp extract_functions({:defmodule, _, [_, [do: body]]}) do
+    Enum.flat_map([body], &function_entry/1)
+  end
+
   defp extract_functions(_), do: []
 
   defp function_entry({kind, _, _}) when kind in @directives, do: []
