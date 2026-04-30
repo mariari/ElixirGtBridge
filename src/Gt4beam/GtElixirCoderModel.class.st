@@ -180,14 +180,15 @@ GtElixirCoderModel >> initializeApplication [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
+	"Register unconditionally — Lepiter snippets set the strategy
+	 after addOns init, so an `ifNotNil:` guard would skip them."
 	super initializeShortcuts: addOns.
-	elixirLinkApplicationStrategy
-		ifNotNil: [
-			addOns
-				addShortcut: GtSourceCoderDoItShortcut new;
-				addShortcut: GtSourceCoderDoItAndInspectShortcut new;
-				addShortcut: GtSourceCoderSaveShortcut new.
-			self initializeNavigationShortcuts: addOns ]
+	addOns
+		addShortcut: GtSourceCoderDoItShortcut new;
+		addShortcut: GtSourceCoderDoItAndInspectShortcut new;
+		addShortcut: GtSourceCoderSaveShortcut new;
+		addShortcut: ElixirCoderFormatShortcut new.
+	self initializeNavigationShortcuts: addOns
 ]
 
 { #category : 'accessing' }

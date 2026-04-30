@@ -218,6 +218,7 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 ElixirFunctionCoder >> initializeShortcuts: addOns [
 	super initializeShortcuts: addOns.
 	addOns addShortcut: GtSourceCoderSaveShortcut new.
+	addOns addShortcut: ElixirCoderFormatShortcut new.
 	self initializeNavigationShortcuts: addOns
 ]
 
