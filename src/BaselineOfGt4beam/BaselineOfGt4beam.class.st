@@ -9,13 +9,15 @@ Class {
 BaselineOfGt4beam class >> loadLepiter [
 	IceRepository registry  
 		detect: [ :aRepository |
-			aRepository name = 'ElixirGtBridge' ]
+			aRepository name = 'gt4beam' ]
 		ifFound: [ :aRepository | 
 			| defaultDatabase currentProperties |
 			defaultDatabase := LeDatabasesRegistry defaultLogicalDatabase.
 			currentProperties := defaultDatabase properties.
 			currentProperties addRegisteredDirectory: aRepository repositoryDirectory / 'lepiter'.
-			"used to ensure that elixir snippets are loaded correctly"
+			"Reset the cached snippet type mapping so LeJsonV4
+			 discovers LeElixirSnippet, then reload all pages."
+			LeJsonV4 cleanUp.
 			LeLogicalDatabase allInstancesDo: #fullReload ]
 		ifNone: [
 			self inform: 'Repository not found.' ]
@@ -25,6 +27,13 @@ BaselineOfGt4beam class >> loadLepiter [
 BaselineOfGt4beam >> baseline: spec [
 	<baseline>
 		^ spec for: #common do: [
-			spec package: 'Gt4beam'
+			spec package: 'Gt4beam'.
+			spec postLoadDoIt: #postLoad:
 		]
+]
+
+{ #category : 'loading' }
+BaselineOfGt4beam >> postLoad: loader [
+	LeJsonV4 cleanUp.
+	LeLogicalDatabase allInstancesDo: #fullReload
 ]

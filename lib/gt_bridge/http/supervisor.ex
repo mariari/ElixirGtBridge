@@ -8,11 +8,6 @@ defmodule GtBridge.Http.Supervisor do
 
   def start_listener(port_server, port_client) do
     DynamicSupervisor.start_child(
-      EvaluationSupervisor,
-      {GtBridge.Eval, [name: GtBridge.Eval, port: port_client]}
-    )
-
-    DynamicSupervisor.start_child(
       __MODULE__,
       {Plug.Cowboy,
        scheme: :http,

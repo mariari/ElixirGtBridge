@@ -2,10 +2,7 @@ Class {
 	#name : 'GtElixirCoderModel',
 	#superclass : 'GtSourceCoder',
 	#instVars : [
-		'pharoBindings',
-		'exception',
 		'application',
-		'commandFactory',
 		'elixirLinkApplicationStrategy'
 	],
 	#category : 'Gt4beam-Coder',
@@ -26,20 +23,22 @@ GtElixirCoderModel >> asCoderViewModel [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecute: sourceString [
-	"Answer the source code with all declared variables returned in an immediate dictionary"
-
-	<gtIgnoreConstraint: #GtRBAcceptVisitorCalledFromNonVisitingMethods>
-	<remoteDebuggerSignal>
-	^ self bindAndExecuteRaw: sourceString
+GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
+	"I prepend a binding for self (and an import of its module if any)
+	 so snippets can call the object's functions unqualified and use
+	 the pipe operator with self as the first argument."
+	^ self
+		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: (self selfObjectFor: aContext))
+		sessionId: sid
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> bindAndExecuteRaw: sourceString [
+GtElixirCoderModel >> bindAndExecuteRaw: sourceString sessionId: sid [
+	| factory |
 	self initializeApplication.
-	commandFactory := application newCommandFactory.
-
-	^ commandFactory
+	factory := application newCommandFactory.
+	sid ifNotNil: [ factory sessionId: sid ].
+	^ factory
 		<< sourceString;
 		sendAndWait
 ]
@@ -50,14 +49,53 @@ GtElixirCoderModel >> computeAst: theSourceString [
 		parseWithErrors: theSourceString
 ]
 
+{ #category : 'private' }
+GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
+	| serverAddress url response raw result payload |
+	application ifNil: [ ^ Dictionary new ].
+	serverAddress := application settings serverSocketAddress.
+	serverAddress ifNil: [ ^ Dictionary new ].
+	url := 'http://' , serverAddress ipOrName , ':'
+		, serverAddress port asString , '/BINDINGS'.
+	payload := Dictionary new.
+	sid ifNotNil: [ payload at: #sessionId put: sid ].
+	response := ZnClient new
+		url: url;
+		entity: (ZnEntity
+				with: (STONJSON toString: payload)
+				type: ZnMimeType applicationJson);
+		post;
+		response.
+	response isSuccess ifFalse: [ ^ Dictionary new ].
+	raw := STONJSON fromString: response contents.
+	result := Dictionary new: raw size.
+	raw keysAndValuesDo: [ :name :value |
+		result at: name put: (self reifyBindingValue: value) ].
+	^ result
+]
+
 { #category : 'accessing' }
 GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> exception [
-	^ exception
+{ #category : 'private' }
+GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
+	aCoderVM ifNil: [ ^ self ].
+	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
+	viewBindings ifNil: [ ^ self ].
+	sid ifNil: [ ^ self ].
+	FinalizationRegistry default
+		add: viewBindings
+		finalizer: (BeamSessionFinalizer
+			sessionId: sid
+			application: application).
+	aCoderVM sessionFinalizerRegistered: true
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> fetchBindingsWithSessionId: sid [
+	^ [ self doFetchBindingsWithSessionId: sid ] on: Error do: [ Dictionary new ]
 ]
 
 { #category : 'accessing' }
@@ -71,7 +109,7 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 		ifNotNil: [ addOns
 				addMainAction: 'Inspect' translated
 				icon: BrGlamorousVectorIcons playinspect
-				action: [ :aCoderUIModel :anElement | 
+				action: [ :aCoderUIModel :anElement |
 					GtCoderCodeExecutor doItAndGo
 						coderViewModel: aCoderUIModel;
 						element: anElement;
@@ -80,7 +118,7 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 			addOns
 				addMainAction: 'Evaluate' translated
 				icon: BrGlamorousVectorIcons play
-				action: [ :aCoderUIModel :anElement | 
+				action: [ :aCoderUIModel :anElement |
 					GtCoderCodeExecutor doIt
 						coderViewModel: aCoderUIModel;
 						element: anElement;
@@ -92,16 +130,24 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 GtElixirCoderModel >> initializeApplication [
 	application := elixirLinkApplicationStrategy applicationServer.
 	application isRunning ifFalse: [ application start ].
+	^ application
 ]
 
 { #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
+	"I add Ctrl-D DoIt, Ctrl-G DoItAndInspect, and Ctrl-S Save.
+	 The save shortcut fires GtSourceCoderViewModelSaveRequested on
+	 the view model; consumers that know how to save (e.g. the module
+	 coder's Source tab) subscribe to that announcement. Lepiter
+	 snippets leave it unconsumed, falling back to the base class's
+	 no-op save."
 	super initializeShortcuts: addOns.
 
 	elixirLinkApplicationStrategy
 		ifNotNil: [ addOns
 				addShortcut: GtSourceCoderDoItShortcut new;
-				addShortcut: GtSourceCoderDoItAndInspectShortcut new ]
+				addShortcut: GtSourceCoderDoItAndInspectShortcut new;
+				addShortcut: GtSourceCoderSaveShortcut new ]
 ]
 
 { #category : 'accessing' }
@@ -110,25 +156,80 @@ GtElixirCoderModel >> newCompletionStrategy [
 ]
 
 { #category : 'accessing' }
-GtElixirCoderModel >> pharoBindings: anObject [
-	pharoBindings := anObject
+GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFailDo: anEvaluationFailBlock [
+	| coderVM viewBindings sid result bindings |
+	coderVM := [ aContext requesterObject coderViewModel ]
+		on: Error do: [ nil ].
+	viewBindings := coderVM ifNotNil: [ coderVM viewPharoBindings ].
+	sid := viewBindings
+		ifNotNil: [ LeElixirSnippetElement sessionIdFor: viewBindings ].
+	result := self bindAndExecute: aSourceString
+		inContext: aContext
+		sessionId: sid.
+	self ensureSessionFinalizerFor: viewBindings
+		sessionId: sid
+		coderViewModel: coderVM.
+	bindings := self fetchBindingsWithSessionId: sid.
+	bindings associationsDo: [ :assoc |
+		viewBindings ifNotNil: [
+			(viewBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
+	^ result
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aGtSourceCoderEvaluationContext onFailDo: anEvaluationFailBlock [
-	^ self bindAndExecute: aSourceString
+{ #category : 'private' }
+GtElixirCoderModel >> reifyBindingValue: aValue [
+	"Proxy references carry exid+exclass; reify as BeamProxyObject.
+	Base64-tagged arrays carry non-UTF-8 binaries; decode as ByteArray.
+	Recurses into collections to handle nested values."
+	(aValue isDictionary and: [ aValue includesKey: 'exid' ])
+		ifTrue: [
+			^ (BeamProxyObject elixirClass: (aValue at: 'exclass'))
+				elixirVar: (aValue at: 'exid');
+				application: application ].
+	(aValue isArray and: [ aValue size = 2 and: [ aValue first = '__base64__' ] ])
+		ifTrue: [ ^ (ZnBase64Encoder new decode: aValue second) asByteArray ].
+	aValue isDictionary
+		ifTrue: [
+			| result |
+			result := Dictionary new: aValue size.
+			aValue keysAndValuesDo: [ :k :v |
+				result at: k put: (self reifyBindingValue: v) ].
+			^ result ].
+	aValue isArray
+		ifTrue: [ ^ aValue collect: [ :elem | self reifyBindingValue: elem ] ].
+	^ aValue
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> selfObjectFor: aContext [
+	"I return the inspector selfObject from aContext's requester, or nil
+	 if the snippet isn't in an inspector playground."
+	| req |
+	req := aContext requesterObject.
+	^ (req notNil and: [ req respondsTo: #selfObject ])
+		ifTrue: [ req selfObject ]
+		ifFalse: [ nil ]
 ]
 
 { #category : 'accessing' }
 GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
 	"Answer the modified source to return the declared variables"
 	^ String
-		streamContents: [ :stream | 
+		streamContents: [ :stream |
 			stream << trimmedSourceString ]
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> variableBindings: aGtSnippetBindings [
-
-	^ self pharoBindings: aGtSnippetBindings
+{ #category : 'private' }
+GtElixirCoderModel >> wrapSource: sourceString withSelf: selfObj [
+	"I prepend `self = <resolve>` and (when available) `import <Module>`
+	 so snippets can reference self and call its functions unqualified."
+	(selfObj notNil and: [ selfObj respondsTo: #resolve ])
+		ifFalse: [ ^ sourceString ].
+	^ String streamContents: [ :s |
+		(selfObj respondsTo: #elixirClass) ifTrue: [
+			selfObj elixirClass ifNotNil: [ :modName |
+				s nextPutAll: 'import '; nextPutAll: modName; nextPut: Character lf ] ].
+		s
+			nextPutAll: 'self = '; nextPutAll: selfObj resolve; nextPut: Character lf;
+			nextPutAll: sourceString ]
 ]

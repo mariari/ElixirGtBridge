@@ -4,10 +4,27 @@ Class {
 	#instVars : [
 		'serverStrategy'
 	],
+	#classVars : [
+		'SessionMap'
+	],
 	#category : 'Gt4beam-Lepiter',
 	#package : 'Gt4beam',
 	#tag : 'Lepiter'
 }
+
+{ #category : 'private' }
+LeElixirSnippetElement class >> sessionIdFor: aBindings [
+	"I return (or create) a session UUID for a given shared bindings object.
+	Identity-keyed: same object → same ID, different objects → different IDs."
+	^ self sessionMap
+		at: aBindings
+		ifAbsentPut: [ UUID new asString ]
+]
+
+{ #category : 'private' }
+LeElixirSnippetElement class >> sessionMap [
+	^ SessionMap ifNil: [ SessionMap := WeakIdentityKeyDictionary new ]
+]
 
 { #category : 'accessing' }
 LeElixirSnippetElement >> onSnippetViewModelChanged [
@@ -15,8 +32,11 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 
 	self updateLanguageLabel.
 	self coder
-		elixirLinkApplicationStrategy: self serverStrategy;
-		pharoBindings: self snippetViewModel snippetBindings
+		elixirLinkApplicationStrategy: self serverStrategy.
+	self coderViewModel
+		viewPharoBindings: self snippetViewModel snippetBindings.
+	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
+		self coderViewModel selfObject: obj ]
 ]
 
 { #category : 'accessing' }

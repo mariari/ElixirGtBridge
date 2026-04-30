@@ -1,14 +1,20 @@
 defmodule GtBridge.MixProject do
   use Mix.Project
 
+  @version "0.16.0"
+  @source_url "https://github.com/mariari/ElixirGtBridge"
+
   def project do
     [
       app: :gt_bridge,
-      version: "0.8.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       plt_add_apps: [:mix, :ex_unit],
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package(),
+      source_url: @source_url
     ]
   end
 
@@ -16,22 +22,36 @@ defmodule GtBridge.MixProject do
   def application do
     [
       mod: {GtBridge, []},
-      extra_applications: [:logger, :observer, :wx, :ex_unit, :iex]
+      extra_applications:
+        [:logger, :ex_unit, :iex, :tools] ++
+          if(Mix.env() == :dev, do: [:observer, :wx], else: [])
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  defp description do
+    "A bridge between Glamorous Toolkit (GT) and the BEAM VM, enabling remote code evaluation, object inspection, and Phlow view rendering."
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => @source_url},
+      files: ~w(lib mix.exs README.md LICENSE)
+    ]
+  end
+
   defp deps do
     [
       {:msgpax, "~> 2.4"},
       {:typed_struct, "~> 0.3.0"},
+      {:event_broker, github: "anoma/event-broker", tag: "v1.1.0"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
-      {:req, "~> 0.5.0"}
+      {:req, "~> 0.5.0"},
+      {:ex_example, "~> 0.1.0"}
     ]
   end
 end

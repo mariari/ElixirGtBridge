@@ -91,7 +91,14 @@ defmodule GtBridge.View do
   """
   @spec register_all(GenServer.server()) :: :ok
   def register_all(server \\ GtBridge.Views) do
-    for {module, _} <- :code.all_loaded(),
+    modules =
+      case :application.get_key(:gt_bridge, :modules) do
+        {:ok, mods} -> mods
+        _ -> :code.all_loaded() |> Enum.map(&elem(&1, 0))
+      end
+
+    for module <- modules,
+        Code.ensure_loaded?(module),
         function_exported?(module, :__views__, 0) do
       register(module, server)
     end
@@ -114,11 +121,14 @@ defmodule GtBridge.View do
     views = lookup_with_lazy_register(module, server)
     builder = GtBridge.Phlow.Builder
 
-    Enum.map(views, fn {mod, fun} ->
+    views
+    |> Enum.map(fn {mod, fun} ->
       view_result = apply(mod, fun, [object, builder])
       view_module = view_result.__struct__
       apply(view_module, :as_dict, [view_result])
     end)
+    |> Enum.reject(&(&1[:viewName] == "empty"))
+    |> Enum.sort_by(& &1[:priority])
   end
 
   # If the eager startup scan hasn't reached this module yet (or it

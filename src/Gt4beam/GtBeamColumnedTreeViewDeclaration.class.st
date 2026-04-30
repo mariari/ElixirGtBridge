@@ -14,14 +14,14 @@ GtBeamColumnedTreeViewDeclaration class >> remoteName [
 { #category : 'as yet unclassified' }
 GtBeamColumnedTreeViewDeclaration >> treatView: view [
 	view
-		items: [ (self rawData attributeAt: (BeamAtomObject new: #items)) asList ];
-		children: [ :item | (item attributeAt: (BeamAtomObject new: #children)) asList ].
+		items: [ (self rawData attributeAt: #items) asList ];
+		children: [ :item | (item attributeAt: #children) asList ].
 
-	(self rawData attributeAt: (BeamAtomObject new: #columns)) asList
-		withIndexDo: [ :aColumn :anIndex | 
+	(self rawData attributeAt: #columns) asList
+		withIndexDo: [ :aColumn :anIndex |
 			view
 				column: (aColumn attributeAt: #title)
-				text: [ :item | (item attributeAt: (BeamAtomObject new: #values)) asList at: anIndex ] ]
+				text: [ :item | (item attributeAt: #values) asList at: anIndex ] ]
 ]
 
 { #category : 'as yet unclassified' }

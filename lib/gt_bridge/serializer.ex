@@ -18,8 +18,30 @@ defmodule GtBridge.Serializer do
   end
 
   def to_json(data, options) do
-    Jexon.to_json(data, options)
+    Jexon.to_json(sanitize(data), options)
   end
+
+  defp sanitize(data) when is_pid(data) do
+    ["__pid__" | :erlang.pid_to_list(data)]
+  end
+
+  defp sanitize(data) when is_binary(data) do
+    if String.valid?(data), do: data, else: ["__base64__", Base.encode64(data)]
+  end
+
+  defp sanitize(data) when is_map(data) do
+    Map.new(data, fn {k, v} -> {k, sanitize(v)} end)
+  end
+
+  defp sanitize(data) when is_list(data) do
+    Enum.map(data, &sanitize/1)
+  end
+
+  defp sanitize(data) when is_tuple(data) do
+    data |> Tuple.to_list() |> Enum.map(&sanitize/1) |> List.to_tuple()
+  end
+
+  defp sanitize(data), do: data
 
   @spec from_json(json :: String.t()) :: {:ok, any()} | {:error, Jason.DecodeError.t()} | :error
   def from_json(data) do
@@ -30,9 +52,21 @@ defmodule GtBridge.Serializer do
           {:ok, any()} | {:error, Jason.DecodeError.t()} | :error
   def from_json(data, options) do
     case Jexon.from_json(data, options) do
-      {:ok, ["__pid__" | rest]} -> {:ok, :erlang.list_to_pid(rest)}
-      {:ok, ["__base64__", rest]} -> Base.decode64(rest)
+      {:ok, result} -> {:ok, desanitize(result)}
       x -> x
     end
   end
+
+  defp desanitize(["__pid__" | rest]), do: :erlang.list_to_pid(rest)
+  defp desanitize(["__base64__", encoded]), do: Base.decode64!(encoded)
+
+  defp desanitize(data) when is_map(data) do
+    Map.new(data, fn {k, v} -> {k, desanitize(v)} end)
+  end
+
+  defp desanitize(data) when is_list(data) do
+    Enum.map(data, &desanitize/1)
+  end
+
+  defp desanitize(data), do: data
 end

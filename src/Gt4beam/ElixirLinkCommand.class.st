@@ -1,6 +1,9 @@
 Class {
 	#name : 'ElixirLinkCommand',
 	#superclass : 'LanguageLinkCommand',
+	#instVars : [
+		'sessionId'
+	],
 	#category : 'Gt4beam-Execution',
 	#package : 'Gt4beam',
 	#tag : 'Execution'
@@ -14,6 +17,7 @@ ElixirLinkCommand >> codeForRemote [
 { #category : 'visualization' }
 ElixirLinkCommand >> gtViewCodeForRemoteFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView textEditor
 		aptitude: BrGlamorousCodeEditorAptitude;
 		styler: (BrRBTextStyler new
@@ -22,4 +26,14 @@ ElixirLinkCommand >> gtViewCodeForRemoteFor: aView [
 		title: 'Command string' translated;
 		text: [ self codeForRemote ];
 		priority: 15
+]
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId [
+	^ sessionId
+]
+
+{ #category : 'accessing' }
+ElixirLinkCommand >> sessionId: aString [
+	sessionId := aString
 ]

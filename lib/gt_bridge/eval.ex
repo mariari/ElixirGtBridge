@@ -1,10 +1,31 @@
 defmodule GtBridge.Eval do
+  @moduledoc """
+  I am a per-session evaluation GenServer.
+
+  Each instance corresponds to a GT view's evaluation context
+  (`LeSharedSnippetContext`).  All snippets within the same view
+  share one Eval process (same bindings).
+
+  I track object IDs registered in `GtBridge.ObjectRegistry` during
+  my lifetime.  When I terminate (session closed), I batch-remove
+  all tracked objects from the registry.
+
+  ## Cleanup
+
+  GT's `BeamSessionFinalizer` sends `POST /SESSION_CLOSE` when the
+  per-view `GtSharedVariablesBindings` is GC'd (page/inspector closed).
+  The router calls `EvalRegistry.remove/1` which terminates me, and
+  `terminate/2` batch-removes all tracked objects from the registry.
+  """
+
   use GenServer
   use TypedStruct
 
   typedstruct do
     field(:bindings, Code.binding())
+    field(:env, Macro.Env.t())
     field(:port, non_neg_integer(), default: nil)
+    field(:registered_ids, MapSet.t(non_neg_integer()), default: MapSet.new())
   end
 
   def start_link(init_args) do
@@ -14,9 +35,10 @@ defmodule GtBridge.Eval do
 
   @impl true
   def init(init_args) do
+    Process.flag(:trap_exit, true)
     port = Keyword.get(init_args, :port, nil)
     default_bindings = if port, do: [port: port], else: []
-    {:ok, %__MODULE__{bindings: default_bindings, port: port}}
+    {:ok, %__MODULE__{bindings: default_bindings, env: GtBridge.Eval.Env.env(), port: port}}
   end
 
   ############################################################
@@ -26,6 +48,21 @@ defmodule GtBridge.Eval do
   @spec eval(GenServer.server(), String.t(), String.t() | nil) :: any()
   def eval(pid, code, command_id) do
     GenServer.call(pid, {:eval, code, command_id})
+  end
+
+  @spec complete(GenServer.server(), String.t(), String.t() | nil) :: [String.t()]
+  def complete(pid, code_prefix, source \\ nil) do
+    GenServer.call(pid, {:complete, code_prefix, source})
+  end
+
+  @doc """
+  I return the current bindings as a map of name→serialized value.
+  Internal bindings (:port, :command_id, :pid) are filtered out.
+  Non-primitive values are registered in ObjectRegistry.
+  """
+  @spec get_bindings(GenServer.server()) :: map()
+  def get_bindings(pid) do
+    GenServer.call(pid, :get_bindings)
   end
 
   @doc """
@@ -41,71 +78,165 @@ defmodule GtBridge.Eval do
   #                    Genserver Behavior                    #
   ############################################################
 
-  # TODO garbage collect old values in the environment after a while
+  @impl true
+  def handle_call(:get_bindings, _from, state = %__MODULE__{}) do
+    internal = [:port, :command_id, :pid]
+
+    result =
+      state.bindings
+      |> Keyword.drop(internal)
+      |> Map.new(fn {name, value} ->
+        {Atom.to_string(name), register_value(value)}
+      end)
+
+    {:reply, result, collect_registered(state)}
+  end
+
+  @impl true
+  def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
+    results = GtBridge.Completion.complete(code_prefix, state.bindings, source, state.env)
+    {:reply, results, state}
+  end
+
   @impl true
   def handle_call({:eval, string, command_id}, _from, state = %__MODULE__{}) do
     try do
-      {term, new_bindings} =
+      quoted =
         string
         |> String.replace("\r", "\n")
-        |> Code.eval_string(state.bindings ++ [command_id: command_id, self: self()])
+        |> Code.string_to_quoted!()
+
+      {term, new_bindings, new_env} =
+        Code.eval_quoted_with_env(
+          quoted,
+          state.bindings ++ [command_id: command_id],
+          state.env
+        )
 
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
 
-      {:reply, term, %__MODULE__{state | bindings: unique_keys}}
+      {:reply, term, collect_registered(%__MODULE__{state | bindings: unique_keys, env: new_env})}
     catch
       kind, e ->
         error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
         notify(error, command_id, state.bindings[:port])
 
-        {:reply, e, state}
+        {:reply, e, collect_registered(state)}
     end
   end
 
   @spec notify(term(), String.t(), pos_integer()) :: term()
   def notify(obj, id, port) do
-    require Logger
-    Logger.info("Notify called: obj=#{inspect(obj)}, id=#{id}, port=#{port}")
+    registered = register_value(obj)
 
-    # Register the object and get a unique ID (nil for primitives)
-    exid = GtBridge.ObjectRegistry.register(obj)
-
-    # If it's a primitive (exid is nil), send it directly without wrapping
-    value_json_string =
-      if exid == nil do
-        # Primitive - send as-is, use our own serializer to get around
-        # atoms and binary
-        {:ok, json} = GtBridge.Serializer.to_json(obj)
-        json
-      else
-        # Complex object - wrap with metadata (lazy loading, no value)
-        # Get class info for the object
-        exclass = GtBridge.Resolve.data_type_to_string(obj)
-
-        # The value object with metadata (no value field for lazy loading)
-        value_object = %{
-          exclass: exclass,
-          exid: exid
-        }
-
-        {:ok, json} = Jason.encode(value_object)
-        json
+    {:ok, value_json_string} =
+      case registered do
+        %{exid: _} -> Jason.encode(registered)
+        primitive -> GtBridge.Serializer.to_json(primitive)
       end
 
-    data = %{
-      type: "EVAL",
-      id: id,
-      value: value_json_string,
-      __sync: "_"
-    }
-
+    data = %{type: "EVAL", id: id, value: value_json_string, __sync: "_"}
     url = "http://localhost:" <> to_string(port) <> "/EVAL"
-    Logger.info("POSTing to #{url} with data: #{inspect(data)}")
-
-    response = Req.post!(url, json: data)
-    Logger.info("POST response: #{inspect(response)}")
+    Req.post!(url, json: data)
 
     obj
+  end
+
+  @impl true
+  def handle_info(msg, state) do
+    Process.put(:_mailbox, [msg | Process.get(:_mailbox, [])])
+    {:noreply, state}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    GtBridge.ObjectRegistry.remove_all(MapSet.to_list(state.registered_ids))
+    :ok
+  end
+
+  ############################################################
+  #                     Eval Built-ins                       #
+  ############################################################
+
+  @doc """
+  I return documentation for a module, function, or type.
+
+  Bound as `h` in every eval session. Because I am a macro, I can
+  parse dot-syntax like `h(Enum.map)` and `h(Enum.map/2)`.
+
+      h(Enum)
+      h(Enum.map)
+      h(Enum.map/2)
+      h({Enum, :map})
+      h({Enum, :map, 2})
+  """
+  defmacro h({:/, _, [{{:., _, [mod, fun]}, _, _}, arity]}) do
+    quote do: GtBridge.Documentation.for_function(unquote(mod), unquote(fun), unquote(arity))
+  end
+
+  defmacro h({{:., _, [mod, fun]}, _, _}) do
+    quote do: GtBridge.Documentation.for_function(unquote(mod), unquote(fun))
+  end
+
+  defmacro h(other) do
+    quote do
+      case unquote(other) do
+        m when is_atom(m) -> GtBridge.Documentation.for_module(m)
+        {m, f} -> GtBridge.Documentation.for_function(m, f)
+        {m, f, a} -> GtBridge.Documentation.for_function(m, f, a)
+      end
+    end
+  end
+
+  @doc """
+  I drain and return all messages received by the eval process.
+
+  Like IEx's `flush/0`. Useful when user code subscribes the eval
+  process to event brokers and you want to see what arrived.
+
+      flush()
+  """
+  @spec flush() :: [term()]
+  def flush do
+    case Process.delete(:_mailbox) do
+      nil -> []
+      msgs -> Enum.reverse(msgs)
+    end
+  end
+
+  ############################################################
+  #                   Private Implementation                 #
+  ############################################################
+
+  # Register a value in ObjectRegistry.  Returns `%{exclass, exid}`
+  # for complex objects, or the value as-is for primitives.
+  # Accumulates IDs in the process dictionary for collection by
+  # `collect_registered/1` after the call completes.
+  defp register_value(value) do
+    case GtBridge.ObjectRegistry.register(value) do
+      nil ->
+        value
+
+      exid ->
+        ids = Process.get(:_reg_ids, [])
+        Process.put(:_reg_ids, [exid | ids])
+        %{exclass: GtBridge.Resolve.data_type_to_string(value), exid: exid}
+    end
+  end
+
+  defp collect_registered(state) do
+    case Process.get(:_reg_ids) do
+      nil ->
+        state
+
+      [] ->
+        state
+
+      ids ->
+        Process.delete(:_reg_ids)
+        new = Enum.reduce(ids, state.registered_ids, &MapSet.put(&2, &1))
+        %{state | registered_ids: new}
+    end
   end
 end

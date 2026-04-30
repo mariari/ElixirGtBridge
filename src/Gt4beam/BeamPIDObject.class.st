@@ -11,15 +11,44 @@ BeamPIDObject class >> elixirClass [
 	^ 'PID'
 ]
 
+{ #category : 'accessing' }
+BeamPIDObject >> applicationAnalysis [
+	"I find my application by PID (not by module name like proxies
+	 do) using Erlang's :application.get_application/1."
+	| appAtom sys |
+	appAtom := [ self evaluateAndWait:
+		'case :application.get_application(', self resolve, ') do
+			{:ok, app} -> app
+			_ -> nil
+		end' ]
+		on: Error do: [ nil ].
+	appAtom ifNil: [ ^ nil ].
+	sys := ElixirSystemAnalysis onApplication: self application.
+	^ sys applications
+		detect: [ :each | each name symbol = appAtom symbol ]
+		ifNone: [ nil ]
+]
+
 { #category : 'views - helpers' }
 BeamPIDObject >> childrenTree [
 	^ self
 		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> gtDefaultInspectorTool [
+	"I collect inspector modes via <gtInspectorMode> pragmas."
+	| modes |
+	modes := BeamInspectorModeCollector new
+		fromObject: self;
+		collect.
+	^ BeamProxyToggleCompositeTool fromModes: modes
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtInformationFor: aView [
 	<gtView>
+	<gtBeamView>
 	^ aView columnedList
 		title: 'Information';
 		priority: 10;
@@ -32,54 +61,64 @@ BeamPIDObject >> gtInformationFor: aView [
 		send: #value
 ]
 
+{ #category : 'inspector-modes' }
+BeamPIDObject >> gtStateMode: aMode [
+	<gtInspectorMode>
+	| state |
+	state := [ self process_state ] on: Error do: [ nil ].
+	(state isNil or: [ state isError ]) ifTrue: [ ^ aMode ].
+	^ aMode
+		name: 'State';
+		priority: 20;
+		object: state;
+		tool: (state gtRemoteSideInspectorTool
+			name: 'State';
+			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
+			withLabelAndIconAptitude)
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> gtSupervisionView: aView [
 	<gtView>
+	<gtBeamView>
 	self isSupervisor ifFalse: [ ^ aView empty ].
-
-	^ aView mondrian
+	^ aView composite
 		title: 'Supervision View';
 		priority: 9;
-		painting: [ :aMondrian | 
-			| children childrenMap |
-			children := self childrenTree asList.
-			childrenMap := children
-					collect: [ :tup | 
-						(tup itemAt: 0)
-							-> {tup itemAt: 1.
-									(tup itemAt: 2) asList} ]
-					as: Dictionary.
-			aMondrian nodes
-				stencil: [ :node | 
-					BrHorizontalPane new
-						geometry: (BlRoundedRectangleGeometry cornerRadius: 2);
-						border: (BlBorder paint: Color black width: 2);
-						background: Color white;
-						padding: (BlInsets all: 5);
-						addChild: (BlTextElement new
-								text: (childrenMap at: node at: 1) asRopedText;
-								constraintsDo: [ :c | 
-									c horizontal fitContent.
-									c vertical fitContent ]);
-						constraintsDo: [ :c | 
-							c horizontal fitContent.
-							c vertical fitContent ] ];
-				with: (children collect: [ :tup | tup itemAt: 0 ]).
-			aMondrian edges connectToAll: [ :each | childrenMap at: each at: 2 ].
-			aMondrian layout horizontalTree ]
+		views: {
+			(aView mondrian
+				title: 'Summary';
+				priority: 1;
+				painting: [ :aMondrian |
+					| tree |
+					tree := self evaluateAndWait:
+						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+					BeamMondrianHelpers
+						supervisionTreeOn: aMondrian from: tree poolThreshold: 12 application: self application ]).
+			(aView mondrian
+				title: 'Expanded';
+				priority: 2;
+				painting: [ :aMondrian |
+					| tree |
+					tree := self evaluateAndWait:
+						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+					BeamMondrianHelpers
+						supervisionTreeOn: aMondrian from: tree poolThreshold: 999999 application: self application ]) }
 ]
 
 { #category : 'as yet unclassified' }
 BeamPIDObject >> information [
-	| informationTuples result |
+	| informationTuples |
 	informationTuples := self evaluateAndWait: 'Process.info(' , self resolve , ')'.
-	result := Dictionary new.
-	informationTuples asList do: [:aTuple |
+	^ (informationTuples asList collect: [ :aTuple |
 		| pair |
 		pair := aTuple asList.
-		result at: pair first second put: pair second
-	].
-	^ result
+		pair first -> pair second ]) asDictionary
+]
+
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
 ]
 
 { #category : 'as yet unclassified' }
@@ -104,17 +143,4 @@ BeamPIDObject >> printOn: str [
 { #category : 'as yet unclassified' }
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
-]
-
-{ #category : 'as yet unclassified' }
-BeamPIDObject >> stateView: aView [
-	<gtView>
-	| inspect |
-	inspect := self process_state.
-	inspect isError ifTrue: [ ^ aView empty ].
-
-	^ aView composite
-		title: 'State View';
-		priority: 1;
-		views: (inspect gtViewsInCurrentContext)
 ]

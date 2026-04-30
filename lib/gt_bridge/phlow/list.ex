@@ -61,13 +61,17 @@ defmodule GtBridge.Phlow.List do
         []
       end
 
+    format_fn = self.item_format || (&inspect/1)
+    formatted_data = Enum.map(items_data, format_fn)
+
     %{
       title: self.view_title,
       priority: self.view_priority,
       viewName: "GtPhlowListViewSpecification",
       dataTransport: 2,
       itemsCount: length(items_data),
-      items: items_data
+      items: formatted_data,
+      rawItems: items_data
     }
   end
 end

@@ -48,6 +48,16 @@ defmodule GtBridge.ObjectRegistry do
   end
 
   @doc """
+  I batch-remove multiple objects by ID.
+  Called by `GtBridge.Eval.terminate/2` to clean up all objects
+  registered during a session's lifetime.
+  """
+  @spec remove_all(GenServer.server(), [non_neg_integer()]) :: :ok
+  def remove_all(server \\ __MODULE__, ids) do
+    GenServer.cast(server, {:remove_all, ids})
+  end
+
+  @doc """
   Resolve an object by ID, returning the object directly (or nil if not found).
   This is the function GT should call when retrieving lazy objects.
   """
@@ -134,6 +144,12 @@ defmodule GtBridge.ObjectRegistry do
   @impl true
   def handle_cast({:remove, id}, state) do
     new_objects = Map.delete(state.objects, id)
+    {:noreply, %{state | objects: new_objects}}
+  end
+
+  @impl true
+  def handle_cast({:remove_all, ids}, state) do
+    new_objects = Map.drop(state.objects, ids)
     {:noreply, %{state | objects: new_objects}}
   end
 

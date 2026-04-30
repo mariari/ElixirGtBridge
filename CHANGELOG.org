@@ -1,0 +1,222 @@
+* Changelog
+
+** v0.16.0
+
+*** Features
+
+- Elixir module coder :: Each function is a first-class
+  ~GtSourceCoder~ with Elixir syntax highlighting via
+  ~ElixirParser~, save/delete/move/run/help action buttons
+  following GT's method coder pattern. Functions display in
+  source order with multi-clause merging.
+
+- Code browser :: Namespace-grouped module tree with live
+  substring filter, function counts, and doc status columns.
+  Clicking a module opens its inspector inline with R|P toggle.
+  Available as "Code Browser" tab on system and application views.
+
+- System and application analysis :: ~GtBridge.Analysis~ provides
+  xref dependency graphs, doc coverage mondrian views, supervision
+  tree visualization with worker pool collapsing, and mnesia table
+  inspection. ~ElixirSystemAnalysis~ and ~ElixirApplicationAnalysis~
+  expose these as inspectable GT views.
+
+- R|P inspector toggle :: Dual-strip Remote/Proxy mode switcher
+  on all BEAM types. Remote shows ~<gtBeamView>~ tagged views,
+  Proxy shows GT wrapper views (Raw, Print, Meta). Dynamic mode
+  registration via ~<gtInspectorMode>~ pragma: atoms show
+  Atom/Pid/State tabs, PIDs show Pid/State tabs.
+
+- Spotter integration :: Search BEAM applications and modules
+  directly from the global spotter.
+
+- Import-aware completion :: Module's own functions available from
+  first keypress in module coders. Aliases resolve for
+  dot-completion.
+
+- Lepiter Elixir snippets :: Bottom-of-inspector playground with
+  ~self~ bound to the inspected object and its module imported.
+
+*** Bug Fixes
+
+- Fix atom resolve for underscore-prefixed names (~__meta__~ etc.)
+  where ~$_ asUppercase = $_~ caused missing ~:~ prefix
+- Fix ~attributeAt:~ crash on atom names containing dots
+
+** v0.15.1
+
+*** Features
+
+- ~h/1~ now supports dot-syntax — ~h(Enum.count)~ and
+  ~h(Enum.map/2)~ work like in IEx. ~h/1~ is now a macro that
+  inspects the AST instead of evaluating the argument
+
+*** Bug Fixes
+
+- Fix alias dot-completion prefix — typing ~ENarwhal.si~ after
+  aliasing now returns ~ENarwhal.sign_a_block~ instead of the
+  fully-qualified ~Anoma.Node.Examples.ENarwhal.sign_a_block~
+- Fix raw view crash on maps with binary keys — ~ByteArray~ map keys
+  (e.g. cryptographic signatures) are now serialized as
+  ~<<byte1, byte2, ...>>~ instead of dumping raw bytes into the
+  expression string, which caused ~SmaCCParserError~
+
+** v0.15.0
+
+*** Features
+
+- ~flush()~ built-in for eval sessions — drains and returns all
+  messages received by the eval process, like IEx's ~flush/0~.
+  Useful when user code subscribes ~self()~ to event brokers.
+  Messages are silently stashed by ~handle_info/2~ until flushed
+
+** v0.14.1
+
+*** Features
+
+- Persistent ~alias~, ~import~, and ~require~ across eval sessions —
+  ~Macro.Env~ is now accumulated alongside bindings using
+  ~Code.eval_quoted_with_env/3~, so directives evaluated in one snippet
+  carry forward to subsequent snippets in the same page
+- Alias-aware auto-completion — completion suggestions include alias
+  short names and resolve aliased modules for dot-completion (e.g.
+  ~alias Foo.Bar~ then ~Bar.~ completes ~Bar~'s functions)
+- Source code view for module atoms — inspecting a module (via ~h(Mod)~
+  or a bare atom) shows the source file tab when the module's compile
+  path is locally available
+
+*** Bug Fixes
+
+- Parenthesize last expression in notify wrapper — ~alias~, ~import~,
+  ~require~, and ~use~ directives no longer fail with
+  ~undefined function alias/3~ when evaluated through GT's snippet
+  bridge (~setNotifyToInstruction:~ now wraps as
+  ~GtBridge.Eval.notify((expr), ...)~)
+- Lazily resolve session ID in completion strategy — completion requests
+  now reach the correct per-page eval session instead of the default
+  session.  The ~sessionId~ getter resolves from ~viewPharoBindings~
+  on demand, and ~fetchCompletionsFor:~ goes through the getter
+
+** v0.14.0
+
+*** Features
+
+- Module documentation views — inspecting a module atom (e.g. ~Enum~)
+  shows a Documentation tab as a full Lepiter page with module doc and
+  per-function sections rendered as markdown ~LeTextSnippet~​s
+- ~h/1~ documentation helper in eval sessions — call ~h(Enum)~,
+  ~h({Enum, :map})~, or ~h({Enum, :map, 2})~ to get a ~Documentation~
+  struct with browsable Phlow views, available without explicit import
+  via ~Macro.Env~ injection
+- Type documentation — ~Documentation.for_type/3~ and Types view tab
+  for modules with documented types
+- Markdown text view support — Phlow text views with ~markdown: true~
+  render as ~LeTextSnippet~ in GT instead of plain text (reusable
+  beyond docs)
+
+*** Improvements
+
+- Remove per-view ivars from ~GtElixirCoderModel~ — ~pharoBindings~,
+  ~sessionId~, and ~sessionFinalizerRegistered~ were shared mutable
+  state that got overwritten on each eval.  Now passed as parameters
+  through the eval chain.  Dead ~exception~ ivar and ~commandFactory~
+  ivar also removed
+
+*** Bug Fixes
+
+- Wire inspector ~selfObject~ onto Elixir coder view model — evaluating
+  ~self~ in inspector Elixir snippets now correctly binds the inspected
+  object
+- Fix ~isScripting~ error — add extension method on
+  ~GtSharedVariablesBindings~ so typing in doc snippets doesn't crash
+- Preserve existing fenced code blocks in ~normalize_markdown~ — mermaid
+  and other fenced blocks no longer get mangled
+- Fix ~completeModuleDot~ assertion — match arity-qualified completion
+  format (~Enum.map/2(enumerable, fun)~)
+- Bump ~gcCleansUpSession~ delay from 50ms to 100ms to reduce false
+  positives
+
+** v0.13.0
+
+*** Features
+
+- Editable source view — ~BeamProxyObject~ source tab delegates to
+  ~gtEditorView~, providing save/cancel buttons, Ctrl+S, and
+  modification tracking with Elixir syntax highlighting
+- Text view formatting — ~monospace~ and ~fontSize~ options for
+  Phlow text views
+
+*** Bug Fixes
+
+- Sort view specs by priority before sending to GT — views now
+  appear in declared priority order
+- Apply ~item_format~ in ~PhlowList.as_dict/1~ — list items now
+  respect custom formatting
+
+** v0.12.0
+
+*** Features
+
+- Per-page eval sessions — each Lepiter page and inspector gets its
+  own ~GtBridge.Eval~ process via ~EvalRegistry~, isolating bindings
+  between views
+- Session lifecycle management — ~BeamSessionFinalizer~ sends
+  ~POST /SESSION_CLOSE~ when a page or inspector view is GC'd,
+  cleaning up the BEAM-side eval process and its registered objects
+- Completion with arity signatures — completion menu shows
+  ~Enum.map/2(enumerable, fun)~ with parameter names from
+  ~Code.fetch_docs/1~, but inserts only the function name
+- Struct field completion on ~{~ and ~,~ — typing inside
+  ~%URI{~ completes struct fields using full source context
+
+*** Improvements
+
+- Action-based completion — ~completionActionStreamFor:at:requested:~
+  returns ~AsyncStream~ of ~GtInsertTextCompletionAction~ with
+  monospace styled labels and prefix highlighting
+- Unwrap single remote view — when an object declares only one
+  Phlow view, show it directly instead of wrapping in a composite
+- Reset ~LeJsonV4~ mapping cache on package load — fixes
+  ~LeUnknownSnippet~ for elixir snippets when GT4beam loads after
+  Lepiter's initial type scan
+
+*** Bug Fixes
+
+- Fix ~attributeAt:~ for string and numeric map keys — distinguish
+  Symbol (atom, ~:~ prefix) from String (~"~ quotes) since Symbol
+  is a subclass of String in Pharo
+- Fix PID information view — ~Process.info~ returns ~BeamAtomObject~
+  keys, use ~pair first~ not ~pair first second~
+- Guard source view against non-struct objects — return empty view
+  instead of crashing on PIDs, maps, etc.
+
+** v0.11.0
+
+*** Features
+
+- Elixir autocompletion in GT snippets — completions for modules,
+  functions, Erlang modules, variables, structs, and struct fields
+  via ~Code.Fragment.cursor_context/1~ and ~POST /COMPLETE~
+- Self binding for inspector snippets — inspected ~BeamProxyObject~
+  or ~BeamAtomObject~ is bound as =self= when evaluating Elixir code
+  in the inspector
+- Elixir bindings flow back to GT — ~POST /BINDINGS~ returns session
+  variables after evaluation so Lepiter snippets share bindings
+  across cells
+- Mondrian graph views from Elixir — topology-only serialization
+  (nodes + adjacency + layout) rendered by GT via
+  ~GtPhlowMondrianViewSpecification~.  Includes MapGraph view for
+  maps
+- Enable Erlang distribution and remsh info accessor for managed
+  BEAM processes
+
+*** Improvements
+
+- Adopt ExExample framework for all example modules with caching,
+  composition, and auto-generated tests
+- Add =@moduledoc= to all example modules
+- Remove redundant ~BeamAtomObject~ wrapping in view declarations
+- Fix ~classTags~ → ~tags~ API rename in ~BeamCodeVisualizer~
+- Drop redundant self binding from eval (renamed to =pid:=)
+- Extract ~register_value/1~ to deduplicate object serialization
+  in Eval

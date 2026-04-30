@@ -8,11 +8,13 @@ defmodule GtBridge.Supervisor do
   @impl true
   def init(_args) do
     children = [
+      {Registry, keys: :unique, name: GtBridge.EvalRegistry},
       {EvaluationSupervisor, []},
       {Tcp.Supervisor, []},
       {GtBridge.Http.Supervisor, []},
       {GtBridge.Views, [name: GtBridge.Views]},
-      {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]}
+      {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]},
+      {GtBridge.CacheReaper, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

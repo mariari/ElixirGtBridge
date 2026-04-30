@@ -10,6 +10,9 @@ defmodule GtBridge.Phlow.Text do
     field(:view_title, String.t(), default: "Unknown")
     field(:view_priority, integer(), default: 1)
     field(:text_string, String.t(), default: "")
+    field(:monospace, boolean(), default: false)
+    field(:font_size, pos_integer() | nil, default: nil)
+    field(:markdown, boolean(), default: false)
   end
 
   @doc """
@@ -38,6 +41,30 @@ defmodule GtBridge.Phlow.Text do
   end
 
   @doc """
+  Set the text to use glamorousCodeFont (monospaced).
+  """
+  @spec monospace(t()) :: t()
+  def monospace(self) do
+    %__MODULE__{self | monospace: true}
+  end
+
+  @doc """
+  Set the font size.
+  """
+  @spec font_size(t(), pos_integer()) :: t()
+  def font_size(self, size) do
+    %__MODULE__{self | font_size: size}
+  end
+
+  @doc """
+  I mark the text as markdown. GT renders with LeTextSnippet.
+  """
+  @spec markdown(t()) :: t()
+  def markdown(self) do
+    %__MODULE__{self | markdown: true}
+  end
+
+  @doc """
   Convert the text view to a dictionary format for serialization to GT.
   """
   @spec as_dict(t()) :: map()
@@ -47,7 +74,10 @@ defmodule GtBridge.Phlow.Text do
       priority: self.view_priority,
       viewName: "GtPhlowTextEditorViewSpecification",
       dataTransport: 2,
-      string: self.text_string
+      string: self.text_string,
+      monospace: self.monospace,
+      fontSize: self.font_size,
+      markdown: self.markdown
     }
   end
 end

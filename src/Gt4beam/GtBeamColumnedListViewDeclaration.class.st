@@ -13,10 +13,19 @@ GtBeamColumnedListViewDeclaration class >> remoteName [
 
 { #category : 'as yet unclassified' }
 GtBeamColumnedListViewDeclaration >> treatView: view [
-	view items: [ (self rawData attributeAt: #items) asList ].
+	| formattedItems rawItems textMap |
+	formattedItems := (self rawData attributeAt: #items) asList.
+	rawItems := (self rawData attributeAt: #rawItems) asList.
+	textMap := IdentityDictionary new: rawItems size.
+	rawItems withIndexDo: [ :item :idx |
+		textMap at: item put: (formattedItems at: idx) ].
+	view items: [ rawItems ].
 
 	(self rawData attributeAt: #columns) asList
-		withIndexDo: [ :aColumn :anIndex | view column: (aColumn attributeAt: #title) text: [ :item | item asList at: anIndex ] ]
+		withIndexDo: [ :aColumn :anIndex |
+			view
+				column: (aColumn attributeAt: #title)
+				text: [ :item | (textMap at: item) asList at: anIndex ] ]
 ]
 
 { #category : 'as yet unclassified' }

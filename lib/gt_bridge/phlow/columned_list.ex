@@ -13,6 +13,7 @@ defmodule GtBridge.Phlow.ColumnedList do
     field(:view_priority, integer(), default: 1)
     field(:items_callback, (-> list()) | nil, default: nil)
     field(:columns, list(Column.t()), default: [])
+    field(:send_callback, (any() -> any()) | nil, default: nil)
   end
 
   @doc """
@@ -54,6 +55,14 @@ defmodule GtBridge.Phlow.ColumnedList do
   end
 
   @doc """
+  I transform each item before sending to GT on click-through.
+  """
+  @spec send(t(), (any() -> any())) :: t()
+  def send(self, send_fn) when is_function(send_fn, 1) do
+    %__MODULE__{self | send_callback: send_fn}
+  end
+
+  @doc """
   Convert the columned list view to a dictionary format for serialization to GT.
   """
   @spec as_dict(t()) :: map()
@@ -65,33 +74,26 @@ defmodule GtBridge.Phlow.ColumnedList do
         []
       end
 
-    require Logger
-    Logger.info("ColumnedList items_data: #{inspect(items_data)}")
-    Logger.info("ColumnedList columns: #{inspect(self.columns)}")
-
-    # Format items for each column - each row should be a list of formatted string values
     formatted_data =
       Enum.map(items_data, fn item ->
-        row_values =
-          Enum.map(self.columns, fn col ->
-            Column.format_item(col, item)
-          end)
-
-        Logger.info("Row values: #{inspect(row_values)}")
-        row_values
+        Enum.map(self.columns, fn col ->
+          Column.format_item(col, item)
+        end)
       end)
 
-    result = %{
+    %{
       title: self.view_title,
       priority: self.view_priority,
       viewName: "GtPhlowColumnedListViewSpecification",
       dataTransport: 2,
       itemsCount: length(items_data),
       columns: Enum.map(self.columns, &Column.as_dict/1),
-      items: formatted_data
+      items: formatted_data,
+      rawItems:
+        if(self.send_callback,
+          do: Enum.map(items_data, self.send_callback),
+          else: items_data
+        )
     }
-
-    Logger.info("ColumnedList as_dict result: #{inspect(result)}")
-    result
   end
 end

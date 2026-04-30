@@ -6,6 +6,18 @@ Class {
 	#tag : 'Global'
 }
 
+{ #category : 'messaging' }
+ElixirExecutionHandler >> buildMessageFromCommand: command [
+	| message |
+	message := ElixirLinkEnqueueCommandMessage
+		commandId: command id
+		statements: command codeForRemote
+		bindings: (command bindings collect: [ :obj | self serialize: obj ]).
+	message addBinding: #pharoCommandId -> (self serialize: command id).
+	message sessionId: command sessionId.
+	^ message
+]
+
 { #category : 'initialization' }
 ElixirExecutionHandler >> initializeHandler [
 	commandQueue := LanguageLinkCommandRegistry executionHandler: self.
