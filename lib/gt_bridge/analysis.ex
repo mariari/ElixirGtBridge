@@ -259,7 +259,17 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
+  defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}),
+    do: extract_functions_from_body(body)
+
+  # A do-block with a single expression is not wrapped in `:__block__`,
+  # so `defmodule Foo do def hello, do: :world end` lands here.
+  defp extract_functions({:defmodule, _, [_, [do: body]]}),
+    do: extract_functions_from_body([body])
+
+  defp extract_functions(_), do: []
+
+  defp extract_functions_from_body(body) do
     body
     |> Enum.filter(fn
       {kind, _, _} when kind in [:def, :defp] -> true
@@ -279,8 +289,6 @@ defmodule GtBridge.Analysis do
       }
     end)
   end
-
-  defp extract_functions(_), do: []
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
   defp function_head({name, _, args}) when is_list(args), do: {name, length(args)}
