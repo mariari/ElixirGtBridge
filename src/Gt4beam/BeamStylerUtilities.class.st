@@ -1,7 +1,7 @@
 Class {
 	#name : 'BeamStylerUtilities',
 	#superclass : 'Object',
-	#category : 'Gt4beam-Styling',
+	#category : 'Gt4beam',
 	#package : 'Gt4beam'
 }
 
