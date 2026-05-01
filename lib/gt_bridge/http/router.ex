@@ -42,8 +42,23 @@ defmodule GtBridge.Http.Router do
     body = conn.body_params
 
     if body["statements"] != "" do
-      eval = resolve_eval(conn, body)
-      Eval.eval(eval, body["statements"], body["commandId"])
+      port = conn.assigns.pharo_client
+
+      case body["sessionId"] do
+        nil ->
+          # No session = no per-page bindings needed. Run in a fresh
+          # process so concurrent system queries (view-block fetches,
+          # proxy-GC finalizers, browser fan-out) don't serialize
+          # through one shared GenServer mailbox.
+          Eval.eval_stateless(body["statements"], body["commandId"], port)
+
+        sid ->
+          # Session-bound: snippet evals on a Lepiter page need
+          # bindings persisted across snippets, so route to the
+          # per-page Eval GenServer.
+          eval = EvalRegistry.get_or_create(sid, port: port)
+          Eval.eval(eval, body["statements"], body["commandId"])
+      end
     end
 
     # Always return empty JSON like Python bridge does

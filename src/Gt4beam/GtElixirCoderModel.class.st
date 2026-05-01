@@ -3,7 +3,9 @@ Class {
 	#superclass : 'GtSourceCoder',
 	#instVars : [
 		'application',
-		'elixirLinkApplicationStrategy'
+		'elixirLinkApplicationStrategy',
+		'preambleLines',
+		'contextModuleName'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -17,6 +19,15 @@ GtElixirCoderModel class >> code: aString [
 		  (GtCoderExplicitStringSource new source: aString)
 ]
 
+{ #category : 'accessing' }
+GtElixirCoderModel >> application [
+
+	"I return the BEAM application, initializing it if needed."
+
+	application ifNil: [ self initializeApplication ].
+	^ application
+]
+
 { #category : 'converting' }
 GtElixirCoderModel >> asCoderViewModel [
 	^ GtElixirSnippetCoderViewModel new coder: self
@@ -24,11 +35,13 @@ GtElixirCoderModel >> asCoderViewModel [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
-	"I prepend a binding for self (and an import of its module if any)
-	 so snippets can call the object's functions unqualified and use
-	 the pipe operator with self as the first argument."
+	"I prepend preamble, import, and self binding, then eval."
+	| selfObj |
+	selfObj := self selfObjectFor: aContext.
+	self initializeApplication.
+	self ensurePreambleLoaded: selfObj.
 	^ self
-		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: (self selfObjectFor: aContext))
+		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: selfObj)
 		sessionId: sid
 ]
 
@@ -47,6 +60,16 @@ GtElixirCoderModel >> bindAndExecuteRaw: sourceString sessionId: sid [
 GtElixirCoderModel >> computeAst: theSourceString [
 	^ ElixirParser
 		parseWithErrors: theSourceString
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> contextModuleName [
+	^ contextModuleName
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> contextModuleName: aString [
+	contextModuleName := aString
 ]
 
 { #category : 'private' }
@@ -80,6 +103,24 @@ GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 ]
 
 { #category : 'private' }
+GtElixirCoderModel >> ensurePreambleLoaded: selfObj [
+	"I fetch and cache the module's preamble directives (aliases,
+	 requires) from the bridge. Called once, cached for the life
+	 of this coder instance."
+	| modName result |
+	preambleLines ifNotNil: [ ^ self ].
+	modName := (selfObj respondsTo: #elixirClass)
+		ifTrue: [ selfObj elixirClass ]
+		ifFalse: [ nil ].
+	modName ifNil: [ preambleLines := #(). ^ self ].
+	result := application evaluateAndWait:
+		'GtBridge.Eval.Preamble.directives(' , modName , ') |> Enum.join("\n")'.
+	preambleLines := result isEmpty
+		ifTrue: [ #() ]
+		ifFalse: [ result lines ]
+]
+
+{ #category : 'private' }
 GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
 	aCoderVM ifNil: [ ^ self ].
 	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
@@ -104,6 +145,8 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 
 	addOns
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler).
+	addOns
+		addStyler: ElixirFunctionExpanderStyler new.
 
 	elixirLinkApplicationStrategy
 		ifNotNil: [ addOns
@@ -135,19 +178,14 @@ GtElixirCoderModel >> initializeApplication [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> initializeShortcuts: addOns [
-	"I add Ctrl-D DoIt, Ctrl-G DoItAndInspect, and Ctrl-S Save.
-	 The save shortcut fires GtSourceCoderViewModelSaveRequested on
-	 the view model; consumers that know how to save (e.g. the module
-	 coder's Source tab) subscribe to that announcement. Lepiter
-	 snippets leave it unconsumed, falling back to the base class's
-	 no-op save."
 	super initializeShortcuts: addOns.
-
 	elixirLinkApplicationStrategy
-		ifNotNil: [ addOns
+		ifNotNil: [
+			addOns
 				addShortcut: GtSourceCoderDoItShortcut new;
 				addShortcut: GtSourceCoderDoItAndInspectShortcut new;
-				addShortcut: GtSourceCoderSaveShortcut new ]
+				addShortcut: GtSourceCoderSaveShortcut new.
+			self initializeNavigationShortcuts: addOns ]
 ]
 
 { #category : 'accessing' }
@@ -211,21 +249,15 @@ GtElixirCoderModel >> selfObjectFor: aContext [
 		ifFalse: [ nil ]
 ]
 
-{ #category : 'accessing' }
-GtElixirCoderModel >> sourceFrom: trimmedSourceString returnedVarNames: varNames [
-	"Answer the modified source to return the declared variables"
-	^ String
-		streamContents: [ :stream |
-			stream << trimmedSourceString ]
-]
-
 { #category : 'private' }
 GtElixirCoderModel >> wrapSource: sourceString withSelf: selfObj [
-	"I prepend `self = <resolve>` and (when available) `import <Module>`
-	 so snippets can reference self and call its functions unqualified."
+	"I prepend preamble (aliases, requires), import, and self binding
+	 so snippets have the module's full environment from the first eval."
 	(selfObj notNil and: [ selfObj respondsTo: #resolve ])
 		ifFalse: [ ^ sourceString ].
 	^ String streamContents: [ :s |
+		(preambleLines ifNil: [ #() ]) do: [ :line |
+			s nextPutAll: line; nextPut: Character lf ].
 		(selfObj respondsTo: #elixirClass) ifTrue: [
 			selfObj elixirClass ifNotNil: [ :modName |
 				s nextPutAll: 'import '; nextPutAll: modName; nextPut: Character lf ] ].

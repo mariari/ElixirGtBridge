@@ -90,7 +90,7 @@ ElixirSystemAnalysis >> gtAppDependenciesFor: aView [
 			BeamMondrianHelpers
 				appDepGraphOn: aMondrian
 				trees: (self application evaluateAndWait:
-					'Enum.map(GtBridge.Analysis.root_apps(), fn r -> GtBridge.Analysis.app_dep_tree(r) end)') asList
+					'Enum.map(GtBridge.DepGraph.root_apps(), fn r -> GtBridge.DepGraph.app_dep_tree(r) end)') asList
 				apps: self appsByName
 				color: (Color fromHexString: '#e8f0fe') ]
 ]
@@ -206,7 +206,7 @@ ElixirSystemAnalysis >> gtMnesiaTablesFor: aView [
 		title: 'Mnesia tables';
 		priority: 25;
 		items: [ (self application evaluateAndWait:
-			'GtBridge.Analysis.mnesia_tables()') asList ];
+			'GtBridge.Mnesia.tables()') asList ];
 		column: 'Table' text: [ :each | each attributeAt: #name ] weight: 2;
 		column: 'Type' text: [ :each | each attributeAt: #type ] width: 50;
 		column: 'Size' text: [ :each | (each attributeAt: #size) asString ] width: 50;
