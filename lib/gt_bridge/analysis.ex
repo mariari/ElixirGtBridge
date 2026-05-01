@@ -817,6 +817,11 @@ defmodule GtBridge.Analysis do
     Enum.flat_map(body, &function_entry/1)
   end
 
+  # A do-block with a single expression isn't wrapped in `:__block__`,
+  # so `defmodule Foo do def hello, do: :world end` lands here.
+  defp extract_functions({:defmodule, _, [_, [do: body]]}),
+    do: function_entry(body)
+
   defp extract_functions(_), do: []
 
   # Atoms that look like function definers (def, defp, defmacro, defmacrop,
