@@ -104,9 +104,7 @@ ElixirModuleCoderElement >> buildRemoveModuleButton [
 						aptitude: BrGlamorousButtonWithIconAptitude;
 						icon: BrGlamorousVectorIcons bin;
 						beTinySize;
-						action: [ :aButton |
-							self coder remove.
-							aButton phlow spawnObject: self coder ];
+						action: [ :aButton | self coder remove ];
 						yourself);
 					yourself ])
 ]

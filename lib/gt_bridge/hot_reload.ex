@@ -203,6 +203,14 @@ defmodule GtBridge.HotReload do
                     Logger
                   ])
 
+  @doc "I drop `mod` from the BEAM so a stale loaded copy does not survive source-file deletion."
+  @spec purge_module(module()) :: :ok
+  def purge_module(mod) when is_atom(mod) do
+    :code.purge(mod)
+    :code.delete(mod)
+    :ok
+  end
+
   @spec compile_dep_edges(keyword()) :: [map()]
   def compile_dep_edges(opts \\ []) do
     manifest_path = Path.join(Mix.Project.manifest_path(), "compile.elixir")
