@@ -29,12 +29,6 @@ BeamPIDObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'views - helpers' }
-BeamPIDObject >> childrenTree [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
-]
-
 { #category : 'accessing' }
 BeamPIDObject >> elixirClass [
 	"I return nil — PIDs are not modules and cannot be imported."

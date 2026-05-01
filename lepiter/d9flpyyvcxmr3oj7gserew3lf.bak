@@ -89,6 +89,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.7253+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.7253+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "sBbZmvgvTxuxNR49LglLiQ=="
+							},
 							"paragraphStyle" : {
 								"__type" : "textStyle"
 							},
@@ -311,7 +337,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## ElixirSearchFilter protocol\n\nFive methods on a {{gtClass:name=GtSearchFilter}} subclass:\n\n- {{gtMethod:name=ElixirSearchFilter>>defaultFilterScope}} — items as async stream.\n- {{gtMethod:name=ElixirSearchFilter>>matches:}} — always true (results are pre-filtered).\n- {{gtMethod:name=ElixirSearchFilter>>gtDisplayOn:}} — title.\n- {{gtMethod:name=ElixirSearchFilter >> =}} + {{gtMethod:name=ElixirSearchFilter >> hash}} — identity for deduplication.\n- {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}} — overrides to render via streaming coders (see [[Streaming coders pattern]])."
+				"string" : "## ElixirSearchFilter protocol\n\nSix methods on a {{gtClass:name=GtSearchFilter}} subclass:\n\n- {{gtMethod:name=ElixirSearchFilter>>defaultFilterScope}} — items as async stream.\n- {{gtMethod:name=ElixirSearchFilter>>matches:}} — always true (results are pre-filtered).\n- {{gtMethod:name=ElixirSearchFilter>>gtDisplayOn:}} — title.\n- {{gtMethod:name=ElixirSearchFilter >> =}} + {{gtMethod:name=ElixirSearchFilter >> hash}} — identity for deduplication.\n- {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}} — overrides to render via streaming coders (see [[Streaming coders pattern]])."
 			},
 			{
 				"__type" : "textSnippet",
@@ -435,6 +461,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725346+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725346+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "i05ZQTTkSaaSWicpo+szoQ=="
+							},
 							"exampleSelector" : "cmBareFunctionShowsImplementors",
 							"previewHeight" : 200,
 							"previewShowSelector" : "gtViewsFor:",
@@ -449,6 +501,32 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.72542+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.72542+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "nKNyaDgxRWOKsfbDuQ5VFg=="
+							},
 							"exampleSelector" : "cmNavigatesToFunction",
 							"previewHeight" : 200,
 							"previewShowSelector" : "gtViewsFor:",
@@ -462,6 +540,32 @@
 							"children" : {
 								"__type" : "snippets",
 								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725431+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725431+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "stUaJGcZQNKmwK4grBca9Q=="
 							},
 							"exampleSelector" : "cnShowsReferences",
 							"previewHeight" : 200,

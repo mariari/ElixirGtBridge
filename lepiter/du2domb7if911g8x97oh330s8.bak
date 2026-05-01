@@ -1,0 +1,434 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:33:14.37753+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:36:55.690662+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "qWmqxRO9RLGISiG/b+BxvQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "An Elixir module reference that does not resolve gets a wrench affordance: click it to create the module via the bridge. The pipeline is two halves running on every keystroke - a cheap local classify pass for rendering, and a rare create-module flow that fans recompile events back through the bus so the wrench disappears.\n\nBelow: each stage as its own section, opening with the picture or the code that already shows the shape, then prose for the non-obvious bits."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:37.104901+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:37.104901+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "9ZwHMemoSa28s3Z0INj00w=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## The local classifier\n\n{{gtClass:name=BeamModuleResolution}} is a class-side singleton holding two `Set`s, `resolved` (BEAM-confirmed loaded) and `unresolved` (BEAM-confirmed not loaded). Names in neither set are `#unknown`. {{gtMethod:name=BeamModuleResolution>>classify:}} is what the styler calls per AST node - cheap, no bridge.\n\nMaintenance is additive: a weak subscription to {{gtClass:name=BeamModuleRecompiled}} on the wildcard channel moves the named module from `unresolved` to `resolved` (see {{gtMethod:name=BeamModuleResolution>>recordResolved:unresolved:}}). No invalidation, no refresh. Inspect the singleton to read the current state:"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:40.925154+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:40.925154+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "vqbOcSwKSfSfLs18UKT+mw=="
+				},
+				"code" : "BeamModuleResolution default"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:55.356894+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:30:55.356894+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "qQzPaFrRQhO/CQ8AMrfg2A=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## AST walk and alias merging\n\nEvery Elixir coder runs {{gtMethod:name=ElixirFunctionExpanderStyler>>style:ast:}} on each source change. After attaching inline `|>` expander triangles, it calls `attachUnknownModuleWrenchesIn:source:`. That pass parses the source locally with SmaCC `ElixirParser` (cached per source-hash on the styler instance, so the parse cost amortizes over keystrokes), collects every `ElixirDotAliasNode`, drops the heads of `defmodule` / `defprotocol` blocks (the module being defined, not referenced), and keeps only outermost spans.\n\nAlias merging happens in {{gtMethod:name=ElixirFunctionExpanderStyler>>extractAliasesFrom:}} - a line-scan of `alias` directives including the grouped form `Foo.{A, B, C}` (parsed by `parseGroupedAliasBody:`). The inline `|>` editor (whose source is just a function body) needs the enclosing module's aliases too; those come from a bridge call to `GtBridge.Analysis.module_aliases/1` and merge with the source-extracted ones (source wins on conflict)."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:04.416657+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:04.416657+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "84lDmbYJSe2xiLgxPw0LBA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Batched bridge query\n\n{{gtMethod:name=BeamModuleResolution>>classify:}} answers `#resolved` / `#unresolved` / `#unknown` purely from local sets. The `#unknown` names from one source change get batched into one bridge call to `GtBridge.Analysis.modules_loaded?/1`, which reads `Analysis.LoadedModules` (an ETS set populated from `:application.get_key/2` and maintained additively by EventBroker `%ModuleEvent{}` events). Results land back in the cache via `recordResolved:unresolved:`.\n\nAfter warm-up the unknown set is empty and the styler bridges zero times per source change. The first keystroke after a fresh image is the only one that pays the round-trip."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:15.261368+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:52:03.736054+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "UrEuwhSCSHaF6oeqVw7K1Q=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## The wrench attribute\n\nFor each `#unresolved` span the styler attaches an {{gtClass:name=ElixirUnknownModuleAttribute}}: a `BrTextAdornmentDynamicAttribute beAppend; stencil:` wrapping a wrench `BrButton` (`BrGlamorousVectorIcons repair`). Append-mode means the icon sits one char past the end of the identifier instead of replacing the trailing letter. Click it to see the \"Create module\" dropdown - that dispatches to `GtBridge.ModuleCreator.create/1` and rides the standard recompile-and-fanout path; {{gtClass:name=BeamModuleResolution}} hears the event on the wildcard channel, moves the name from `unresolved` to `resolved`, and the next style pass renders no wrench.\n\nThe Elixir snippet below has one resolved reference (`String`) and one made-up unresolved one (`Nope.Missing`) - the wrench should sit on the second:"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:40.686417+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:40.686417+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "JVGbQ2FFSqeGQfH+U29u4A=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## End-to-end example\n\nTwo snippets that exercise the full pipeline. First, classify a name we know doesn't exist:"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:51.491121+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:51.491121+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "vumgBC6GQq27kSPH9x5p6w=="
+				},
+				"code" : "\"Returns #unknown the first time, #unresolved after the bridge fallback runs.\"\nBeamModuleResolution default classify: 'Nope.Missing'"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:56.902682+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:31:56.902682+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "GYFBe+YvTUKsu5og7uSnTQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Then run the example that builds a styler over a tiny snippet referencing a known-loaded module plus an unknown one, asks the styler to classify both, and asserts the wrench attribute landed on exactly one span:"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:32:02.055467+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:39:18.350078+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "b3i+G1huT3K3WPEvJg7EsA=="
+				},
+				"code" : "\"Build a styler over a tiny source string referencing one known module\n and one unknown one. Inspect the returned attributes - exactly one\n wrench should be attached, on the unresolved span.\n\n (BEAM-side end-to-end coverage lives in lib/examples/e_module_creator.ex.)\"\nsource := 'String.upcase(\\\"hi\\\")\nNope.Missing.boom()'.\nstyler := ElixirFunctionExpanderStyler new.\n{ #classifyOne -> (BeamModuleResolution default classify: 'String').\n  #classifyTwo -> (BeamModuleResolution default classify: 'Nope.Missing').\n  #stylerClass -> styler class name }"
+			},
+			{
+				"__type" : "elixirSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:52:13.993656+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:52:13.993656+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "72gQBldzQTirKadX/bYtdQ=="
+				},
+				"code" : "String.upcase(\"hi\")\nNope.Missing.boom()"
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-29T19:30:04.743719+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-29T19:30:04.743719+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Wrench: Unresolved Module Affordance"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "b82dfe9b-f0e1-45c1-9e8c-1470cf50b1e9"
+	}
+}
