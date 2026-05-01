@@ -6,11 +6,26 @@ Class {
 		'functionName',
 		'arity',
 		'application',
-		'currentCoderModel'
+		'currentCoderModel',
+		'sourceCache'
 	],
 	#category : 'Gt4beam',
 	#package : 'Gt4beam'
 }
+
+{ #category : 'private' }
+ElixirFunctionExpanderAttribute >> bridgeFetchSource [
+	"I bridge-fetch the target's source.  Used as the cold-start
+	 path and as the fallback when the cache doesn't carry the
+	 entry (e.g. type references)."
+	| reply |
+	reply := application evaluateAndWait:
+		'GtBridge.Analysis.function_or_type_source(',
+		targetModule, ', "', functionName, '", ', arity asString, ')'.
+	^ reply
+		ifNil: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ]
+		ifNotNil: [ reply asString ]
+]
 
 { #category : 'building' }
 ElixirFunctionExpanderAttribute >> buildExpandedElement [
@@ -49,7 +64,11 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 ElixirFunctionExpanderAttribute >> buildHeader [
 	"I return the same breadcrumb header the filter rows use, so
 	 |> inline expansions and Module > function/arity rows look
-	 and click identically."
+	 and click identically.  The 'Create module' wrench moved out
+	 of here onto `ElixirUnknownModuleAttribute`, attached inline
+	 by the styler at the unknown identifier itself — that's the
+	 placement that actually reaches unresolved references (the
+	 |> expander only renders for resolvable calls)."
 	^ ElixirFunctionCoderHeaderElement
 		forModule: targetModule
 		functionName: functionName
@@ -59,17 +78,18 @@ ElixirFunctionExpanderAttribute >> buildHeader [
 
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> fetchSource [
-	"I fetch the target's source from the BEAM. Tries the function
-	 first, then falls back to an @type with the same name/arity —
-	 lets the inline expander work for both `Mod.fun(...)` calls and
-	 `Mod.t()` type references in @spec / typedstruct field types."
-	| reply |
-	reply := application evaluateAndWait:
-		'GtBridge.Analysis.function_or_type_source(',
-		targetModule, ', "', functionName, '", ', arity asString, ')'.
-	^ reply
-		ifNil: [ '# not found: ', targetModule, '.', functionName, '/', arity asString ]
-		ifNotNil: [ reply asString ]
+	"I fetch the target's source.  Try the per-module cache first;
+	 on miss fall back to the bridge.  The cache populates from
+	 `BeamModuleRecompiled` events, so first reads always miss
+	 until something has recompiled the module — that's expected,
+	 and the bridge fallback covers the cold-start path including
+	 type references (`@type t :: Foo.t()`) which never appear in
+	 a recompile's `functions` payload."
+	| cached |
+	cached := sourceCache
+		ifNotNil: [ sourceCache sourceForFunction: functionName arity: arity ].
+	cached ifNotNil: [ ^ cached ].
+	^ self bridgeFetchSource
 ]
 
 { #category : 'initialization' }
@@ -84,21 +104,23 @@ ElixirFunctionExpanderAttribute >> initialize [
 			stencil: [ self buildExpandedElement ] ]
 ]
 
-{ #category : 'announcements' }
-ElixirFunctionExpanderAttribute >> onTargetModuleRecompiled: anAnnouncement [
-	"I refresh my inline coder's source on any recompile event —
-	 narrow dispatch means events for other modules don't reach me.
-	 No-op if I haven't been expanded yet (no model held).
+{ #category : 'subscriptions' }
+ElixirFunctionExpanderAttribute >> onSourceChanged: anAnnouncement [
+	"I refresh my inline coder when the cache fires a narrow source-
+	 changed event for my exact function/arity.  Cache has already
+	 done the work of extracting + storing the new source — I just
+	 read from the announcement and re-render.  No bridge call.
 
-	 Prefer the fresh function entry inside the announcement payload
-	 over a follow-up `function_or_type_source` bridge call; fall back
-	 to the bridge when the payload doesn't carry it (sibling module
-	 events, or my target is a @type with the same name/arity)."
-	| source |
+	 Events for other functions/arities in the same module reach me
+	 (per-module announcer fan-out), so I filter here.  This is the
+	 'consumers just read' half of the FRP shape — heavy work
+	 happened once in the cache, cheap re-render happens N times
+	 across consumers."
 	currentCoderModel ifNil: [ ^ self ].
-	source := (self sourceFromAnnouncement: anAnnouncement)
-		ifNil: [ self fetchSource ].
-	currentCoderModel sourceCode: (GtCoderExplicitStringSource new source: source)
+	(anAnnouncement function = functionName asString
+		and: [ anAnnouncement arity = arity ]) ifFalse: [ ^ self ].
+	currentCoderModel sourceCode:
+		(GtCoderExplicitStringSource new source: anAnnouncement source)
 ]
 
 { #category : 'printing' }
@@ -128,35 +150,38 @@ ElixirFunctionExpanderAttribute >> saveSource: newSource [
 	mc spliceFunction: newSource forFunction: functionName arity: arity
 ]
 
-{ #category : 'private' }
-ElixirFunctionExpanderAttribute >> sourceFromAnnouncement: anAnnouncement [
-	"I extract my target function's source from the payload's function
-	 list. Returns nil when the payload is bare (sibling) or when my
-	 target is a @type that won't appear in the function list — the
-	 caller falls back to fetchSource in either case."
-	| entries match |
-	entries := anAnnouncement functions ifNil: [ ^ nil ].
-	(entries isKindOf: BeamProxyObject) ifTrue: [ entries := entries asList ].
-	match := entries detect: [ :e |
-		(e attributeAt: #name) asString = functionName asString
-			and: [ (e attributeAt: #arity) = arity ] ]
-		ifNone: [ nil ].
-	^ match ifNotNil: [ (match attributeAt: #source) asString ]
+{ #category : 'subscriptions' }
+ElixirFunctionExpanderAttribute >> subscribeToSourceChanges [
+	"I subscribe (weakly) to my module's narrow `BeamModuleSourceChanged`
+	 event — fired by `BeamModuleSourceCache` after it processes the
+	 underlying recompile.  Cache is the sole subscriber to recompile
+	 for this module; I just listen for the narrow event and read."
+	(BeamEventAnnouncer for: targetModule) weak
+		when: BeamModuleSourceChanged
+		send: #onSourceChanged:
+		to: self
 ]
 
 { #category : 'accessing' }
 ElixirFunctionExpanderAttribute >> targetModule: mod functionName: fn arity: ar application: app [
-	"I subscribe (weakly) to the per-module announcer for `mod` — narrow
-	 events only. If reassigned to a different target, drop the prior
-	 subscription first so I don't leak."
-	targetModule ifNotNil: [
-		(BeamEventAnnouncer for: targetModule) unsubscribe: self ].
+	"I set my target's identity and re-wire event subscription via
+	 the helpers in the `subscriptions` protocol.  Cache is held
+	 strongly so it stays alive as long as I do — the cache's
+	 class-side registry is a `WeakValueDictionary`, so my
+	 reference is what keeps it from being GC'd."
+	self unsubscribeFromSourceChanges.
 	targetModule := mod.
 	functionName := fn.
 	arity := ar.
 	application := app.
-	(BeamEventAnnouncer for: targetModule) weak
-		when: BeamModuleRecompiled
-		send: #onTargetModuleRecompiled:
-		to: self
+	sourceCache := BeamModuleSourceCache for: targetModule.
+	self subscribeToSourceChanges
+]
+
+{ #category : 'subscriptions' }
+ElixirFunctionExpanderAttribute >> unsubscribeFromSourceChanges [
+	"I drop my prior subscription before retargeting — otherwise I'd
+	 leak listeners on the old module's announcer."
+	targetModule ifNotNil: [
+		(BeamEventAnnouncer for: targetModule) unsubscribe: self ]
 ]
