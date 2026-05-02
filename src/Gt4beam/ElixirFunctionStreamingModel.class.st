@@ -80,16 +80,19 @@ ElixirFunctionStreamingModel >> onModuleSourceCodeChanged: anAnnouncement [
 
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
-	"I re-query function entries from the module coder and refresh my
-	 stream.  I keep the existing coder cache so the user doesn't lose
-	 their expansion state, but I push fresh source/line metadata into
-	 each cached coder — saves can come from peer paths (a |> expander,
-	 a different ElixirModuleCoder for the same module) that don't
-	 touch this list's row coders directly."
+	"Drops cached entries whose key isn't in the fresh set —
+	 recovers from a transient `nil/nil` entry captured before
+	 the source cache primed."
+	| freshKeys |
+	freshKeys := Set new.
 	moduleCoder functionEntries do: [ :entry |
 		| key cached |
 		key := self newCoderCacheKeyFor: entry.
+		freshKeys add: key.
 		cached := mutex critical: [ coders at: key ifAbsent: [ nil ] ].
 		cached ifNotNil: [ cached refreshFromEntry: entry ] ].
+	mutex critical: [
+		coders keys copy do: [ :k |
+			(freshKeys includes: k) ifFalse: [ coders removeKey: k ] ] ].
 	self refreshItemsStreamDueTo: 'functions reordered'
 ]
