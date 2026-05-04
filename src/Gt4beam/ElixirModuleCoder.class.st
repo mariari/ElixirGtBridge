@@ -517,16 +517,17 @@ ElixirModuleCoder >> remove [
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
-	"I write source to disk, format, and recompile. Surfaces refresh
-	 via BeamEventAnnouncer — every module the BEAM recompiled (direct
-	 + dep siblings parallel-recompiled for struct propagation) gets a
-	 BeamModuleRecompiled announcement, so subscribed surfaces (Source
-	 tab, function stream, |> expander, future browser/doc coder) all
-	 reach freshness through one channel.
+	"I write source to disk and trigger compile. `HotReload.reload`
+	 returns either `%{recompiled: [...]}` (success) or
+	 `%{source_written: %{...}, errors: [...]}` (failure) — mutually
+	 exclusive. On success I fan out `BeamModuleRecompiled` per
+	 module (existing path). On failure I announce
+	 `BeamModuleSourceWritten` so disk-truth subscribers re-derive,
+	 plus `BeamCompileFailed` for the error UI.
 
 	 Preserves the original file's line ending convention and trailing
 	 newline."
-	| b64 normalized usesCrlf ending result |
+	| b64 normalized usesCrlf ending result sourceWritten errors |
 	usesCrlf := self sourceCode includesSubstring: String crlf.
 	ending := usesCrlf ifTrue: [ String crlf ] ifFalse: [ String lf ].
 	normalized := newSource copyReplaceAll: String crlf with: String lf.
@@ -540,17 +541,22 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		<< ('GtBridge.HotReload.reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
 	(result isKindOf: BeamBridgeEvalError) ifTrue: [
-		"BEAM eval failed (compile error, file IO, etc.). Surface in the
-		 Transcript so the user sees it instead of silent stale-UI; don't
-		 fan out BeamModuleRecompiled because nothing actually recompiled.
-		 Future: lift to a BeamCompileFailed announcement once the
-		 radical-save error sliver UI lands."
 		Transcript
-			show: 'ElixirModuleCoder >> saveAndCompile failed for ', moduleName, ': ';
+			show: 'ElixirModuleCoder >> saveAndCompile bridge error for ', moduleName, ': ';
 			show: result printString;
 			cr.
 		^ result ].
-	self announceBeamRecompiledFrom: result.
+	sourceWritten := result attributeAt: #source_written.
+	sourceWritten ifNil: [
+		^ self announceBeamRecompiledFrom: result ].
+	BeamEventAnnouncer
+		announceSourceWrittenFor: moduleName
+		fromPayload: sourceWritten.
+	errors := result attributeAt: #errors.
+	errors ifNotNil: [
+		BeamEventAnnouncer
+			announceCompileFailedFor: moduleName
+			errors: errors asList ].
 	^ result
 ]
 
