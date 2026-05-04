@@ -280,27 +280,28 @@ BeamModuleSourceCache >> ensureSubscribed [
 	 The announcer can be reset out from under me (`BeamEventAnnouncer
 	 reset`) while I'm still alive in `caches`, leaving my prior
 	 subscription orphaned on a now-garbage announcer."
-	| ann subs |
+	| ann |
 	ann := BeamEventAnnouncer for: mod.
-	subs := ann subscriptions subscriptions ifNil: [ #() ].
-	(subs anySatisfy: [ :sub |
+	self ensureSubscribedTo: BeamModuleSourceWritten via: #onBeamModuleSourceWritten: on: ann.
+	self ensureSubscribedTo: BeamModuleRecompiled via: #onBeamModuleRecompiled: on: ann.
+	self ensureSubscribedTo: BeamModuleSourceRemoved via: #onBeamModuleSourceRemoved: on: ann
+]
+
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> ensureSubscribedTo: anEventClass via: aSelector on: anAnnouncer [
+	"I subscribe weakly to `anEventClass` only if I'm not already
+	 listening for it on `anAnnouncer`."
+	| subs already |
+	subs := anAnnouncer subscriptions subscriptions ifNil: [ #() ].
+	already := subs anySatisfy: [ :sub |
 		sub subscriber == self
-			and: [ [ sub announcementClass = BeamModuleRecompiled ]
-				on: Error do: [ false ] ] ])
-		ifFalse: [
-			ann weak
-				when: BeamModuleRecompiled
-				send: #onBeamModuleRecompiled:
-				to: self ].
-	(subs anySatisfy: [ :sub |
-		sub subscriber == self
-			and: [ [ sub announcementClass = BeamModuleSourceRemoved ]
-				on: Error do: [ false ] ] ])
-		ifFalse: [
-			ann weak
-				when: BeamModuleSourceRemoved
-				send: #onBeamModuleSourceRemoved:
-				to: self ]
+			and: [ [ sub announcementClass = anEventClass ]
+				on: Error do: [ false ] ] ].
+	already ifFalse: [
+		anAnnouncer weak
+			when: anEventClass
+			send: aSelector
+			to: self ]
 ]
 
 { #category : 'querying' }
@@ -369,15 +370,27 @@ BeamModuleSourceCache >> mod: aModuleName [
 
 { #category : 'subscriptions' }
 BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
-	"I update my source map and entries list from the announcement
-	 payload, fan out narrow `BeamModuleSourceChanged` per
-	 (function, arity) whose source changed, and fire one coarse
-	 `BeamModuleEntriesUpdated` at the end so module-level consumers
-	 (Source tab, streaming list) re-render exactly once per
-	 recompile instead of N times for N changed functions.
+	"BEAM accepted new code (success path). Same diff loop as
+	 SourceWritten — the two events are mutually exclusive per save
+	 so no dedup needed."
+	self processFunctionUpdate: anAnnouncement
+]
 
-	 Both events go to my per-module announcer, so subscribers
-	 narrow to me already only receive events for my module."
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> onBeamModuleSourceWritten: anAnnouncement [
+	"Disk has new bytes but BEAM doesn't (compile failed, or external
+	 file-watcher fired). Same diff loop as Recompiled."
+	self processFunctionUpdate: anAnnouncement
+]
+
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> processFunctionUpdate: anAnnouncement [
+	"Shared body for SourceWritten + Recompiled.  I update my source
+	 map and entries list from the announcement payload, fan out
+	 narrow `BeamModuleSourceChanged` per (function, arity) whose
+	 source changed, and fire one coarse `BeamModuleEntriesUpdated`
+	 at the end so module-level consumers (Source tab, streaming
+	 list) re-render exactly once per save."
 	| functions |
 	functions := anAnnouncement functions ifNil: [ ^ self ].
 	(functions isKindOf: BeamProxyObject) ifTrue: [
