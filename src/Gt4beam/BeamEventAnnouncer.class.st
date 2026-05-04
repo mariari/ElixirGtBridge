@@ -46,6 +46,26 @@ Class {
 }
 
 { #category : 'announcing' }
+BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
+	"Per-module + default fan-out, mirroring announceRecompiledFrom:."
+	| announcement perModule |
+	announcement := BeamCompileFailed mod: aModuleName errors: aListOfErrors.
+	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
+	perModule ifNotNil: [ perModule announce: announcement ].
+	self default announce: announcement
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> announceSourceWrittenFor: aModuleName fromPayload: aPayload [
+	"Per-module + default fan-out for the disk-write fact."
+	| announcement perModule |
+	announcement := BeamModuleSourceWritten fromPayload: aPayload mod: aModuleName.
+	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
+	perModule ifNotNil: [ perModule announce: announcement ].
+	self default announce: announcement
+]
+
+{ #category : 'announcing' }
 BeamEventAnnouncer class >> announceRecompiled: aModuleName [
 	"I am a thin wrapper around `announceRecompiledFrom:` for callers
 	 that only have a bare module name (e.g. unit-style examples that
