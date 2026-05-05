@@ -11,7 +11,9 @@ Class {
 		'sourcePath',
 		'line',
 		'errorMessage',
-		'application'
+		'application',
+		'functionName',
+		'arity'
 	],
 	#category : 'Gt4beam-Events',
 	#package : 'Gt4beam',
@@ -21,6 +23,40 @@ Class {
 { #category : 'accessing' }
 BeamCompileFailureNotification >> application [
 	^ application
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> arity [
+	^ arity
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> arity: anIntegerOrNil [
+	arity := anIntegerOrNil
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionName [
+	^ functionName
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionName: aStringOrNil [
+	functionName := aStringOrNil
+]
+
+{ #category : 'testing' }
+BeamCompileFailureNotification >> hasFunction [
+	^ functionName isNotNil and: [ arity isNotNil ]
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionTarget [
+	^ self hasFunction
+		ifTrue: [ ElixirFunctionScrollTarget new
+			functionName: functionName
+			arity: arity ]
+		ifFalse: [ nil ]
 ]
 
 { #category : 'accessing' }

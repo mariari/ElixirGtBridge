@@ -77,6 +77,8 @@ BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement applic
 		sourcePath: (self read: #file from: first);
 		line: (self read: #line from: first);
 		errorMessage: ((self read: #message from: first) ifNil: [ 'compile failed' ]) asString;
+		functionName: ((self read: #function from: first) ifNotNil: [ :f | f asString ]);
+		arity: (self read: #arity from: first);
 		application: anApp;
 		yourself
 ]

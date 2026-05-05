@@ -46,9 +46,10 @@ BeamCompileFailureNotificationElement >> onNotificationChanged [
 
 { #category : 'actions' }
 BeamCompileFailureNotificationElement >> openCoderFrom: anElement [
-	"Build a coder for the offending module and spawn it via phlow.
-	 Focus the failing line when known."
-	| n app coder |
+	"Build a coder for the offending module and open it as the proper
+	 element (Source/Functions tabs) in a fresh BlSpace.  Focus the
+	 enclosing function when known; fall back to the failing line."
+	| n app coder element space |
 	n := self notification.
 	n ifNil: [ ^ self ].
 	app := n resolveApplication.
@@ -57,7 +58,14 @@ BeamCompileFailureNotificationElement >> openCoderFrom: anElement [
 		forModule: n moduleName
 		application: app
 		sourcePath: n sourcePath.
+	n hasFunction ifTrue: [ coder focusFunctionTarget: n functionTarget ].
 	n hasLine ifTrue: [ coder focusLine: n line ].
-	anElement phlow spawnObject: coder.
+	element := coder asCoderViewModel asElement.
+	space := BlSpace new
+		title: n moduleName;
+		extent: 800 @ 600;
+		yourself.
+	space root addChild: element matchParent.
+	space show.
 	self dismiss
 ]

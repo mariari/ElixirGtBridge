@@ -146,6 +146,8 @@ defmodule GtBridge.HotReload do
 
   defp build_error_payload(file, line, column, message) do
     file_str = to_string(file)
+    source = read_source(file_str)
+    enclosing = source && line && enclosing_function(source, line)
 
     %{
       phase: :compile,
@@ -153,15 +155,31 @@ defmodule GtBridge.HotReload do
       line: line,
       column: column,
       message: to_string(message),
-      module: module_in_file(file_str)
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
     }
   end
 
   defp module_in_file(file) do
+    case read_source(file) do
+      nil -> nil
+      source -> GtBridge.Analysis.module_in_source(source)
+    end
+  end
+
+  defp read_source(nil), do: nil
+
+  defp read_source(file) do
     case File.read(file) do
-      {:ok, content} -> GtBridge.Analysis.module_in_source(content)
+      {:ok, content} -> content
       _ -> nil
     end
+  end
+
+  defp enclosing_function(source, line) do
+    GtBridge.Analysis.functions_in_source(source)
+    |> Enum.find(fn f -> f.start <= line and line <= f.end_line end)
   end
 
   defp source_written_payload(path, content) do
@@ -226,14 +244,19 @@ defmodule GtBridge.HotReload do
 
   defp compile_error_payload(e) do
     file = Map.get(e, :file)
+    line = Map.get(e, :line)
+    source = file && read_source(file)
+    enclosing = source && line && enclosing_function(source, line)
 
     %{
       phase: error_phase(e),
       file: file,
-      line: Map.get(e, :line),
+      line: line,
       column: Map.get(e, :column),
       message: Exception.message(e),
-      module: file && module_in_file(file)
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
     }
   end
 
