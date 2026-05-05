@@ -113,9 +113,122 @@ defmodule GtBridge.HotReload do
           parallel_compile_or_throw(siblings)
       end
 
-    IEx.Helpers.recompile()
+    recompile_preserving_modules()
     broadcast_recompiled(compiled, sibling_mods, content)
     %{recompiled: recompiled_payloads(compiled, sibling_mods, content)}
+  end
+
+  # Mix's failed retry purges the module being compiled and may delete
+  # its .beam.  Snapshot bytecode in memory before, restore via
+  # load_binary after.
+  defp recompile_preserving_modules do
+    snapshot = snapshot_project_modules()
+
+    try do
+      recompile_or_throw()
+    after
+      for {m, file, beam} <- snapshot, :code.is_loaded(m) == false do
+        :code.load_binary(m, file, beam)
+      end
+    end
+  end
+
+  defp snapshot_project_modules do
+    apps = [Mix.Project.config()[:app] | path_dep_apps()] |> Enum.reject(&is_nil/1)
+
+    for app <- apps,
+        {:ok, mods} <- [:application.get_key(app, :modules)],
+        m <- mods,
+        {^m, beam, file} <- [safe_get_object_code(m)] do
+      {m, file, beam}
+    end
+  end
+
+  defp safe_get_object_code(m) do
+    case :code.get_object_code(m) do
+      {^m, _beam, _file} = ok -> ok
+      _ -> nil
+    end
+  end
+
+  defp path_dep_apps do
+    for dep <- Mix.Project.config()[:deps] || [],
+        {app, opts} = normalize_dep(dep),
+        Keyword.has_key?(opts, :path) do
+      app
+    end
+  end
+
+  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _}), do: {app, []}
+  defp normalize_dep(app) when is_atom(app), do: {app, []}
+
+  defp recompile_or_throw do
+    if mix_started?() do
+      Mix.Project.with_build_lock(fn ->
+        maybe_purge_mix_listener()
+        diagnostics = run_mix_compile_capturing_diagnostics()
+        errors = Enum.filter(diagnostics, &(Map.get(&1, :severity) == :error))
+
+        if errors != [] do
+          throw({:gt_compile_failed, Enum.map(errors, &diagnostic_error_payload/1)})
+        end
+      end)
+    end
+  end
+
+  defp mix_started? do
+    List.keyfind(Application.started_applications(), :mix, 0) != nil
+  end
+
+  defp maybe_purge_mix_listener do
+    if Code.ensure_loaded?(IEx.MixListener) and
+         function_exported?(IEx.MixListener, :purge, 0) do
+      IEx.MixListener.purge()
+    end
+  end
+
+  defp run_mix_compile_capturing_diagnostics do
+    config = Mix.Project.config()
+    consolidation = Mix.Project.consolidation_path(config)
+
+    Mix.Task.reenable("compile")
+    Mix.Task.reenable("compile.all")
+    Mix.Task.reenable("compile.protocols")
+    compilers = config[:compilers] || Mix.compilers()
+    Enum.each(compilers, &Mix.Task.reenable("compile.#{&1}"))
+
+    args = ["--purge-consolidation-path-if-stale", consolidation, "--return-errors"]
+
+    case Mix.Task.run("compile", args) do
+      {_status, diagnostics} when is_list(diagnostics) -> diagnostics
+      _ -> []
+    end
+  end
+
+  defp diagnostic_error_payload(%{file: file, position: position, message: message}) do
+    {line, column} =
+      case position do
+        {l, c} -> {l, c}
+        n when is_integer(n) -> {n, nil}
+        _ -> {nil, nil}
+      end
+
+    file_str = file && to_string(file)
+    source = file_str && read_source(file_str)
+    enclosing = source && line && enclosing_function(source, line)
+
+    %{
+      phase: :compile,
+      file: file_str,
+      line: line,
+      column: column,
+      message: to_string(message),
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
+    }
   end
 
   # I compile a list of files via ParallelCompiler so verifier errors
