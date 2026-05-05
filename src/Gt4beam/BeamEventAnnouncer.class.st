@@ -46,38 +46,49 @@ Class {
 }
 
 { #category : 'announcing' }
-BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
+BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: anApp errors: aListOfErrors [
 	"Per-module + default fan-out, mirroring announceRecompiledFrom:.
-	 Also pops a global GtNotificationMessage so the user sees the
-	 failure regardless of which coder is open."
+	 Also pops a `BeamCompileFailureNotification` whose Open button
+	 spawns the offending module's coder."
 	| announcement perModule |
 	announcement := BeamCompileFailed mod: aModuleName errors: aListOfErrors.
 	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
 	perModule ifNotNil: [ perModule announce: announcement ].
 	self default announce: announcement.
 	GtWorld showNotification:
-		(GtNotificationMessage new
-			message: (self compileFailureMessage: announcement);
-			yourself)
+		(self compileFailureNotificationFor: announcement application: anApp)
 ]
 
 { #category : 'announcing' }
-BeamEventAnnouncer class >> compileFailureMessage: anAnnouncement [
-	| first read line msg mod |
-	first := anAnnouncement errors ifNotNil: [ :e | e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
-	first ifNil: [ ^ 'Compile failed for ' , anAnnouncement mod ].
-	read := [ :key |
-		(first respondsTo: #attributeAt:)
-			ifTrue: [ first attributeAt: key ]
-			ifFalse: [ first at: key ifAbsent: [ nil ] ] ].
-	line := read value: #line.
-	msg := (read value: #message) ifNil: [ '(no message)' ].
-	mod := (read value: #module) ifNil: [ anAnnouncement mod ].
-	^ String streamContents: [ :s |
-		s << 'Compile failed for ' << mod asString.
-		(line isNil or: [ line = 0 ]) ifFalse: [
-			s << ' (line ' << line asString << ')' ].
-		s << ': ' << msg asString ]
+BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
+	"Convenience for callers without an application reference."
+	^ self announceCompileFailedFor: aModuleName application: nil errors: aListOfErrors
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp [
+	"Build the notification from the first error (offending module /
+	 line / message) with announcement's mod as fallback."
+	| first |
+	first := anAnnouncement errors ifNotNil: [ :e |
+		e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
+	^ BeamCompileFailureNotification new
+		moduleName: ((self read: #module from: first) ifNil: [ anAnnouncement mod ]) asString;
+		sourcePath: (self read: #file from: first);
+		line: (self read: #line from: first);
+		errorMessage: ((self read: #message from: first) ifNil: [ 'compile failed' ]) asString;
+		application: anApp;
+		yourself
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> read: aKey from: anEntry [
+	"Polymorphic field read that handles both Smalltalk Dictionary
+	 entries (tests) and BeamProxyObject map proxies (live bridge)."
+	anEntry ifNil: [ ^ nil ].
+	^ (anEntry respondsTo: #attributeAt:)
+		ifTrue: [ anEntry attributeAt: aKey ]
+		ifFalse: [ anEntry at: aKey ifAbsent: [ nil ] ]
 ]
 
 { #category : 'announcing' }

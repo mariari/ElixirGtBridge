@@ -21,26 +21,36 @@ Class {
 
 { #category : 'instance creation' }
 ElixirModuleCoder class >> forModule: aModuleName application: anApp [
-	"I fetch the module's source file path via the BEAM bridge.
-	 The case expression guarantees the result is either a binary
-	 or nil — without it, compile_source's to_string return value
-	 has sometimes come back across the bridge as a BeamProxyObject
-	 wrapping the raw Erlang charlist, which then DNU'd when the
-	 Smalltalk side tried to use it as a String path."
-	| path |
-	path := [ anApp evaluateAndWait:
+	^ self forModule: aModuleName application: anApp sourcePath: nil
+]
+
+{ #category : 'instance creation' }
+ElixirModuleCoder class >> forModule: aModuleName application: anApp sourcePath: aPathOrNil [
+	"Resolve sourcePath via the bridge unless the caller already has
+	 it — the bridge call goes through GtBridge.Resolve.source_file/1
+	 which needs the module loaded.  After Mix purges the module
+	 (compile-failure cascade) the lookup returns nil and saves
+	 splice into '' source.  Notification spawn passes the path it
+	 already has from the error payload's #file."
+	| resolved |
+	resolved := aPathOrNil ifNil: [ self resolveSourcePath: aModuleName via: anApp ].
+	^ self new
+		moduleName: aModuleName;
+		application: anApp;
+		sourcePath: ((resolved isKindOf: String) ifTrue: [ resolved ] ifFalse: [ nil ]);
+		yourself
+]
+
+{ #category : 'instance creation' }
+ElixirModuleCoder class >> resolveSourcePath: aModuleName via: anApp [
+	^ [ anApp evaluateAndWait:
 		'case GtBridge.Resolve.source_file(', aModuleName, ') do
 		 nil -> nil
 		 s when is_binary(s) -> s
 		 s when is_list(s) -> List.to_string(s)
 		 _ -> nil
 		 end' ]
-		on: Error do: [ nil ].
-	^ self new
-		moduleName: aModuleName;
-		application: anApp;
-		sourcePath: ((path isKindOf: String) ifTrue: [ path ] ifFalse: [ nil ]);
-		yourself
+		on: Error do: [ nil ]
 ]
 
 { #category : 'actions' }
@@ -564,6 +574,7 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 	errors ifNotNil: [
 		BeamEventAnnouncer
 			announceCompileFailedFor: moduleName
+			application: application
 			errors: errors asList ].
 	^ result
 ]
