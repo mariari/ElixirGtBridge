@@ -43,18 +43,32 @@ defmodule GtBridge.HotReload do
     # Mutually exclusive — at most one of `recompiled` / `source_written`
     # is present in the result, so subscribers don't need dedup.
     File.write!(path, content)
-    Mix.Tasks.Format.run([path])
-    formatted = File.read!(path)
 
     try do
+      Mix.Tasks.Format.run([path])
+      formatted = File.read!(path)
       do_compile(path, formatted)
     rescue
       e in [CompileError, SyntaxError, TokenMissingError] ->
-        compile_failure(path, formatted, [compile_error_payload(e)])
+        compile_failure(path, content, [compile_error_payload(e)])
+
+      e ->
+        compile_failure(path, content, [exception_error_payload(path, e)])
     catch
       {:gt_compile_failed, errors} ->
-        compile_failure(path, formatted, errors)
+        compile_failure(path, content, errors)
     end
+  end
+
+  defp exception_error_payload(path, e) do
+    %{
+      phase: :unknown,
+      file: path,
+      line: nil,
+      column: nil,
+      message: Exception.message(e),
+      module: module_in_file(path)
+    }
   end
 
   defp compile_failure(path, content, errors) do
