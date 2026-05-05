@@ -122,13 +122,33 @@ defmodule GtBridge.HotReload do
   end
 
   defp verifier_error_payload({file, {line, column}, message}),
-    do: %{phase: :compile, file: to_string(file), line: line, column: column, message: to_string(message)}
+    do: build_error_payload(file, line, column, message)
 
   defp verifier_error_payload({file, line, message}) when is_integer(line),
-    do: %{phase: :compile, file: to_string(file), line: line, column: nil, message: to_string(message)}
+    do: build_error_payload(file, line, nil, message)
 
   defp verifier_error_payload({file, _, message}),
-    do: %{phase: :compile, file: to_string(file), line: nil, column: nil, message: to_string(message)}
+    do: build_error_payload(file, nil, nil, message)
+
+  defp build_error_payload(file, line, column, message) do
+    file_str = to_string(file)
+
+    %{
+      phase: :compile,
+      file: file_str,
+      line: line,
+      column: column,
+      message: to_string(message),
+      module: module_in_file(file_str)
+    }
+  end
+
+  defp module_in_file(file) do
+    case File.read(file) do
+      {:ok, content} -> GtBridge.Analysis.module_in_source(content)
+      _ -> nil
+    end
+  end
 
   defp source_written_payload(path, content) do
     %{
@@ -191,12 +211,15 @@ defmodule GtBridge.HotReload do
   end
 
   defp compile_error_payload(e) do
+    file = Map.get(e, :file)
+
     %{
       phase: error_phase(e),
-      file: Map.get(e, :file),
+      file: file,
       line: Map.get(e, :line),
       column: Map.get(e, :column),
-      message: Exception.message(e)
+      message: Exception.message(e),
+      module: file && module_in_file(file)
     }
   end
 
