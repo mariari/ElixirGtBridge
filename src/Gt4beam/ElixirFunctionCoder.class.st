@@ -71,25 +71,28 @@ ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
-	<gtCoderAction>
 	"I run 0-arity functions directly, or 1-arity functions with
 	 selfObject piped in as the first argument."
+
+	<gtCoderAction>
 	| canRun callExpr |
-	arity = 0 ifTrue: [
-		callExpr := moduleCoder moduleName, '.', functionName, '()'.
-		canRun := true ].
-	(arity = 1 and: [ selfObject notNil ]) ifTrue: [
-		callExpr := moduleCoder moduleName, '.', functionName, '(', selfObject resolve, ')'.
-		canRun := true ].
+	arity = 0
+		ifTrue: [ callExpr := moduleCoder moduleName , '.' , functionName , '()'.
+			canRun := true ].
+	(arity = 1 and: [ selfObject notNil ])
+		ifTrue: [ callExpr := moduleCoder moduleName , '.' , functionName , '('
+					, selfObject resolve , ')'.
+			canRun := true ].
 	(canRun ifNil: [ false ]) ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Run' translated
 		icon: BrGlamorousVectorIcons play
-		action: [ :aCoderVM :anElement |
-			anElement phlow spawnObject:
-				(moduleCoder application newCommandFactory
-					<< callExpr;
-					sendAndWait) ]
+		action: [ :aCoderVM :anElement | 
+			self isModified ifTrue: [ self saveFunction ].
+			anElement phlow
+				spawnObject: (moduleCoder application newCommandFactory
+						<< callExpr;
+						sendAndWait) ]
 		id: #elixirFunctionRunAction
 ]
 
