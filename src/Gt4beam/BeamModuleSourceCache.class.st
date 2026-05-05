@@ -39,7 +39,8 @@ Class {
 	#instVars : [
 		'mod',
 		'sources',
-		'entries'
+		'entries',
+		'lastGoodSource'
 	],
 	#classInstVars : [
 		'caches'
@@ -271,7 +272,17 @@ BeamModuleSourceCache >> clear [
 	 want to observe the side-effect of a fresh recompile on a
 	 known-empty cache."
 	sources := Dictionary new.
-	entries := #()
+	entries := #().
+	lastGoodSource := nil
+]
+
+{ #category : 'accessing' }
+BeamModuleSourceCache >> lastGoodSource [
+	"Whole-file source from the most recent successful compile.  nil
+	 until a save succeeds.  Splice operations should prefer this over
+	 disk content — disk may carry the broken bytes from a failed save
+	 whose line numbers no longer line up with cached function entries."
+	^ lastGoodSource
 ]
 
 { #category : 'subscriptions' }
@@ -369,6 +380,7 @@ BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
 	 Both events go to my per-module announcer, so subscribers
 	 narrow to me already only receive events for my module."
 	| functions |
+	anAnnouncement source ifNotNil: [ :s | lastGoodSource := s ].
 	functions := anAnnouncement functions ifNil: [ ^ self ].
 	(functions isKindOf: BeamProxyObject) ifTrue: [
 		functions := functions asList ].

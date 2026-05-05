@@ -324,6 +324,7 @@ defmodule GtBridge.HotReload do
     %{
       mod: module_name(mod),
       source_hash: :erlang.phash2(content),
+      source: content,
       functions: GtBridge.Analysis.all_functions(mod)
     }
   end

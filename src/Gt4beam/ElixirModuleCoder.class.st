@@ -629,13 +629,12 @@ ElixirModuleCoder >> sourcePath: aString [
 
 { #category : 'actions' }
 ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
-	"I find the function's current position in the file by name/arity,
-	 splice the new text in, and save. Skips if a save is already running.
-
-	 `functionEntries` short-circuits on the cache populated by the
-	 most recent BeamModuleRecompiled, so back-to-back saves don't
-	 each pay an `all_functions/1` round-trip."
-	| match lines newLines st en |
+	"Splice newText into the module's last-known-good source at the
+	 function's cached line range.  The cached entries' start/end_line
+	 are coordinates in the source from the most recent successful
+	 compile; using disk content as the splice base after a failed
+	 save mismatches those coordinates and trips subscriptOutOfBounds."
+	| match lines newLines st en base size |
 	saving == true ifTrue: [ ^ self ].
 	saving := true.
 	[ match := self functionEntries
@@ -644,10 +643,16 @@ ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
 		ifNone: [ ^ self ].
 	st := match attributeAt: #start.
 	en := match attributeAt: #end_line.
-	lines := self sourceCode lines.
+	base := sourceCache lastGoodSource ifNil: [ self sourceCode ].
+	lines := base lines.
+	size := lines size.
+	(st isInteger and: [ en isInteger and: [ st > 0 and: [ en >= st ] ] ])
+		ifFalse: [ ^ self ].
+	st := st min: size + 1.
+	en := en min: size.
 	newLines := (lines copyFrom: 1 to: st - 1) asOrderedCollection.
 	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: en + 1 to: lines size).
+	newLines addAll: (lines copyFrom: en + 1 to: size).
 	self
 		saveAndCompile: (String lf join: newLines)
 		forFunction: aName
