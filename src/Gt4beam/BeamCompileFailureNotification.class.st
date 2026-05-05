@@ -137,3 +137,30 @@ BeamCompileFailureNotification >> header [
 BeamCompileFailureNotification >> summary [
 	^ self header , ': ' , (errorMessage ifNil: [ '(no message)' ])
 ]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> title [
+	^ 'Compile failed for ' , moduleName asString
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionLineLabel [
+	"Second-line content: function/arity (line N), or just (line N),
+	 or empty when neither is known."
+	| parts |
+	parts := OrderedCollection new.
+	self hasFunction ifTrue: [ parts add: functionName , '/' , arity asString ].
+	self hasLine ifTrue: [ parts add: '(line ' , line asString , ')' ].
+	^ ' ' join: parts
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> shortMessage [
+	"First non-blank line of the error, truncated to 100 chars."
+	| msg firstLine |
+	msg := errorMessage ifNil: [ ^ '(no message)' ].
+	firstLine := (msg lines detect: [ :l | l trimBoth isNotEmpty ] ifNone: [ msg ]) trimBoth.
+	^ firstLine size > 100
+		ifTrue: [ (firstLine first: 100) , '…' ]
+		ifFalse: [ firstLine ]
+]
