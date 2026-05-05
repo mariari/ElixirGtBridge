@@ -84,7 +84,7 @@ ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel
 	(canRun ifNil: [ false ]) ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Run' translated
-		icon: BrGlamorousVectorIcons play
+		icon: BrGlamorousVectorIcons playinspect
 		action: [ :aCoderVM :anElement |
 			anElement phlow spawnObject:
 				(moduleCoder application newCommandFactory
