@@ -50,16 +50,21 @@ defmodule GtBridge.HotReload do
       do_compile(path, formatted)
     rescue
       e in [CompileError, SyntaxError, TokenMissingError] ->
-        errors = [compile_error_payload(e)]
-
-        GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
-          kind: :compile_failed,
-          mod: nil,
-          errors: errors
-        })
-
-        Map.merge(source_written_payload(path, formatted), %{errors: errors})
+        compile_failure(path, formatted, [compile_error_payload(e)])
+    catch
+      {:gt_compile_failed, errors} ->
+        compile_failure(path, formatted, errors)
     end
+  end
+
+  defp compile_failure(path, content, errors) do
+    GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+      kind: :compile_failed,
+      mod: nil,
+      errors: errors
+    })
+
+    Map.merge(source_written_payload(path, content), %{errors: errors})
   end
 
   # I do the compile + sibling propagation half. Pulled out of `reload/2`
@@ -69,8 +74,8 @@ defmodule GtBridge.HotReload do
     :ets.delete_all_objects(:elixir_modules)
     abs_path = Path.expand(path)
 
-    compiled = Code.compile_file(path)
-    [{mod, _} | _] = compiled
+    direct_mods = parallel_compile_or_throw([path])
+    [mod | _] = direct_mods
     app = Application.get_application(mod)
     main_app = Mix.Project.config()[:app]
 
@@ -83,26 +88,47 @@ defmodule GtBridge.HotReload do
           []
 
         _ ->
-          for {m, binary} <- compiled, do: persist_beam(m, binary)
-
           self_path = __ENV__.file |> Path.expand()
 
           siblings =
             app_source_files(app)
             |> Enum.reject(&(&1 in [abs_path, self_path]))
 
-          {:ok, mods, _} =
-            Kernel.ParallelCompiler.compile(siblings,
-              each_module: fn _file, m, binary -> persist_beam(m, binary) end
-            )
-
-          mods
+          parallel_compile_or_throw(siblings)
       end
 
     IEx.Helpers.recompile()
-    broadcast_recompiled(compiled, sibling_mods, content)
-    %{recompiled: recompiled_payloads(compiled, sibling_mods, content)}
+    broadcast_recompiled(direct_mods, sibling_mods, content)
+    %{recompiled: recompiled_payloads(direct_mods, sibling_mods, content)}
   end
+
+  # I compile a list of files via ParallelCompiler so verifier errors
+  # come back structured (`{:error, errors, _}`) instead of raising
+  # `CompileError` with just a wrapper message.  Throw the structured
+  # errors so reload's catch-clause builds the failure shape with
+  # file/line/column preserved per error.  Used uniformly for the
+  # save target and for cascade siblings.
+  defp parallel_compile_or_throw(paths) do
+    case Kernel.ParallelCompiler.compile(paths,
+           each_module: fn _file, m, binary -> persist_beam(m, binary) end
+         ) do
+      {:ok, mods, _warnings} -> mods
+      {:error, errors, _warnings} -> throw_verifier_errors(errors)
+    end
+  end
+
+  defp throw_verifier_errors(errors) do
+    throw({:gt_compile_failed, Enum.map(errors, &verifier_error_payload/1)})
+  end
+
+  defp verifier_error_payload({file, {line, column}, message}),
+    do: %{phase: :compile, file: to_string(file), line: line, column: column, message: to_string(message)}
+
+  defp verifier_error_payload({file, line, message}) when is_integer(line),
+    do: %{phase: :compile, file: to_string(file), line: line, column: nil, message: to_string(message)}
+
+  defp verifier_error_payload({file, _, message}),
+    do: %{phase: :compile, file: to_string(file), line: nil, column: nil, message: to_string(message)}
 
   defp source_written_payload(path, content) do
     %{
@@ -121,8 +147,8 @@ defmodule GtBridge.HotReload do
   # Siblings stay bare — the directly-saved module is the only one
   # whose coder/streaming surface is guaranteed to be active in the
   # same view.
-  defp recompiled_payloads(compiled, sibling_mods, content) do
-    direct = for {m, _} <- compiled, do: enriched_payload(m, content)
+  defp recompiled_payloads(direct_mods, sibling_mods, content) do
+    direct = for m <- direct_mods, do: enriched_payload(m, content)
     siblings = for m <- sibling_mods, do: bare_payload(m)
     direct ++ siblings
   end
@@ -143,10 +169,10 @@ defmodule GtBridge.HotReload do
     mod |> to_string() |> String.replace_prefix("Elixir.", "")
   end
 
-  defp broadcast_recompiled(compiled, sibling_mods, content) do
+  defp broadcast_recompiled(direct_mods, sibling_mods, content) do
     source_hash = :erlang.phash2(content)
 
-    for {m, _} <- compiled do
+    for m <- direct_mods do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
         mod: m,
@@ -226,6 +252,14 @@ defmodule GtBridge.HotReload do
                     Code,
                     Logger
                   ])
+
+  @doc "I drop `mod` from the BEAM so a stale loaded copy does not survive source-file deletion."
+  @spec purge_module(module()) :: :ok
+  def purge_module(mod) when is_atom(mod) do
+    :code.purge(mod)
+    :code.delete(mod)
+    :ok
+  end
 
   @spec compile_dep_edges(keyword()) :: [map()]
   def compile_dep_edges(opts \\ []) do
