@@ -262,16 +262,19 @@ ElixirModuleCoder >> buildSourceViewElement [
 				self saveAndCompile: coderModel currentSourceString.
 				ann consumed: true ].
 		focusLine ifNotNil: [ :lines |
-			| startLine source pos |
+			| startLine source lineCount pos |
 			startLine := lines isArray
-				ifTrue: [ lines first ]
+				ifTrue: [ lines isEmpty ifTrue: [ nil ] ifFalse: [ lines first ] ]
 				ifFalse: [ lines ].
 			source := self sourceCode.
-			pos := 0.
-			1 to: (startLine - 1 min: source lines size) do: [ :i |
-				pos := pos + (source lines at: i) size + 1 ].
-			vm moveCursorTo: pos.
-			vm scrollToLine: startLine withCharacterPosition: 1 ].
+			lineCount := source lines size.
+			(startLine isInteger and: [ startLine > 0 and: [ startLine <= lineCount ] ])
+				ifTrue: [
+					pos := 0.
+					1 to: startLine - 1 do: [ :i |
+						pos := pos + (source lines at: i) size + 1 ].
+					vm moveCursorTo: pos.
+					vm scrollToLine: startLine withCharacterPosition: 1 ] ].
 		container addChild: vm asElement matchParent ].
 	rebuild value.
 	self announcer
