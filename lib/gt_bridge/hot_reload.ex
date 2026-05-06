@@ -88,8 +88,8 @@ defmodule GtBridge.HotReload do
     :ets.delete_all_objects(:elixir_modules)
     abs_path = Path.expand(path)
 
-    direct_mods = parallel_compile_or_throw([path])
-    [mod | _] = direct_mods
+    compiled = Code.compile_file(path)
+    [{mod, _} | _] = compiled
     app = Application.get_application(mod)
     main_app = Mix.Project.config()[:app]
 
@@ -102,6 +102,8 @@ defmodule GtBridge.HotReload do
           []
 
         _ ->
+          for {m, binary} <- compiled, do: persist_beam(m, binary)
+
           self_path = __ENV__.file |> Path.expand()
 
           siblings =
@@ -112,8 +114,8 @@ defmodule GtBridge.HotReload do
       end
 
     IEx.Helpers.recompile()
-    broadcast_recompiled(direct_mods, sibling_mods, content)
-    %{recompiled: recompiled_payloads(direct_mods, sibling_mods, content)}
+    broadcast_recompiled(compiled, sibling_mods, content)
+    %{recompiled: recompiled_payloads(compiled, sibling_mods, content)}
   end
 
   # I compile a list of files via ParallelCompiler so verifier errors
@@ -199,8 +201,8 @@ defmodule GtBridge.HotReload do
   # Siblings stay bare — the directly-saved module is the only one
   # whose coder/streaming surface is guaranteed to be active in the
   # same view.
-  defp recompiled_payloads(direct_mods, sibling_mods, content) do
-    direct = for m <- direct_mods, do: enriched_payload(m, content)
+  defp recompiled_payloads(compiled, sibling_mods, content) do
+    direct = for {m, _} <- compiled, do: enriched_payload(m, content)
     siblings = for m <- sibling_mods, do: bare_payload(m)
     direct ++ siblings
   end
@@ -221,10 +223,10 @@ defmodule GtBridge.HotReload do
     mod |> to_string() |> String.replace_prefix("Elixir.", "")
   end
 
-  defp broadcast_recompiled(direct_mods, sibling_mods, content) do
+  defp broadcast_recompiled(compiled, sibling_mods, content) do
     source_hash = :erlang.phash2(content)
 
-    for m <- direct_mods do
+    for {m, _} <- compiled do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
         mod: m,
