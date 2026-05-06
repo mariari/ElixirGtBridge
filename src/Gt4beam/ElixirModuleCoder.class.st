@@ -515,6 +515,11 @@ ElixirModuleCoder >> onBeamModuleEntriesUpdated: anAnnouncement [
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
+	^ self saveAndCompile: newSource forFunction: nil arity: nil
+]
+
+{ #category : 'actions' }
+ElixirModuleCoder >> saveAndCompile: newSource forFunction: aName arity: anArity [
 	"I write source to disk and trigger compile. `HotReload.reload`
 	 returns either `%{recompiled: [...]}` (success) or
 	 `%{source_written: %{...}, errors: [...]}` (failure) — mutually
@@ -552,11 +557,49 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		fromPayload: sourceWritten.
 	errors := result attributeAt: #errors.
 	errors ifNotNil: [
+		| errorList cacheHint hintFn hintAr |
+		errorList := errors asList.
+		"Two-tier focus fallback: cache lookup by error line, then the
+		 caller-supplied function (covers module-level diagnostics with
+		 no usable line)."
+		cacheHint := self functionAtLineFromCache: (self read: #line from: errorList first).
+		hintFn := (cacheHint ifNotNil: [ :h |
+			(self read: #name from: h) ifNotNil: [ :n | n asString ] ]) ifNil: [ aName ].
+		hintAr := (cacheHint ifNotNil: [ :h | self read: #arity from: h ]) ifNil: [ anArity ].
 		BeamEventAnnouncer
 			announceCompileFailedFor: moduleName
 			application: application
-			errors: errors asList ].
+			errors: errorList
+			functionHint: hintFn
+			arityHint: hintAr ].
 	^ result
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> functionAtLineFromCache: aLineOrNil [
+	"Find a pre-save entry whose start..end_line brackets the line.
+	 Used as a focus fallback when the bridge couldn't identify the
+	 function (parse failure leaves functions_in_source empty)."
+	aLineOrNil ifNil: [ ^ nil ].
+	aLineOrNil isInteger ifFalse: [ ^ nil ].
+	^ self functionEntries
+		detect: [ :e |
+			| s ed |
+			s := self read: #start from: e.
+			ed := self read: #end_line from: e.
+			(s isInteger and: [ ed isInteger ])
+				and: [ s <= aLineOrNil and: [ aLineOrNil <= ed ] ] ]
+		ifNone: [ nil ]
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> read: aKey from: anEntry [
+	"Polymorphic field read: bridge proxies use #attributeAt:, plain
+	 dicts (tests) use #at:ifAbsent:."
+	anEntry ifNil: [ ^ nil ].
+	^ (anEntry respondsTo: #attributeAt:)
+		ifTrue: [ anEntry attributeAt: aKey ]
+		ifFalse: [ anEntry at: aKey ifAbsent: [ nil ] ]
 ]
 
 { #category : 'accessing' }
@@ -605,7 +648,10 @@ ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
 	newLines := (lines copyFrom: 1 to: st - 1) asOrderedCollection.
 	newLines addAll: newText lines.
 	newLines addAll: (lines copyFrom: en + 1 to: lines size).
-	self saveAndCompile: (String lf join: newLines) ]
+	self
+		saveAndCompile: (String lf join: newLines)
+		forFunction: aName
+		arity: anArity ]
 	ensure: [ saving := false ]
 ]
 

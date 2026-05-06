@@ -47,16 +47,30 @@ Class {
 
 { #category : 'announcing' }
 BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: anApp errors: aListOfErrors [
-	"Per-module + default fan-out, mirroring announceRecompiledFrom:.
-	 Also pops a `BeamCompileFailureNotification` whose Open button
-	 spawns the offending module's coder."
+	^ self
+		announceCompileFailedFor: aModuleName
+		application: anApp
+		errors: aListOfErrors
+		functionHint: nil
+		arityHint: nil
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: anApp errors: aListOfErrors functionHint: aFunctionName arityHint: anArity [
+	"`aFunctionName` / `anArity` are GT-side fallbacks for when the
+	 bridge couldn't identify the function (parse failure on the saved
+	 file makes Analysis.functions_in_source return [], module-level
+	 diagnostics carry no usable line)."
 	| announcement perModule |
 	announcement := BeamCompileFailed mod: aModuleName errors: aListOfErrors.
 	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
 	perModule ifNotNil: [ perModule announce: announcement ].
 	self default announce: announcement.
 	GtWorld showNotification:
-		(self compileFailureNotificationFor: announcement application: anApp)
+		(self compileFailureNotificationFor: announcement
+			application: anApp
+			functionHint: aFunctionName
+			arityHint: anArity)
 ]
 
 { #category : 'announcing' }
@@ -67,8 +81,18 @@ BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListO
 
 { #category : 'announcing' }
 BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp [
-	"Build the notification from the first error (offending module /
-	 line / message) with announcement's mod as fallback."
+	^ self
+		compileFailureNotificationFor: anAnnouncement
+		application: anApp
+		functionHint: nil
+		arityHint: nil
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp functionHint: aFunctionName arityHint: anArity [
+	"Build the notification from the first error.  Function / arity
+	 fall back to the caller-supplied hints when the error entry
+	 doesn't carry them."
 	| first |
 	first := anAnnouncement errors ifNotNil: [ :e |
 		e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
@@ -77,8 +101,9 @@ BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement applic
 		sourcePath: (self read: #file from: first);
 		line: (self read: #line from: first);
 		errorMessage: ((self read: #message from: first) ifNil: [ 'compile failed' ]) asString;
-		functionName: ((self read: #function from: first) ifNotNil: [ :f | f asString ]);
-		arity: (self read: #arity from: first);
+		functionName: (((self read: #function from: first)
+			ifNotNil: [ :f | f asString ]) ifNil: [ aFunctionName ]);
+		arity: ((self read: #arity from: first) ifNil: [ anArity ]);
 		application: anApp;
 		yourself
 ]
