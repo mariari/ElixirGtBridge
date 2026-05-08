@@ -115,17 +115,20 @@ BeamEventStreamReader >> handleLine: aLine [
 
 { #category : 'private' }
 BeamEventStreamReader >> dispatch: aDict [
-	"I route a decoded SSE frame to the matching announcer call.  This
-	 topic only ships the `:recompiled` dispatcher; later topics that
-	 introduce other event kinds extend me with their own clauses."
+	"I route a decoded SSE frame to the matching announcer call.
+	 Each event-introducing topic extends me with its own kind."
 
-	| kind |
+	| kind mod |
 	kind := aDict at: 'kind' ifAbsent: [ ^ self ].
+	mod := aDict at: 'mod' ifAbsent: [ nil ].
 	kind = 'recompiled' ifTrue: [
 		^ BeamEventAnnouncer announceRecompiledFrom: (Dictionary new
-			at: #mod put: (aDict at: 'mod' ifAbsent: [ nil ]);
+			at: #mod put: mod;
 			at: #source_hash put: (aDict at: 'source_hash' ifAbsent: [ nil ]);
-			yourself) ]
+			yourself) ].
+	kind = 'source_removed' ifTrue: [
+		mod ifNil: [ ^ self ].
+		^ BeamEventAnnouncer announceSourceRemoved: mod ]
 ]
 
 { #category : 'private' }

@@ -507,12 +507,14 @@ ElixirModuleCoder >> onBeamModuleEntriesUpdated: anAnnouncement [
 
 { #category : 'actions' }
 ElixirModuleCoder >> remove [
-	"I delete my source file, purge the BEAM module (otherwise
-	 resolution stays `resolved`), and announce."
+	"I delete my source file and purge the BEAM module.  The bridge's
+	 `purge_module/1` broadcasts `:source_removed` on the bus, which
+	 the stream reader fires through `BeamEventAnnouncer` so caches
+	 (`BeamModuleResolution`, `BeamModuleSourceCache`) drop their
+	 derived state.  No UI-side announce."
 	sourcePath asFileReference ensureDelete.
 	self application
-		evaluateAndWait: 'GtBridge.HotReload.purge_module(', moduleName, ')'.
-	BeamEventAnnouncer announceSourceRemoved: moduleName
+		evaluateAndWait: 'GtBridge.HotReload.purge_module(', moduleName, ')'
 ]
 
 { #category : 'actions' }

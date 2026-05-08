@@ -203,11 +203,21 @@ defmodule GtBridge.HotReload do
                     Logger
                   ])
 
-  @doc "I drop `mod` from the BEAM so a stale loaded copy does not survive source-file deletion."
+  @doc """
+  I drop `mod` from the BEAM so a stale loaded copy does not survive
+  source-file deletion, then broadcast `:source_removed`.  GT-side
+  caches subscribe to that event and drop their derived state.
+  """
   @spec purge_module(module()) :: :ok
   def purge_module(mod) when is_atom(mod) do
     :code.purge(mod)
     :code.delete(mod)
+
+    GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+      kind: :source_removed,
+      mod: mod
+    })
+
     :ok
   end
 
