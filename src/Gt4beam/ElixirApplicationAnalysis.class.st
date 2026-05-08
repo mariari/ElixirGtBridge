@@ -54,27 +54,6 @@ ElixirApplicationAnalysis >> buildTreeNode: aLabel from: entries [
 		, info) asDictionary
 ]
 
-{ #category : 'private' }
-ElixirApplicationAnalysis >> moduleInfoEntriesFor: aModuleInfo [
-	"I return the module/functions/has_doc associations from a module info object.
-	 Used to merge a single leaf's metadata into its parent branch node."
-	^ {
-		#module -> (aModuleInfo attributeAt: #name).
-		#functions -> (aModuleInfo attributeAt: #functions).
-		#has_doc -> (aModuleInfo attributeAt: #has_doc) }
-]
-
-{ #category : 'private' }
-ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
-	"I return a leaf tree node dictionary for a fully-qualified module."
-	| parts |
-	parts := $. split: ((aModuleInfo attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
-	^ ({
-		#label -> parts last.
-		#children -> #() }
-		, (self moduleInfoEntriesFor: aModuleInfo)) asDictionary
-]
-
 { #category : 'accessing' }
 ElixirApplicationAnalysis >> description [
 	^ description
@@ -328,11 +307,32 @@ ElixirApplicationAnalysis >> hasTuple [
 	^ tuple isNotNil
 ]
 
+{ #category : 'private' }
+ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
+	"I return a leaf tree node dictionary for a fully-qualified module."
+	| parts |
+	parts := $. split: ((aModuleInfo attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
+	^ ({
+		#label -> parts last.
+		#children -> #() }
+		, (self moduleInfoEntriesFor: aModuleInfo)) asDictionary
+]
+
 { #category : 'accessing' }
 ElixirApplicationAnalysis >> moduleInfo [
 	"I return per-module metadata from the BEAM for the modules view."
 	^ self application evaluateAndWait:
 		'GtBridge.Analysis.module_details(', self name resolve, ')'
+]
+
+{ #category : 'private' }
+ElixirApplicationAnalysis >> moduleInfoEntriesFor: aModuleInfo [
+	"I return the module/functions/has_doc associations from a module info object.
+	 Used to merge a single leaf's metadata into its parent branch node."
+	^ {
+		#module -> (aModuleInfo attributeAt: #name).
+		#functions -> (aModuleInfo attributeAt: #functions).
+		#has_doc -> (aModuleInfo attributeAt: #has_doc) }
 ]
 
 { #category : 'accessing' }
