@@ -12,19 +12,6 @@ Class {
 	#tag : 'Lepiter'
 }
 
-{ #category : 'accessing' }
-LeElixirSnippetElement >> onSnippetViewModelChanged [
-	super onSnippetViewModelChanged.
-
-	self updateLanguageLabel.
-	self coder
-		elixirLinkApplicationStrategy: self serverStrategy.
-	self coderViewModel
-		viewPharoBindings: self snippetViewModel snippetBindings.
-	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
-		self coderViewModel selfObject: obj ]
-]
-
 { #category : 'private' }
 LeElixirSnippetElement class >> sessionIdFor: aBindings [
 	"I return (or create) a session UUID for a given shared bindings object.
@@ -37,6 +24,19 @@ LeElixirSnippetElement class >> sessionIdFor: aBindings [
 { #category : 'private' }
 LeElixirSnippetElement class >> sessionMap [
 	^ SessionMap ifNil: [ SessionMap := WeakIdentityKeyDictionary new ]
+]
+
+{ #category : 'accessing' }
+LeElixirSnippetElement >> onSnippetViewModelChanged [
+	super onSnippetViewModelChanged.
+
+	self updateLanguageLabel.
+	self coder
+		elixirLinkApplicationStrategy: self serverStrategy.
+	self coderViewModel
+		viewPharoBindings: self snippetViewModel snippetBindings.
+	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
+		self coderViewModel selfObject: obj ]
 ]
 
 { #category : 'accessing' }

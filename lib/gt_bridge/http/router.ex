@@ -31,6 +31,10 @@ defmodule GtBridge.Http.Router do
     |> send_resp(200, "Plug!, Options: #{port}")
   end
 
+  get "/EVENTS" do
+    GtBridge.Http.EventStream.call(conn, [])
+  end
+
   # It seems we don't do anything here
   post "/IS_ALIVE" do
     send_resp(conn, 200, JSON.encode!("IS_ALIVE"))

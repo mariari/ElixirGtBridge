@@ -164,16 +164,6 @@ ElixirFunctionCoder >> initializeApplication [
 	^ app
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirFunctionCoder >> initializeShortcuts: addOns [
-	"I add Ctrl-S save so editing a function and hitting save splices
-	 it back into the module. GtSourceCoderSaveShortcut calls
-	 requestSave on the view model which calls save, overridden on
-	 ElixirFunctionCoderViewModel."
-	super initializeShortcuts: addOns.
-	addOns addShortcut: GtSourceCoderSaveShortcut new
-]
-
 { #category : 'initialization' }
 ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
 	moduleCoder := anElixirModuleCoder.
@@ -182,6 +172,16 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 	startLine := anEntry attributeAt: #start.
 	endLine := anEntry attributeAt: #end_line.
 	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionCoder >> initializeShortcuts: addOns [
+	"I add Ctrl-S save so editing a function and hitting save splices
+	 it back into the module. GtSourceCoderSaveShortcut calls
+	 requestSave on the view model which calls save, overridden on
+	 ElixirFunctionCoderViewModel."
+	super initializeShortcuts: addOns.
+	addOns addShortcut: GtSourceCoderSaveShortcut new
 ]
 
 { #category : 'accessing' }
