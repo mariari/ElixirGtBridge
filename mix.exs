@@ -44,6 +44,7 @@ defmodule GtBridge.MixProject do
     [
       {:msgpax, "~> 2.4"},
       {:typed_struct, "~> 0.3.0"},
+      {:event_broker, github: "anoma/event-broker", tag: "v1.1.0"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:plug_cowboy, "~> 2.7.3"},

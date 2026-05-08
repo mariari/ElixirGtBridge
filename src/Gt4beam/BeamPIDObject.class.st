@@ -45,9 +45,20 @@ BeamPIDObject >> gtDefaultInspectorTool [
 	^ BeamProxyToggleCompositeTool fromModes: modes
 ]
 
-{ #category : 'gt-extensions' }
-BeamPIDObject >> inspectorModeName [
-	^ 'Pid'
+{ #category : 'as yet unclassified' }
+BeamPIDObject >> gtInformationFor: aView [
+	<gtView>
+	<gtBeamView>
+	^ aView columnedList
+		title: 'Information';
+		priority: 10;
+		items: [ self information associations ];
+		column: 'Name'
+			text: #key
+			width: 150;
+		column: 'Value'
+			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
+		send: #value
 ]
 
 { #category : 'inspector-modes' }
@@ -64,22 +75,6 @@ BeamPIDObject >> gtStateMode: aMode [
 			name: 'State';
 			playgroundPageStrategy: LeInspectorPlaygroundProxyClassPageStrategy forRemoteProxySide;
 			withLabelAndIconAptitude)
-]
-
-{ #category : 'as yet unclassified' }
-BeamPIDObject >> gtInformationFor: aView [
-	<gtView>
-	<gtBeamView>
-	^ aView columnedList
-		title: 'Information';
-		priority: 10;
-		items: [ self information associations ];
-		column: 'Name'
-			text: #key
-			width: 150;
-		column: 'Value'
-			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
-		send: #value
 ]
 
 { #category : 'as yet unclassified' }
@@ -121,6 +116,11 @@ BeamPIDObject >> information [
 		pair first -> pair second ]) asDictionary
 ]
 
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
+]
+
 { #category : 'as yet unclassified' }
 BeamPIDObject >> isEvaluatorProcess [
 	" I determine if I'm the same process as the current evaluator.
@@ -144,4 +144,3 @@ BeamPIDObject >> printOn: str [
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
-
