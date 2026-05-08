@@ -46,6 +46,12 @@ defmodule GtBridge.HotReload do
     Mix.Tasks.Format.run([path])
     formatted = File.read!(path)
 
+    GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+      kind: :source_written,
+      mod: parse_module_name(formatted),
+      source_hash: :erlang.phash2(formatted)
+    })
+
     try do
       do_compile(path, formatted)
     rescue
@@ -54,11 +60,18 @@ defmodule GtBridge.HotReload do
 
         GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
           kind: :compile_failed,
-          mod: nil,
+          mod: parse_module_name(formatted),
           errors: errors
         })
 
         Map.merge(source_written_payload(path, formatted), %{errors: errors})
+    end
+  end
+
+  defp parse_module_name(source) do
+    case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do
+      [_, name] -> Module.concat([name])
+      _ -> nil
     end
   end
 

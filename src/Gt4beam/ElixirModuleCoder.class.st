@@ -61,24 +61,6 @@ ElixirModuleCoder >> addFunction: newText [
 	^ self saveAndCompile: (String lf join: newLines)
 ]
 
-{ #category : 'actions' }
-ElixirModuleCoder >> announceBeamRecompiledFrom: aResult [
-	"I extract the recompiled module list from a hot_reload result and
-	 fan out BeamModuleRecompiled announcements via the per-module
-	 dispatcher.
-
-	 Each entry is a payload dict (`mod`, `source_hash`, `source`,
-	 `functions`); the directly-saved module's entry carries `source`
-	 + `functions` so subscribers re-render without a bridge call.
-	 Sibling entries carry `mod` only — subscribers fall back.
-
-	 No error guard here on purpose: saveAndCompile filters error
-	 wrappers before calling me, so any DNU is a real bug (mis-shaped
-	 success response) and should surface."
-	(aResult attributeAt: #recompiled) asList do: [ :modPayload |
-		BeamEventAnnouncer announceRecompiledFrom: modPayload ]
-]
-
 { #category : 'accessing' }
 ElixirModuleCoder >> application [
 	^ application
@@ -525,17 +507,14 @@ ElixirModuleCoder >> onBeamModuleSourceWritten: anAnnouncement [
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
-	"I write source to disk and trigger compile. `HotReload.reload`
-	 returns either `%{recompiled: [...]}` (success) or
-	 `%{source_written: %{...}, errors: [...]}` (failure) — mutually
-	 exclusive. On success I fan out `BeamModuleRecompiled` per
-	 module (existing path). On failure I announce
-	 `BeamModuleSourceWritten` so disk-truth subscribers re-derive,
-	 plus `BeamCompileFailed` for the error UI.
+	"I write source to disk and trigger compile.  Bridge-side events
+	 (`:source_written`, `:recompiled`, `:compile_failed`) flow through
+	 `BeamEventStreamReader` and fire on `BeamEventAnnouncer` —
+	 subscribers see them without me observing the HTTP response.
 
 	 Preserves the original file's line ending convention and trailing
 	 newline."
-	| b64 normalized usesCrlf ending result sourceWritten errors |
+	| b64 normalized usesCrlf ending result |
 	usesCrlf := self sourceCode includesSubstring: String crlf.
 	ending := usesCrlf ifTrue: [ String crlf ] ifFalse: [ String lf ].
 	normalized := newSource copyReplaceAll: String crlf with: String lf.
@@ -552,19 +531,7 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		Transcript
 			show: 'ElixirModuleCoder >> saveAndCompile bridge error for ', moduleName, ': ';
 			show: result printString;
-			cr.
-		^ result ].
-	sourceWritten := result attributeAt: #source_written.
-	sourceWritten ifNil: [
-		^ self announceBeamRecompiledFrom: result ].
-	BeamEventAnnouncer
-		announceSourceWrittenFor: moduleName
-		fromPayload: sourceWritten.
-	errors := result attributeAt: #errors.
-	errors ifNotNil: [
-		BeamEventAnnouncer
-			announceCompileFailedFor: moduleName
-			errors: errors asList ].
+			cr ].
 	^ result
 ]
 
