@@ -45,14 +45,10 @@ defmodule GtBridge.Http.SseStream do
 
   @spec encode(ModuleEvent.t()) :: String.t()
   defp encode(%ModuleEvent{} = event) do
-    Jason.encode!(%{
-      kind: event.kind,
-      mod: module_name(event.mod),
-      source_hash: event.source_hash,
-      source: event.source,
-      functions: event.functions,
-      errors: event.errors
-    })
+    event
+    |> Map.from_struct()
+    |> Map.update!(:mod, &module_name/1)
+    |> Jason.encode!()
   end
 
   @spec module_name(module() | nil) :: String.t() | nil
