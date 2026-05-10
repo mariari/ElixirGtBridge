@@ -65,7 +65,7 @@ BeamMondrianHelpers class >> compileDepsOn: aMondrian edges: edges highlightModu
 	aMondrian nodes
 		shape: [ :n |
 			| short color el |
-			short := n copyReplaceAll: 'Elixir.' with: ''.
+			short := n withoutPrefix: 'Elixir.'.
 			color := (highlightSet includes: n)
 				ifTrue: [ Color fromHexString: '#d4e6f1' ]
 				ifFalse: [ Color fromHexString: '#f0f0f0' ].
@@ -126,7 +126,7 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 	entry := {
 		#id -> id.
 		#pid -> id.
-		#label -> ((node attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
+		#label -> ((node attributeAt: #name) withoutPrefix: 'Elixir.').
 		#supervisor -> (node attributeAt: #supervisor)
 	} asDictionary.
 	nodes add: entry.
