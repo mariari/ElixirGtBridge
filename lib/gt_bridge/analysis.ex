@@ -155,6 +155,32 @@ defmodule GtBridge.Analysis do
   `start: 0`, `end_line: 0`, `kind: :def`, and a placeholder source.
   """
   @doc """
+  I extract the top-level `defmodule X.Y` name from `source`. Returns
+  the dotted module string, or nil when the source doesn't define one
+  or doesn't parse.
+  """
+  @spec module_in_source(String.t()) :: String.t() | nil
+  def module_in_source(source) do
+    case Code.string_to_quoted(source) do
+      {:ok, {:defmodule, _, [{:__aliases__, _, parts} | _]}} ->
+        Enum.map_join(parts, ".", &Atom.to_string/1)
+
+      _ ->
+        # Parse failed (syntax error elsewhere).  The defmodule line
+        # itself almost always parses; pull the name by regex so error
+        # notifications still name the right module.
+        module_in_source_lenient(source)
+    end
+  end
+
+  defp module_in_source_lenient(source) do
+    case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do
+      [_, name] -> name
+      _ -> nil
+    end
+  end
+
+  @doc """
   I parse `source` and return the AST function entries — the same shape
   `all_functions/1` returns minus the runtime-export merging (which
   needs the module to be loaded). Works on disk bytes alone, so safe

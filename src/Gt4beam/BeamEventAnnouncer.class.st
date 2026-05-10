@@ -63,7 +63,7 @@ BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListO
 
 { #category : 'announcing' }
 BeamEventAnnouncer class >> compileFailureMessage: anAnnouncement [
-	| first read line msg |
+	| first read line msg mod |
 	first := anAnnouncement errors ifNotNil: [ :e | e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
 	first ifNil: [ ^ 'Compile failed for ' , anAnnouncement mod ].
 	read := [ :key |
@@ -72,8 +72,9 @@ BeamEventAnnouncer class >> compileFailureMessage: anAnnouncement [
 			ifFalse: [ first at: key ifAbsent: [ nil ] ] ].
 	line := read value: #line.
 	msg := (read value: #message) ifNil: [ '(no message)' ].
+	mod := (read value: #module) ifNil: [ anAnnouncement mod ].
 	^ String streamContents: [ :s |
-		s << 'Compile failed for ' << anAnnouncement mod.
+		s << 'Compile failed for ' << mod asString.
 		(line isNil or: [ line = 0 ]) ifFalse: [
 			s << ' (line ' << line asString << ')' ].
 		s << ': ' << msg asString ]
