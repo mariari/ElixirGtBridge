@@ -31,9 +31,8 @@ defmodule GtBridge.Http.Router do
     |> send_resp(200, "Plug!, Options: #{port}")
   end
 
-  get "/EVENTS" do
-    GtBridge.Http.EventStream.call(conn, [])
-  end
+  # `/EVENTS` is handled by `GtBridge.Http.Supervisor.listener_opts/2` at the
+  # cowboy dispatch level.
 
   # It seems we don't do anything here
   post "/IS_ALIVE" do
