@@ -285,7 +285,7 @@ ElixirCoderBrowser >> groupModulesByNamespace: moduleInfo [
 	entries := moduleInfo collect: [ :each |
 		| name parts |
 		name := (each attributeAt: #name) asString.
-		parts := $. split: (name copyReplaceAll: 'Elixir.' with: '').
+		parts := $. split: (name withoutPrefix: 'Elixir.').
 		{ name. each. parts } ].
 	groups := Dictionary new.
 	entries do: [ :e |

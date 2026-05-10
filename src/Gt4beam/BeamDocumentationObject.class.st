@@ -130,7 +130,7 @@ BeamDocumentationObject >> gtDependenciesFor: aView [
 		priority: 30;
 		painting: [ :aMondrian |
 			| callees callers allNodes edges short |
-			short := [ :n | n copyReplaceAll: 'Elixir.' with: '' ].
+			short := [ :n | n withoutPrefix: 'Elixir.' ].
 			callees := (self evaluateAndWait:
 				'GtBridge.Analysis.callees(', modName, ', :', appName, ')
 				|> Enum.map(&inspect/1) |> Enum.sort()') asList collect: [ :m | m asString ].

@@ -156,7 +156,7 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 					borderColor := hasMod
 						ifTrue: [ Color fromHexString: '#2d8659' ]
 						ifFalse: [ Color fromHexString: '#cc3333' ].
-					parts := $. split: (modName copyReplaceAll: 'Elixir.' with: '').
+					parts := $. split: (modName withoutPrefix: 'Elixir.').
 					BrVerticalPane new
 						alignTopCenter;
 						fitContent;
@@ -253,7 +253,7 @@ ElixirApplicationAnalysis >> gtProblemsFor: aView [
 				rows add: { modName. 'No source path' } ].
 			rows ] ];
 		column: 'Module' text: [ :each |
-			each first copyReplaceAll: 'Elixir.' with: '' ];
+			each first withoutPrefix: 'Elixir.' ];
 		column: 'Issue' text: [ :each | each second ];
 		send: [ :each |
 			self application evaluateAndWait:
@@ -296,7 +296,7 @@ ElixirApplicationAnalysis >> gtSearchFunctionsFor: aSearch [
 				'GtBridge.Analysis.search_functions(', self name resolve, ', "',
 				(query copyReplaceAll: '"' with: '\"'), '")') asList ];
 		itemName: [ :f |
-			((f attributeAt: #module) copyReplaceAll: 'Elixir.' with: ''),
+			((f attributeAt: #module) withoutPrefix: 'Elixir.'),
 			'.', (f attributeAt: #name), '/', (f attributeAt: #arity) asString ];
 		previewObject: docForFn;
 		send: docForFn
@@ -309,7 +309,7 @@ ElixirApplicationAnalysis >> gtSearchModulesFor: aSearch [
 		title: 'Modules';
 		priority: 10;
 		items: [ (self modules asList collect: [ :m | m symbol asString ]) sorted ];
-		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		itemName: [ :modName | modName withoutPrefix: 'Elixir.' ];
 		filterBySubstring;
 		send: [ :modName |
 			self application evaluateAndWait:
@@ -353,7 +353,7 @@ ElixirApplicationAnalysis >> hasTuple [
 ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
 	"I return a leaf tree node dictionary for a fully-qualified module."
 	| parts |
-	parts := $. split: ((aModuleInfo attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
+	parts := $. split: ((aModuleInfo attributeAt: #name) withoutPrefix: 'Elixir.').
 	^ ({
 		#label -> parts last.
 		#children -> #() }
@@ -382,7 +382,7 @@ ElixirApplicationAnalysis >> moduleTreeRoots [
 	"I return a tree of module info grouped by namespace prefix."
 	| entries groups |
 	entries := self moduleInfo asList collect: [ :each |
-		{ each. ($. split: ((each attributeAt: #name) copyReplaceAll: 'Elixir.' with: '')) } ].
+		{ each. ($. split: ((each attributeAt: #name) withoutPrefix: 'Elixir.')) } ].
 	groups := entries groupedBy: [ :e | e second first ].
 	^ (groups keys sorted collect: [ :key |
 		self buildTreeNode: key
