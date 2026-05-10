@@ -56,7 +56,7 @@ defmodule GtBridge.HotReload do
     # recover anything either).
     GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
       kind: :source_written,
-      mod: parse_module_name(formatted),
+      mod: module_atom_in_source(formatted),
       source_hash: :erlang.phash2(formatted),
       source: formatted,
       functions: GtBridge.Analysis.functions_in_source(formatted)
@@ -88,18 +88,17 @@ defmodule GtBridge.HotReload do
   defp compile_failure(path, content, errors) do
     GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
       kind: :compile_failed,
-      mod: parse_module_name(content),
+      mod: module_atom_in_source(content),
       errors: errors
     })
 
     Map.merge(source_written_payload(path, content), %{errors: errors})
   end
 
-
-  defp parse_module_name(source) do
-    case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do
-      [_, name] -> Module.concat([name])
-      _ -> nil
+  defp module_atom_in_source(source) do
+    case GtBridge.Analysis.module_in_source(source) do
+      nil -> nil
+      name -> Module.concat([name])
     end
   end
 
@@ -157,7 +156,7 @@ defmodule GtBridge.HotReload do
   end
 
   defp snapshot_project_modules do
-    apps = [Mix.Project.config()[:app] | path_dep_apps()] |> Enum.reject(&is_nil/1)
+    apps = [Mix.Project.config()[:app] | GtBridge.Mix.path_dep_apps()] |> Enum.reject(&is_nil/1)
 
     for app <- apps,
         {:ok, mods} <- [:application.get_key(app, :modules)],
@@ -173,19 +172,6 @@ defmodule GtBridge.HotReload do
       _ -> nil
     end
   end
-
-  defp path_dep_apps do
-    for dep <- Mix.Project.config()[:deps] || [],
-        {app, opts} = normalize_dep(dep),
-        Keyword.has_key?(opts, :path) do
-      app
-    end
-  end
-
-  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _}), do: {app, []}
-  defp normalize_dep(app) when is_atom(app), do: {app, []}
 
   defp recompile_or_throw do
     if mix_started?() do
@@ -297,13 +283,6 @@ defmodule GtBridge.HotReload do
       function: enclosing && enclosing.name,
       arity: enclosing && enclosing.arity
     }
-  end
-
-  defp module_in_file(file) do
-    case read_source(file) do
-      nil -> nil
-      source -> GtBridge.Analysis.module_in_source(source)
-    end
   end
 
   defp read_source(nil), do: nil
