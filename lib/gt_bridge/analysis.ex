@@ -207,6 +207,12 @@ defmodule GtBridge.Analysis do
 
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
+    # safe_exported_functions / fetch_specs / fetch_types all return
+    # empty when `mod` isn't loaded.  After Mix purges a module, the
+    # .beam may still be on disk; ensure_loaded reloads it so we get
+    # the full red (runtime-only) / green (type) annotations back.
+    Code.ensure_loaded(mod)
+
     ast_entries =
       GtBridge.Resolve.with_source(mod, [], fn source ->
         functions_in_source(source)
