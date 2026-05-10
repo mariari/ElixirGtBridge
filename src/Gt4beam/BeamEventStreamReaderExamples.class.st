@@ -19,27 +19,23 @@ Class {
 	#tag : 'Examples'
 }
 
-{ #category : 'private' }
-BeamEventStreamReaderExamples >> recompiledHitsOn: anAnnouncer [
-	"I subscribe `anAnnouncer` for BeamModuleRecompiled and return
-	 `subscriber -> hits` so callers can assert + unsubscribe."
-
-	| subscriber hits |
-	subscriber := Object new.
-	hits := OrderedCollection new.
-	anAnnouncer
-		when: BeamModuleRecompiled
-		do: [ :ann | hits add: ann mod ]
-		for: subscriber.
-	^ subscriber -> hits
-]
-
 { #category : 'examples' }
-BeamEventStreamReaderExamples >> freshReader [
-	"Building block: a fresh reader instance."
+BeamEventStreamReaderExamples >> dispatchIgnoresUnknownKind [
+	"I extend the chain with forward-compat: unknown event kinds
+	 must drop silently so future BEAM-side broadcasts don't crash
+	 older readers."
 
 	<gtExample>
-	^ BeamEventStreamReader new
+	| reader pair |
+	reader := self handleLineSwallowsMalformedJson.
+	pair := self recompiledHitsOn: BeamEventAnnouncer default.
+	[ reader dispatch: (Dictionary new
+			at: 'kind' put: 'something_new';
+			at: 'mod' put: 'X';
+			yourself).
+		self assert: pair value isEmpty ]
+		ensure: [ BeamEventAnnouncer default unsubscribe: pair key ].
+	^ reader
 ]
 
 { #category : 'examples' }
@@ -70,19 +66,11 @@ BeamEventStreamReaderExamples >> dispatchOfRecompiledFires [
 ]
 
 { #category : 'examples' }
-BeamEventStreamReaderExamples >> handleLineParsesData [
-	"I extend the verified-dispatch reader with the wire format:
-	 `data: <json>` lines should reach the announcer through the
-	 same chain `dispatchOfRecompiledFires` already proved."
+BeamEventStreamReaderExamples >> freshReader [
+	"Building block: a fresh reader instance."
 
 	<gtExample>
-	| reader pair |
-	reader := self dispatchOfRecompiledFires.
-	pair := self recompiledHitsOn: BeamEventAnnouncer default.
-	[ reader handleLine: 'data: {"kind":"recompiled","mod":"Foo.Bar","source_hash":7}'.
-		self assert: pair value asArray equals: #('Foo.Bar') ]
-		ensure: [ BeamEventAnnouncer default unsubscribe: pair key ].
-	^ reader
+	^ BeamEventStreamReader new
 ]
 
 { #category : 'examples' }
@@ -103,6 +91,22 @@ BeamEventStreamReaderExamples >> handleLineIgnoresNonData [
 ]
 
 { #category : 'examples' }
+BeamEventStreamReaderExamples >> handleLineParsesData [
+	"I extend the verified-dispatch reader with the wire format:
+	 `data: <json>` lines should reach the announcer through the
+	 same chain `dispatchOfRecompiledFires` already proved."
+
+	<gtExample>
+	| reader pair |
+	reader := self dispatchOfRecompiledFires.
+	pair := self recompiledHitsOn: BeamEventAnnouncer default.
+	[ reader handleLine: 'data: {"kind":"recompiled","mod":"Foo.Bar","source_hash":7}'.
+		self assert: pair value asArray equals: #('Foo.Bar') ]
+		ensure: [ BeamEventAnnouncer default unsubscribe: pair key ].
+	^ reader
+]
+
+{ #category : 'examples' }
 BeamEventStreamReaderExamples >> handleLineSwallowsMalformedJson [
 	"I extend the chain with bad-JSON tolerance — a single bad frame
 	 must log without raising so the read loop survives."
@@ -117,23 +121,19 @@ BeamEventStreamReaderExamples >> handleLineSwallowsMalformedJson [
 	^ reader
 ]
 
-{ #category : 'examples' }
-BeamEventStreamReaderExamples >> dispatchIgnoresUnknownKind [
-	"I extend the chain with forward-compat: unknown event kinds
-	 must drop silently so future BEAM-side broadcasts don't crash
-	 older readers."
+{ #category : 'private' }
+BeamEventStreamReaderExamples >> recompiledHitsOn: anAnnouncer [
+	"I subscribe `anAnnouncer` for BeamModuleRecompiled and return
+	 `subscriber -> hits` so callers can assert + unsubscribe."
 
-	<gtExample>
-	| reader pair |
-	reader := self handleLineSwallowsMalformedJson.
-	pair := self recompiledHitsOn: BeamEventAnnouncer default.
-	[ reader dispatch: (Dictionary new
-			at: 'kind' put: 'something_new';
-			at: 'mod' put: 'X';
-			yourself).
-		self assert: pair value isEmpty ]
-		ensure: [ BeamEventAnnouncer default unsubscribe: pair key ].
-	^ reader
+	| subscriber hits |
+	subscriber := Object new.
+	hits := OrderedCollection new.
+	anAnnouncer
+		when: BeamModuleRecompiled
+		do: [ :ann | hits add: ann mod ]
+		for: subscriber.
+	^ subscriber -> hits
 ]
 
 { #category : 'examples' }
@@ -149,6 +149,6 @@ BeamEventStreamReaderExamples >> singletonPerApplication [
 	readerA2 := BeamEventStreamReader for: appA.
 	readerB := BeamEventStreamReader for: appB.
 	self assert: readerA1 == readerA2.
-	self assert: readerA1 ~~ readerB.
+	self deny: readerA1 == readerB.
 	^ readerA1
 ]

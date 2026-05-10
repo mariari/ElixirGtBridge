@@ -280,17 +280,27 @@ BeamModuleSourceCache >> ensureSubscribed [
 	 The announcer can be reset out from under me (`BeamEventAnnouncer
 	 reset`) while I'm still alive in `caches`, leaving my prior
 	 subscription orphaned on a now-garbage announcer."
-	| ann |
+	| ann subs |
 	ann := BeamEventAnnouncer for: mod.
-	((ann subscriptions subscriptions ifNil: [ #() ]) anySatisfy: [ :sub |
+	subs := ann subscriptions subscriptions ifNil: [ #() ].
+	(subs anySatisfy: [ :sub |
 		sub subscriber == self
 			and: [ [ sub announcementClass = BeamModuleRecompiled ]
 				on: Error do: [ false ] ] ])
-		ifTrue: [ ^ self ].
-	ann weak
-		when: BeamModuleRecompiled
-		send: #onBeamModuleRecompiled:
-		to: self
+		ifFalse: [
+			ann weak
+				when: BeamModuleRecompiled
+				send: #onBeamModuleRecompiled:
+				to: self ].
+	(subs anySatisfy: [ :sub |
+		sub subscriber == self
+			and: [ [ sub announcementClass = BeamModuleSourceRemoved ]
+				on: Error do: [ false ] ] ])
+		ifFalse: [
+			ann weak
+				when: BeamModuleSourceRemoved
+				send: #onBeamModuleSourceRemoved:
+				to: self ]
 ]
 
 { #category : 'querying' }
@@ -387,6 +397,26 @@ BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
 					source: newSource) ] ].
 	(BeamEventAnnouncer for: mod) announce:
 		(BeamModuleEntriesUpdated mod: mod entries: entries)
+]
+
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> onBeamModuleSourceRemoved: anAnnouncement [
+	"Source file for my module was deleted.  Clear caches and fan
+	 out the same narrow events as a recompile would, so wrench
+	 stylers and module surfaces invalidate immediately instead of
+	 showing stale source until the next keypress."
+	| previousFunctions |
+	previousFunctions := sources keys.
+	self clear.
+	previousFunctions do: [ :key |
+		(BeamEventAnnouncer for: mod) announce:
+			(BeamModuleSourceChanged
+				mod: mod
+				function: key first
+				arity: key second
+				source: nil) ].
+	(BeamEventAnnouncer for: mod) announce:
+		(BeamModuleEntriesUpdated mod: mod entries: #())
 ]
 
 { #category : 'querying' }
