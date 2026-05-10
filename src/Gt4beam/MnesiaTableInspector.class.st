@@ -33,7 +33,7 @@ MnesiaTableInspector >> gtRecordsFor: aView [
 		title: 'Records';
 		priority: 10;
 		items: [ (self eval:
-			'GtBridge.Analysis.mnesia_records(', self quotedTableAtom, ')') asList ];
+			'GtBridge.Mnesia.records(', self quotedTableAtom, ')') asList ];
 		column: 'Key' text: [ :row |
 			row asList first itemAt: 1 ] weight: 2;
 		column: 'Record' text: [ :row |
@@ -55,7 +55,7 @@ MnesiaTableInspector >> gtSchemaFor: aView [
 		priority: 5;
 		items: [ | info |
 			info := self eval:
-				'GtBridge.Analysis.mnesia_schema(', self quotedTableAtom, ')'.
+				'GtBridge.Mnesia.schema(', self quotedTableAtom, ')'.
 			{
 			{ 'Table'. tableName }.
 			{ 'Type'. (info attributeAt: #type) asString }.

@@ -12,7 +12,7 @@ Class {
 		'sessionId',
 		'selfObject',
 		'saving',
-		'cachedFunctionEntries'
+		'sourceCache'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -290,27 +290,6 @@ ElixirModuleCoder >> buildSourceViewElement [
 	^ container
 ]
 
-{ #category : 'accessing' }
-ElixirModuleCoder >> cacheFunctionEntries: anArrayOrNil [
-	"I install a precomputed function entry list as the cache backing
-	 `functionEntries`. Used by `onBeamModuleRecompiled:` when the
-	 announcement payload carried the freshly-compiled list."
-	cachedFunctionEntries := anArrayOrNil
-		ifNotNil: [ :a |
-			(a isKindOf: BeamProxyObject)
-				ifTrue: [ a asList ]
-				ifFalse: [ a ] ]
-]
-
-{ #category : 'accessing' }
-ElixirModuleCoder >> cachedFunctionEntries [
-	"I expose the function-entry cache populated by
-	 `cacheFunctionEntries:` (typically from an event payload).
-	 Useful for regression tests that assert the cache was primed
-	 without making a follow-up bridge call."
-	^ cachedFunctionEntries
-]
-
 { #category : 'private' }
 ElixirModuleCoder >> coderModelForSource: sourceText [
 	"I return a GtElixirCoderModel view model wired to my editor
@@ -377,17 +356,23 @@ ElixirModuleCoder >> focusLine: aLineNumber [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> functionEntries [
-	"I return all function entries with line ranges, annotations, and source text.
+	"I return all function entries with line ranges, annotations,
+	 and source text.
 
-	 If a recompile event has populated `cachedFunctionEntries` (via
-	 `onBeamModuleRecompiled:`), I return that cache and skip the
-	 bridge round-trip — the announcement carried the new list inline.
+	 The per-module `BeamModuleSourceCache` is the canonical store —
+	 a recompile event primes its `entries` list directly from the
+	 announcement payload, so warm reads return the cache list with
+	 no bridge round-trip.
 
-	 On first call (cache empty) I bridge-call `Analysis.all_functions/1`
-	 and materialize any BeamProxyObject so every caller gets a uniform
-	 iterable type."
-	| result |
-	cachedFunctionEntries ifNotNil: [ ^ cachedFunctionEntries ].
+	 On cold start (cache empty) I bridge-call
+	 `Analysis.all_functions/1` and materialize any BeamProxyObject
+	 so callers get a uniform iterable type.  Cold-start results are
+	 NOT pushed into the cache — that's the cache's job, driven by
+	 events; my fallback just keeps the UI alive until the first
+	 recompile primes it."
+	| cached result |
+	cached := sourceCache entries.
+	cached isNotEmpty ifTrue: [ ^ cached ].
 	result := [ application evaluateAndWait:
 		'GtBridge.Analysis.all_functions(', moduleName, ')' ]
 		on: Error do: [ #() ].
@@ -502,34 +487,29 @@ ElixirModuleCoder >> moduleName: aString [
 	bare := (aString beginsWith: 'Elixir.')
 		ifTrue: [ aString copyFrom: 8 to: aString size ]
 		ifFalse: [ aString ].
-	moduleName ifNotNil: [
-		(BeamEventAnnouncer for: moduleName) unsubscribe: self ].
+	self unsubscribeFromEntries.
 	moduleName := bare.
-	(BeamEventAnnouncer for: moduleName) weak
-		when: BeamModuleSourceWritten
-		send: #onBeamModuleSourceWritten:
-		to: self.
-	(BeamEventAnnouncer for: moduleName) weak
-		when: BeamModuleRecompiled
-		send: #onBeamModuleRecompiled:
-		to: self
+	"Hold the per-module cache strongly via an ivar.  The class-side
+	 registry is a WeakValueDictionary, so without a strong holder
+	 the cache gets GC'd between the moduleName: setter return and
+	 the next recompile event, which would silently drop the
+	 BeamModuleEntriesUpdated chain on the floor."
+	sourceCache := BeamModuleSourceCache for: moduleName.
+	self subscribeToEntries
 ]
 
-{ #category : 'announcements' }
-ElixirModuleCoder >> onBeamModuleRecompiled: anAnnouncement [
-	"BEAM accepted new code (success path). Prime cache from the
-	 full `Analysis.all_functions/1` payload — includes default-arg
-	 siblings + macro-generated entries that AST-only parses miss."
-	self cacheFunctionEntries: anAnnouncement functions.
-	self announce: (GtCoderSourceCodeChanged new coder: self)
-]
+{ #category : 'subscriptions' }
+ElixirModuleCoder >> onBeamModuleEntriesUpdated: anAnnouncement [
+	"I translate the per-module cache's coarse `BeamModuleEntriesUpdated`
+	 (fired once per recompile after the cache primes its entries
+	 list) into my local `GtCoderSourceCodeChanged` for my own
+	 announcer-based subscribers (Source tab rebuild, the function
+	 streaming list).
 
-{ #category : 'announcements' }
-ElixirModuleCoder >> onBeamModuleSourceWritten: anAnnouncement [
-	"Disk has new bytes but BEAM doesn't (compile failed, or external
-	 file-watcher fired). Prime cache from the AST-only parse; the
-	 Source tab + function stream re-render against disk."
-	self cacheFunctionEntries: anAnnouncement functions.
+	 The entries themselves live in `BeamModuleSourceCache`; I'm
+	 just a translator from cache-event to local-coder-event.  I no
+	 longer hold my own `cachedFunctionEntries` ivar — `functionEntries`
+	 reads straight from the cache."
 	self announce: (GtCoderSourceCodeChanged new coder: self)
 ]
 
@@ -629,6 +609,19 @@ ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
 	ensure: [ saving := false ]
 ]
 
+{ #category : 'subscriptions' }
+ElixirModuleCoder >> subscribeToEntries [
+	"I subscribe (weakly) to the per-module cache's coarse
+	 `BeamModuleEntriesUpdated` event — fired once per recompile
+	 after the cache primes its entries list — and translate it
+	 into my local `GtCoderSourceCodeChanged` for downstream
+	 consumers (Source tab rebuild, streaming list)."
+	(BeamEventAnnouncer for: moduleName) weak
+		when: BeamModuleEntriesUpdated
+		send: #onBeamModuleEntriesUpdated:
+		to: self
+]
+
 { #category : 'actions' }
 ElixirModuleCoder >> swapFunctions: entryA with: entryB [
 	"I swap two function blocks in the source, save, and compile."
@@ -650,4 +643,12 @@ ElixirModuleCoder >> swapFunctions: entryA with: entryB [
 		blockA,
 		(lines copyFrom: endB + 1 to: lines size).
 	^ self saveAndCompile: (String lf join: newLines)
+]
+
+{ #category : 'subscriptions' }
+ElixirModuleCoder >> unsubscribeFromEntries [
+	"I drop my prior subscription before retargeting — otherwise I'd
+	 leak listeners on the old module's announcer."
+	moduleName ifNotNil: [
+		(BeamEventAnnouncer for: moduleName) unsubscribe: self ]
 ]

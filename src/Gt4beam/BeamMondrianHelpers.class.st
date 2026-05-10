@@ -31,6 +31,67 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> colorFor: aNode [
+	"I return the role-based background color for `aNode`:
+	 - dispatcher / cache root classes  -> pink   (#fce8e6)
+	 - Announcement event classes       -> yellow (#fff8d6)
+	 - BeamModuleSourceCache instances  -> green  (#d4f1d4) -- cache writer
+	 - Announcer instances              -> blue   (#e8f0fe)
+	 - everything else                  -> gray   (consumer classes / groups)"
+	aNode isClass ifTrue: [
+		(aNode == BeamEventAnnouncer or: [ aNode == BeamModuleSourceCache ])
+			ifTrue: [ ^ Color fromHexString: '#fce8e6' ].
+		(aNode inheritsFrom: Announcement)
+			ifTrue: [ ^ Color fromHexString: '#fff8d6' ].
+		^ Color gray alpha: 0.15 ].
+	(aNode isKindOf: BeamModuleSourceCache)
+		ifTrue: [ ^ Color fromHexString: '#d4f1d4' ].
+	(aNode isKindOf: Announcer)
+		ifTrue: [ ^ Color fromHexString: '#e8f0fe' ].
+	^ Color gray alpha: 0.15
+]
+
+{ #category : 'compile deps' }
+BeamMondrianHelpers class >> compileDepsOn: aMondrian edges: edges highlightModules: highlightSet application: anApp [
+	"I render a compile dependency graph. Modules in highlightSet
+	 are colored blue, others light gray. Clicking spawns docs."
+	| allNodes |
+	edges ifEmpty: [ ^ self ].
+	allNodes := ((edges collect: [ :e |
+		(e attributeAt: #from) asString ])
+		, (edges collect: [ :e |
+		(e attributeAt: #to) asString ])) asSet asArray sorted.
+	aMondrian nodes
+		shape: [ :n |
+			| short color el |
+			short := n copyReplaceAll: 'Elixir.' with: ''.
+			color := (highlightSet includes: n)
+				ifTrue: [ Color fromHexString: '#d4e6f1' ]
+				ifFalse: [ Color fromHexString: '#f0f0f0' ].
+			el := BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: short;
+				padding: (BlInsets all: 4);
+				background: color;
+				geometry: (BlRoundedRectangleGeometry cornerRadius: 4).
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				evt consumed: true.
+				evt currentTarget phlow spawnObject:
+					(anApp evaluateAndWait:
+						'GtBridge.Documentation.for_module(', n, ')') ].
+			el ];
+		with: allNodes.
+	aMondrian edges
+		stencil: [ self edgeStencil ];
+		connect: edges
+			from: [ :e | (e attributeAt: #from) asString ]
+			to: [ :e | (e attributeAt: #to) asString ].
+	aMondrian layout horizontalDominanceTree
+		nodeDistance: 10;
+		levelDistance: 40
+]
+
 { #category : 'stencils' }
 BeamMondrianHelpers class >> edgeStencil [
 	^ BlParabollaArcElement new
@@ -107,6 +168,39 @@ BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock 
 			c vertical fitContent ]
 ]
 
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> paintLabeledGraphOn: aMondrian nodes: nodes edges: edges labels: labels layout: aLayoutBlock [
+	"I render the boilerplate shared by every gt-view that paints the
+	 BEAM event-architecture node graphs.  Node colors come from
+	 `colorFor:` (role-based by node kind), so callers only supply
+	 nodes, edges and labels.  `aLayoutBlock` receives `aMondrian
+	 layout` so the caller can pick `tree` vs `horizontalTree` plus
+	 distances."
+	aMondrian nodes
+		shape: [ :n |
+			BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: (labels at: n);
+				padding: (BlInsets all: 6);
+				background: (self colorFor: n);
+				geometry: (BlRoundedRectangleGeometry cornerRadius: 6) ];
+		with: nodes asArray.
+	aMondrian edges
+		connect: edges asArray from: #key to: #value.
+	aLayoutBlock value: aMondrian layout
+]
+
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> subscribersOf: anAnnouncer [
+	"I return the receiver objects subscribed to `anAnnouncer`,
+	 swallowing missing-API errors with an empty array.  Used by
+	 the FRP-shape gt-views that introspect Announcer state."
+	^ [ anAnnouncer subscriptions subscriptions
+		ifNil: [ #() ]
+		ifNotNil: [ :subs | subs collect: [ :s | s subscriber ] ] ]
+		on: Error do: [ #() ]
+]
+
 { #category : 'supervision' }
 BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThreshold: threshold application: anApp [
 	"I render a colored supervision tree with pool collapsing."
@@ -126,15 +220,20 @@ BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThresho
 					ifTrue: [ Color fromHexString: '#d4e6f1' ]
 					ifFalse: [ Color fromHexString: '#d5f5e3' ] ].
 			el := self nodeLabeled: label color: color onClick: [ :evt | ].
-			el addEventHandlerOn: BlClickEvent do: [ :evt | | pidStr cleaned |
+			el addEventHandlerOn: BlClickEvent do: [ :evt |
+				| pidStr cleaned expr |
 				evt consumed: true.
 				pidStr := node at: #pid ifAbsent: [ nil ].
 				pidStr ifNotNil: [
-					cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+					expr := (isPool or: [ label beginsWith: '#PID' ])
+						ifTrue: [
+							cleaned := (pidStr copyReplaceAll: '#PID<' with: '') copyReplaceAll: '>' with: ''.
+							'IEx.Helpers.pid("', cleaned, '")' ]
+						ifFalse: [ label first = $:
+							ifTrue: [ label ]
+							ifFalse: [ 'Elixir.', label ] ].
 					evt currentTarget phlow spawnObject:
-						(anApp newCommandFactory
-							<< ('IEx.Helpers.pid("', cleaned, '")');
-							sendAndWait) ] ].
+						(anApp newCommandFactory << expr; sendAndWait) ] ].
 			el ];
 		with: allNodes.
 	aMondrian edges stencil: [ self edgeStencil ];
