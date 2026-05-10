@@ -21,9 +21,7 @@ Class {
 BeamModuleSourceWritten class >> fromPayload: aPayload mod: aModuleName [
 	^ self new
 		mod: aModuleName;
-		functions: ((aPayload respondsTo: #attributeAt:)
-			ifTrue: [ aPayload attributeAt: #functions ]
-			ifFalse: [ aPayload at: #functions ifAbsent: [ nil ] ]);
+		functions: (self payloadValue: #functions from: aPayload);
 		yourself
 ]
 

@@ -98,6 +98,16 @@ BeamModuleAnnouncement class >> mod: aSymbol [
 		yourself
 ]
 
+{ #category : 'private' }
+BeamModuleAnnouncement class >> payloadValue: aKey from: aPayload [
+	"Polymorphic read from either a Smalltalk Dictionary (test fixtures)
+	 or a BeamProxyObject map (live bridge).  Missing keys return nil."
+	aPayload ifNil: [ ^ nil ].
+	^ (aPayload respondsTo: #attributeAt:)
+		ifTrue: [ aPayload attributeAt: aKey ]
+		ifFalse: [ aPayload at: aKey ifAbsent: [ nil ] ]
+]
+
 { #category : 'accessing' }
 BeamModuleAnnouncement >> mod [
 	^ mod
