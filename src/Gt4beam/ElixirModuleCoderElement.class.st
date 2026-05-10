@@ -65,7 +65,50 @@ ElixirModuleCoderElement >> buildHeader [
 		action: [ :btn |
 			btn phlow spawnObject:
 				(self coder saveAndCompile: self coder sourceCode) ]).
+	self coder hasLocalSource ifTrue: [
+		container addChild: self buildRemoveModuleButton ].
 	^ container
+]
+
+{ #category : 'building' }
+ElixirModuleCoderElement >> buildRemoveModuleButton [
+	"I render a trash button next to Save&Compile that, on click,
+	 opens a dropdown with the module name + source path + an inner
+	 trash button. The destructive action is the inner button —
+	 clicking the outer icon alone only opens the dropdown."
+	^ BrButton new
+		aptitude: BrGlamorousButtonWithIconAptitude;
+		icon: BrGlamorousVectorIcons bin;
+		beSmallSize;
+		label: 'Remove module';
+		addAptitude: (BrGlamorousWithDropdownAptitude
+			handle: [
+				BrButton new
+					aptitude: BrGlamorousButtonWithIconAptitude;
+					icon: BrGlamorousVectorIcons bin;
+					beSmallSize;
+					label: 'Remove module' ]
+			content: [
+				BrVerticalPane new
+					fitContent;
+					margin: (BlInsets all: 10);
+					addChild: (BrLabel new
+						aptitude: BrGlamorousLabelAptitude new;
+						text: 'Remove module ', self coder moduleName);
+					addChild: (BrLabel new
+						aptitude: (BrGlamorousLabelAptitude new
+							foreground: BrGlamorousColors disabledButtonTextColor);
+						text: self coder sourcePath;
+						margin: (BlInsets top: 4 bottom: 8));
+					addChild: (BrButton new
+						aptitude: BrGlamorousButtonWithIconAptitude;
+						icon: BrGlamorousVectorIcons bin;
+						beTinySize;
+						action: [ :aButton |
+							self coder remove.
+							aButton phlow spawnObject: self coder ];
+						yourself);
+					yourself ])
 ]
 
 { #category : 'building' }
