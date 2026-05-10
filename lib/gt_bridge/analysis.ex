@@ -181,8 +181,8 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I parse `source` and return the AST function entries — the same shape
-  `all_functions/1` returns minus the runtime-export merging (which
+  I parse `source` and return the AST function entries (the same shape
+  `all_functions/1` returns minus the runtime-export merging, which
   needs the module to be loaded). Works on disk bytes alone, so safe
   to call before / after a failed compile.
   """
@@ -201,9 +201,120 @@ defmodule GtBridge.Analysis do
         end)
 
       _ ->
-        []
+        lenient_function_entries(source)
     end
   end
+
+  # Per-fn fallback for files where whole-module AST parse fails (stray
+  # `end`, mid-edit).  For each def header, find the smallest end_line
+  # whose slice wrapped in `defmodule __X__ do ... end` parses to a
+  # single def AST.  Headers that don't balance within @lenient_max_fn_lines
+  # are skipped; the compile-error popup names the file to fix.
+  @lenient_max_fn_lines 200
+  @lenient_def_header ~r/^\s*(def|defp|defmacro|defmacrop|defview|example)\s+\w/
+
+  defp lenient_function_entries(source) do
+    lines = String.split(source, "\n")
+    total = length(lines)
+    do_lenient(lines, 1, total, []) |> Enum.reverse() |> merge_clauses()
+  end
+
+  defp do_lenient(_lines, line_num, total, acc) when line_num > total, do: acc
+
+  defp do_lenient(lines, line_num, total, acc) do
+    line = Enum.at(lines, line_num - 1, "")
+
+    if Regex.match?(@lenient_def_header, line) do
+      case extract_lenient_at(lines, line_num, total) do
+        {:ok, entry} -> do_lenient(lines, entry.end_line + 1, total, [entry | acc])
+        :error -> do_lenient(lines, line_num + 1, total, acc)
+      end
+    else
+      do_lenient(lines, line_num + 1, total, acc)
+    end
+  end
+
+  defp extract_lenient_at(lines, start_line, total) do
+    max_end = min(start_line + @lenient_max_fn_lines - 1, total)
+
+    Enum.reduce_while(start_line..max_end, :error, fn end_line, _acc ->
+      body = Enum.slice(lines, (start_line - 1)..(end_line - 1)) |> Enum.join("\n")
+      wrapped = "defmodule __GtBridgeLenient__ do\n" <> body <> "\nend\n"
+
+      case Code.string_to_quoted(wrapped) do
+        {:ok, ast} ->
+          case lenient_fn_info(ast) do
+            {:ok, name, arity, kind_str} ->
+              walked_start = walk_back_annotations(lines, start_line)
+
+              full_slice =
+                Enum.slice(lines, (walked_start - 1)..(end_line - 1)) |> Enum.join("\n")
+
+              entry = %{
+                name: Atom.to_string(name),
+                arity: arity,
+                kind: kind_str,
+                sig: "#{name}/#{arity}",
+                start: walked_start,
+                end_line: end_line,
+                source: full_slice
+              }
+
+              {:halt, {:ok, entry}}
+
+            :error ->
+              {:cont, :error}
+          end
+
+        _ ->
+          {:cont, :error}
+      end
+    end)
+  end
+
+  # Atoms that look like function definers (def, defp, defmacro, defmacrop,
+  # plus user macros like defview) but aren't function-defining themselves.
+  @non_function_def_kinds [
+    :defmodule,
+    :defstruct,
+    :defguard,
+    :defguardp,
+    :defprotocol,
+    :defimpl,
+    :defdelegate,
+    :deftype,
+    :defrecord,
+    :defrecordp,
+    :defexception,
+    :defoverridable
+  ]
+
+  # User-level macros that expand to function definitions and
+  # whose AST source we want captured so the inspector shows the
+  # body. Without this allowlist they fall through to the runtime
+  # export path and render as "(no source)".
+  @function_def_macros [:example]
+
+  defp lenient_fn_info({:defmodule, _, [_, [do: {kind, _, [head | _]}]]}) when is_atom(kind) do
+    kind_str = Atom.to_string(kind)
+
+    cond do
+      kind in @non_function_def_kinds -> :error
+      kind in @function_def_macros -> head_to_info(head, "def")
+      String.starts_with?(kind_str, "def") -> head_to_info(head, kind_str)
+      true -> :error
+    end
+  end
+
+  defp lenient_fn_info(_), do: :error
+
+  defp head_to_info(head, kind_str) do
+    case function_head(head) do
+      {name, arity} -> {:ok, name, arity, kind_str}
+      _ -> :error
+    end
+  end
+
 
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
@@ -865,29 +976,6 @@ defmodule GtBridge.Analysis do
   end
 
   defp extract_functions(_), do: []
-
-  # Atoms that look like function definers (def, defp, defmacro, defmacrop,
-  # plus user macros like defview) but aren't function-defining themselves.
-  @non_function_def_kinds [
-    :defmodule,
-    :defstruct,
-    :defguard,
-    :defguardp,
-    :defprotocol,
-    :defimpl,
-    :defdelegate,
-    :deftype,
-    :defrecord,
-    :defrecordp,
-    :defexception,
-    :defoverridable
-  ]
-
-  # User-level macros that expand to function definitions and
-  # whose AST source we want captured so the inspector shows the
-  # body. Without this allowlist they fall through to the runtime
-  # export path and render as "(no source)".
-  @function_def_macros [:example]
 
   defp function_entry({kind, meta, [head | _]}) when is_atom(kind) do
     kind_str = Atom.to_string(kind)
