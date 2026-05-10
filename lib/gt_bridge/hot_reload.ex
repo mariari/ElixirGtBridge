@@ -34,47 +34,55 @@ defmodule GtBridge.HotReload do
   """
   @spec reload(String.t(), String.t()) :: map()
   def reload(path, content) do
-    # On success the result is `%{recompiled: [...]}` — Recompiled
-    # carries the full `Analysis.all_functions/1` shape including
-    # default-arg siblings and macro-generated entries.  On failure
-    # the result is `%{source_written: %{...}, errors: [...]}` — disk
-    # has new bytes but BEAM doesn't have the corresponding code, so
-    # subscribers re-derive from the AST-only parse in `source_written`.
-    # Mutually exclusive — at most one of `recompiled` / `source_written`
-    # is present in the result, so subscribers don't need dedup.
+    # On success the result is `%{recompiled: [...]}`. Recompiled carries
+    # the full `Analysis.all_functions/1` shape including default-arg
+    # siblings and macro-generated entries.  On failure the result is
+    # `%{source_written: %{...}, errors: [...]}`: disk has new bytes but
+    # BEAM doesn't have the corresponding code, so subscribers re-derive
+    # from the AST-only parse in `source_written`.  At most one of
+    # `recompiled` / `source_written` is present in the result, so
+    # subscribers don't need dedup.
     File.write!(path, content)
-    Mix.Tasks.Format.run([path])
-    formatted = File.read!(path)
 
+    {formatted, format_err} =
+      case format_or_error(path) do
+        {:ok, fmt} -> {fmt, nil}
+        {:error, e} -> {content, e}
+      end
+
+    # Always broadcast :source_written so subscribers can re-baseline
+    # against disk regardless of compile/format outcome.  When the
+    # source doesn't parse, `functions` is [] (lenient parser couldn't
+    # recover anything either).
     GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
       kind: :source_written,
       mod: parse_module_name(formatted),
-      source_hash: :erlang.phash2(formatted)
+      source_hash: :erlang.phash2(formatted),
+      source: formatted,
+      functions: GtBridge.Analysis.functions_in_source(formatted)
     })
 
-    try do
-      do_compile(path, formatted)
-    rescue
-      e in [CompileError, SyntaxError, TokenMissingError] ->
-        compile_failure(path, formatted, [compile_error_payload(e)])
-
-      e ->
-        compile_failure(path, formatted, [exception_error_payload(path, e)])
-    catch
-      {:gt_compile_failed, errors} ->
-        compile_failure(path, formatted, errors)
+    if format_err do
+      compile_failure(path, formatted, [compile_error_payload(format_err)])
+    else
+      try do
+        do_compile(path, formatted)
+      rescue
+        e in [CompileError, SyntaxError, TokenMissingError] ->
+          compile_failure(path, formatted, [compile_error_payload(e)])
+      catch
+        {:gt_compile_failed, errors} ->
+          compile_failure(path, formatted, errors)
+      end
     end
   end
 
-  defp exception_error_payload(path, e) do
-    %{
-      phase: :unknown,
-      file: path,
-      line: nil,
-      column: nil,
-      message: Exception.message(e),
-      module: module_in_file(path)
-    }
+  @spec format_or_error(String.t()) :: {:ok, String.t()} | {:error, Exception.t()}
+  defp format_or_error(path) do
+    Mix.Tasks.Format.run([path])
+    {:ok, File.read!(path)}
+  rescue
+    e in [SyntaxError, TokenMissingError] -> {:error, e}
   end
 
   defp compile_failure(path, content, errors) do
@@ -86,6 +94,7 @@ defmodule GtBridge.HotReload do
 
     Map.merge(source_written_payload(path, content), %{errors: errors})
   end
+
 
   defp parse_module_name(source) do
     case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do

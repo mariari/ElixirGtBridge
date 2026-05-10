@@ -39,14 +39,14 @@ Class {
 	#instVars : [
 		'mod',
 		'sources',
-		'entries',
-		'lastGoodSource'
+		'entries'
 	],
 	#classInstVars : [
 		'caches'
 	],
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Events',
+	#package : 'Gt4beam',
+	#tag : 'Events'
 }
 
 { #category : 'gt-views' }
@@ -266,6 +266,38 @@ BeamModuleSourceCache class >> reset [
 	caches := nil
 ]
 
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> applyEntries: aFunctionsList [
+	"Update entries + fan out a narrow `BeamModuleSourceChanged` per
+	 changed (function, arity) and one coarse `BeamModuleEntriesUpdated`
+	 so module-level consumers re-render once per change."
+	| functions |
+	functions := (aFunctionsList isKindOf: BeamProxyObject)
+		ifTrue: [ aFunctionsList asList ]
+		ifFalse: [ aFunctionsList ].
+	functions isEmpty ifTrue: [ ^ self ].
+	entries := functions collect: [ :each |
+		(each isKindOf: Dictionary)
+			ifTrue: [ BeamFunctionEntry fields: each ]
+			ifFalse: [ each ] ].
+	entries do: [ :entry |
+		| fnName arity newSource key |
+		fnName := (entry attributeAt: #name) asString.
+		arity := (entry attributeAt: #arity) asInteger.
+		newSource := (entry attributeAt: #source) asString.
+		key := { fnName. arity }.
+		(sources at: key ifAbsent: [ nil ]) = newSource ifFalse: [
+			sources at: key put: newSource.
+			(BeamEventAnnouncer for: mod) announce:
+				(BeamModuleSourceChanged
+					mod: mod
+					function: fnName
+					arity: arity
+					source: newSource) ] ].
+	(BeamEventAnnouncer for: mod) announce:
+		(BeamModuleEntriesUpdated mod: mod entries: entries)
+]
+
 { #category : 'updating' }
 BeamModuleSourceCache >> clear [
 	"I drop my source map and entries list — useful for tests that
@@ -301,6 +333,15 @@ BeamModuleSourceCache >> ensureSubscribed [
 			ann weak
 				when: BeamModuleSourceRemoved
 				send: #onBeamModuleSourceRemoved:
+				to: self ].
+	(subs anySatisfy: [ :sub |
+		sub subscriber == self
+			and: [ [ sub announcementClass = BeamModuleSourceWritten ]
+				on: Error do: [ false ] ] ])
+		ifFalse: [
+			ann weak
+				when: BeamModuleSourceWritten
+				send: #onBeamModuleSourceWritten:
 				to: self ]
 ]
 
@@ -365,50 +406,13 @@ BeamModuleSourceCache >> mod [
 BeamModuleSourceCache >> mod: aModuleName [
 	mod := aModuleName.
 	sources := Dictionary new.
-	entries := #().
-	lastGoodSource := nil
-]
-
-{ #category : 'accessing' }
-BeamModuleSourceCache >> lastGoodSource [
-	"Whole-file source from the most recent successful compile.  Splice
-	 operations should prefer this over disk content — disk may carry
-	 the broken bytes from a failed save whose line numbers no longer
-	 match cached function entries."
-	^ lastGoodSource
+	entries := #()
 ]
 
 { #category : 'subscriptions' }
 BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
-	"Update sources + entries from the announcement, fan out a
-	 narrow `BeamModuleSourceChanged` per changed (function, arity),
-	 and one coarse `BeamModuleEntriesUpdated` so module-level
-	 consumers re-render once per recompile."
-	| functions |
-	functions := anAnnouncement functions ifNil: [ ^ self ].
-	(functions isKindOf: BeamProxyObject) ifTrue: [
-		functions := functions asList ].
-	anAnnouncement source ifNotNil: [ :s | lastGoodSource := s ].
-	entries := functions collect: [ :each |
-		(each isKindOf: Dictionary)
-			ifTrue: [ BeamFunctionEntry fields: each ]
-			ifFalse: [ each ] ].
-	entries do: [ :entry |
-		| fnName arity newSource key |
-		fnName := (entry attributeAt: #name) asString.
-		arity := (entry attributeAt: #arity) asInteger.
-		newSource := (entry attributeAt: #source) asString.
-		key := { fnName. arity }.
-		(sources at: key ifAbsent: [ nil ]) = newSource ifFalse: [
-			sources at: key put: newSource.
-			(BeamEventAnnouncer for: mod) announce:
-				(BeamModuleSourceChanged
-					mod: mod
-					function: fnName
-					arity: arity
-					source: newSource) ] ].
-	(BeamEventAnnouncer for: mod) announce:
-		(BeamModuleEntriesUpdated mod: mod entries: entries)
+	"Successful recompile from `:code_server`."
+	self applyEntries: (anAnnouncement functions ifNil: [ ^ self ])
 ]
 
 { #category : 'subscriptions' }
@@ -429,6 +433,14 @@ BeamModuleSourceCache >> onBeamModuleSourceRemoved: anAnnouncement [
 				source: nil) ].
 	(BeamEventAnnouncer for: mod) announce:
 		(BeamModuleEntriesUpdated mod: mod entries: #())
+]
+
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> onBeamModuleSourceWritten: anAnnouncement [
+	"Disk write fired by the saver (may or may not have compiled).
+	 Functions list comes from the AST parse of the just-written
+	 bytes, so it reflects disk truth even when compile failed."
+	self applyEntries: (anAnnouncement functions ifNil: [ #() ])
 ]
 
 { #category : 'querying' }

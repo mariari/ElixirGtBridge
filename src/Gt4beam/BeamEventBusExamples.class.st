@@ -44,17 +44,11 @@ BeamEventBusExamples >> announcerDeliversTypedAnnouncement [
 { #category : 'examples - browser' }
 BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
 	"I assert ElixirCoderBrowser drops its rawNodes cache when a
-	 module recompiles. Without this the sidebar shows the module
-	 set from when the browser opened — module-detail changes
+	 module recompiles.  Without this the sidebar shows the module
+	 set from when the browser opened, so module-detail changes
 	 (function count, doc presence) stay invisible until close +
-	 reopen.
+	 reopen."
 
-	 Browser subscribes only when added to the scene graph, so the
-	 BlScripter wrap is load-bearing — without it, no subscription,
-	 no invalidation. Scope to hot_reload_test so rawNodes population
-	 is cheap (unscoped browser hits every loaded app via
-	 module_details, ~50+ round trips per save — exactly what
-	 overloaded the bridge before this safety fix landed)."
 	<gtExample>
 	| browser scripter before path coder original |
 	browser := ElixirCoderBrowser new
@@ -80,10 +74,8 @@ BeamEventBusExamples >> browserRawNodesInvalidatesOnSave [
 		yourself.
 	original := coder sourceCode.
 	coder saveAndCompile: original.
-	scripter wait forEmptySpaceTaskQueue.
+	self waitFor: [ browser rawNodes ~~ before ].
 
-	"Re-reading rawNodes recomputes — different array instance proves
-	 the cache was actually invalidated."
 	self assert: browser rawNodes ~~ before
 		description: 'rawNodes should be re-fetched after BeamModuleRecompiled'.
 	^ browser
@@ -294,15 +286,10 @@ BeamEventBusExamples >> peerSourceTabRefreshesOnSave [
 { #category : 'examples - payload' }
 BeamEventBusExamples >> recompileEventCarriesFunctionsInline [
 	"I assert that BeamModuleRecompiled for the directly-saved module
-	 arrives with `functions` populated — the announcement payload
-	 itself carries the new function entries.
+	 arrives with `functions` populated.  Subscribers can then read
+	 the new entries from the announcement payload directly instead
+	 of round-tripping `Analysis.all_functions/1` per consumer."
 
-	 Without this, downstream subscribers (Functions tab, |> expander)
-	 must each fire their own `Analysis.all_functions/1` /
-	 `function_or_type_source/3` round-trip; with it, they read from
-	 the announcement directly and the save fan-out collapses into one
-	 broadcast.  This is the FRP shape: broadcast carries the new
-	 value, not just the fact of the event."
 	<gtExample>
 	| coder original tag received |
 	coder := self moduleCoder.
@@ -313,13 +300,14 @@ BeamEventBusExamples >> recompileEventCarriesFunctionsInline [
 		when: BeamModuleRecompiled
 		do: [ :a | received add: a ]
 		for: tag.
-	[ coder saveAndCompile: original ]
+	[ coder saveAndCompile: original.
+	  self waitFor: [ received isNotEmpty ] ]
 		ensure: [ (BeamEventAnnouncer for: 'HotReloadTest') unsubscribe: tag ].
 	self assert: received isNotEmpty
 		description: 'save should fire BeamModuleRecompiled for HotReloadTest'.
 	self assert: received first functions isNotNil
 		description: 'directly-saved module announcement should carry function entries'.
-	self assert: received first functions asList isNotEmpty
+	self assert: received first functions asArray isNotEmpty
 		description: 'function entries should be non-empty for HotReloadTest'.
 	^ received first
 ]
@@ -357,12 +345,10 @@ BeamEventBusExamples >> saveCachesFunctionEntriesOnCoder [
 { #category : 'examples - end-to-end' }
 BeamEventBusExamples >> saveFiresBeamModuleRecompiled [
 	"I save HotReloadTest via a coder and observe that
-	 BeamEventAnnouncer fires BeamModuleRecompiled. Proves the
-	 GT-side wiring (saveAndCompile reads the recompiled list from
-	 the hot_reload response and announces).
+	 BeamEventAnnouncer fires BeamModuleRecompiled.  Returns the
+	 received announcements (at minimum one for HotReloadTest,
+	 possibly more if dep-siblings recompiled too)."
 
-	 Returns the received announcements — at minimum one for
-	 HotReloadTest, possibly more if dep-siblings recompiled too."
 	<gtExample>
 	| coder original tag received markerSource |
 	coder := self moduleCoder.
@@ -375,9 +361,10 @@ BeamEventBusExamples >> saveFiresBeamModuleRecompiled [
 		do: [ :a | received add: a ]
 		for: tag.
 	[ coder saveAndCompile: markerSource.
-		self assert: received isNotEmpty
+	  self waitFor: [ received anySatisfy: [ :a | a mod = 'HotReloadTest' ] ].
+	  self assert: received isNotEmpty
 			description: 'saveAndCompile should fire BeamModuleRecompiled'.
-		self assert: (received anySatisfy: [ :a | a mod = 'HotReloadTest' ])
+	  self assert: (received anySatisfy: [ :a | a mod = 'HotReloadTest' ])
 			description: 'directly-saved module should be in the announcement set' ]
 		ensure: [
 			BeamEventAnnouncer default unsubscribe: tag.
@@ -470,6 +457,17 @@ BeamEventBusExamples >> twoStreamingModelsBothRefresh [
 			description: 'sm2''s moduleCoder should observe the save via fresh BEAM data' ]
 		ensure: [ sm1 moduleCoder saveAndCompile: original ].
 	^ sm2
+]
+
+{ #category : 'private' }
+BeamEventBusExamples >> waitFor: aBlock [
+	"Poll `aBlock` until it returns truthy or 2s elapses.  Bridges the
+	 SSE-delivery gap between `coder saveAndCompile:` returning and
+	 the BeamModuleRecompiled subscriber receiving."
+	| deadline |
+	deadline := DateAndTime now + 2 seconds.
+	[ aBlock value or: [ DateAndTime now > deadline ] ] whileFalse: [
+		(Delay forMilliseconds: 20) wait ]
 ]
 
 { #category : 'examples - announcer' }

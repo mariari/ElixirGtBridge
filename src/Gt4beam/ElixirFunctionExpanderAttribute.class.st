@@ -9,8 +9,9 @@ Class {
 		'currentCoderModel',
 		'sourceCache'
 	],
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Styler',
+	#package : 'Gt4beam',
+	#tag : 'Styler'
 }
 
 { #category : 'private' }
@@ -49,7 +50,6 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 		when: GtSourceCoderViewModelSaveRequested
 		do: [ :ann |
 			self saveSource: coderModel currentSourceString.
-			coderModel sourceCode: (GtCoderExplicitStringSource new source: self fetchSource).
 			ann consumed: true ].
 	currentCoderModel := coderModel.
 	^ BlElement new
@@ -105,22 +105,18 @@ ElixirFunctionExpanderAttribute >> initialize [
 ]
 
 { #category : 'subscriptions' }
-ElixirFunctionExpanderAttribute >> onSourceChanged: anAnnouncement [
-	"I refresh my inline coder when the cache fires a narrow source-
-	 changed event for my exact function/arity.  Cache has already
-	 done the work of extracting + storing the new source — I just
-	 read from the announcement and re-render.  No bridge call.
-
-	 Events for other functions/arities in the same module reach me
-	 (per-module announcer fan-out), so I filter here.  This is the
-	 'consumers just read' half of the FRP shape — heavy work
-	 happened once in the cache, cheap re-render happens N times
-	 across consumers."
+ElixirFunctionExpanderAttribute >> onModuleEntriesUpdated: anAnnouncement [
+	"Re-baseline from the new entries — fires once per recompile,
+	 covers content-diff and no-content-diff (formatter normalization)
+	 alike.  No fire on compile failure → buffer keeps user's edits."
+	| match |
 	currentCoderModel ifNil: [ ^ self ].
-	(anAnnouncement function = functionName asString
-		and: [ anAnnouncement arity = arity ]) ifFalse: [ ^ self ].
+	match := anAnnouncement entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName asString
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ ^ self ].
 	currentCoderModel sourceCode:
-		(GtCoderExplicitStringSource new source: anAnnouncement source)
+		(GtCoderExplicitStringSource new source: (match attributeAt: #source) asString)
 ]
 
 { #category : 'printing' }
@@ -134,11 +130,8 @@ ElixirFunctionExpanderAttribute >> printOn: aStream [
 
 { #category : 'private' }
 ElixirFunctionExpanderAttribute >> saveSource: newSource [
-	"I splice newSource into the target module's source file at this
-	 expander's function/arity position.  Builds a transient module
-	 coder so it can reuse spliceFunction:forFunction:arity: — the
-	 splice is line-range based on start/end_line from all_functions,
-	 so it works for both function and type rows."
+	"Splice newSource into the target file at my fn/arity's line range.
+	 Re-baseline happens via my `BeamModuleEntriesUpdated` subscription."
 	| path mc |
 	path := application evaluateAndWait:
 		'GtBridge.Resolve.source_file(', targetModule, ')'.
@@ -152,13 +145,12 @@ ElixirFunctionExpanderAttribute >> saveSource: newSource [
 
 { #category : 'subscriptions' }
 ElixirFunctionExpanderAttribute >> subscribeToSourceChanges [
-	"I subscribe (weakly) to my module's narrow `BeamModuleSourceChanged`
-	 event — fired by `BeamModuleSourceCache` after it processes the
-	 underlying recompile.  Cache is the sole subscriber to recompile
-	 for this module; I just listen for the narrow event and read."
+	"Subscribe to the cache's coarse per-recompile event.  Fires once
+	 per recompile (not per-function), so my handler reads my own
+	 fn/arity entry from the announcement."
 	(BeamEventAnnouncer for: targetModule) weak
-		when: BeamModuleSourceChanged
-		send: #onSourceChanged:
+		when: BeamModuleEntriesUpdated
+		send: #onModuleEntriesUpdated:
 		to: self
 ]
 

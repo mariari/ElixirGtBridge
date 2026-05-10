@@ -234,8 +234,32 @@ ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
 
 { #category : 'initialization' }
 ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder [
+	| announcer |
 	moduleCoder := anElixirModuleCoder.
-	self refreshFromEntry: anEntry
+	self refreshFromEntry: anEntry.
+	announcer := BeamEventAnnouncer for: moduleCoder moduleName.
+	announcer weak
+		when: BeamModuleEntriesUpdated
+		send: #onModuleEntriesUpdated:
+		to: self
+]
+
+{ #category : 'subscriptions' }
+ElixirFunctionCoder >> onModuleEntriesUpdated: anAnnouncement [
+	"The cache fans out `:recompiled` and `:source_written` into one
+	 event; I rebaseline from whatever entries arrived."
+	self refreshFromEntries: anAnnouncement entries
+]
+
+{ #category : 'subscriptions' }
+ElixirFunctionCoder >> refreshFromEntries: entries [
+	| match |
+	entries ifNil: [ ^ self ].
+	match := entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName asString
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ ^ self ].
+	self refreshFromEntry: match
 ]
 
 { #category : 'as yet unclassified' }
