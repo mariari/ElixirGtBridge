@@ -590,10 +590,21 @@ defmodule GtBridge.Analysis do
             |> Map.merge(GtBridge.Analysis.Walker.extract_alias_map(source))
         end
 
+      imports =
+        case context_module do
+          nil ->
+            GtBridge.Analysis.Walker.extract_import_map(source)
+
+          mod ->
+            module_import_map(mod)
+            |> Map.merge(GtBridge.Analysis.Walker.extract_import_map(source))
+        end
+
       calls =
         ast
         |> GtBridge.Analysis.Walker.collect_calls(context_module)
         |> GtBridge.Analysis.Walker.resolve_call_aliases(aliases)
+        |> GtBridge.Analysis.Walker.resolve_import_targets(imports)
 
       # Build a per-module lookup of defined function names for filtering.
       # Includes both def and defp via all_functions/1 (AST-based).
@@ -691,6 +702,10 @@ defmodule GtBridge.Analysis do
 
   defp module_alias_map(mod) do
     GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
+  end
+
+  defp module_import_map(mod) do
+    GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
   end
 
   @doc """

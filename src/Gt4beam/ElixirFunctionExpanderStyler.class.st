@@ -3,15 +3,43 @@ Class {
 	#superclass : 'GtCoderAstStyler',
 	#instVars : [
 		'application',
+		'cachedHash',
+		'cachedSites',
 		'cachedAstHash',
 		'cachedAst',
 		'lastIndex',
 		'cachedModuleAliasesFor',
 		'cachedModuleAliases'
 	],
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Styler',
+	#package : 'Gt4beam',
+	#tag : 'Styler'
 }
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> absolutePositionForLine: line column: col in: source [
+	"I convert a 1-based line:column pair to a 1-based absolute
+	 character position in source."
+	| lines pos |
+	lines := source lines.
+	line > lines size ifTrue: [ ^ nil ].
+	pos := 0.
+	1 to: line - 1 do: [ :i | pos := pos + (lines at: i) size + 1 ].
+	^ pos + col
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> aliasMapFor: source [
+	"Source-level `alias` directives merged with the surrounding
+	 module's aliases (when a context module is known).  Source wins
+	 on conflict so a local `alias` line takes precedence."
+	| aliasMap |
+	aliasMap := self extractAliasesFrom: source.
+	self contextModuleName ifNotNil: [ :mod |
+		(self moduleAliasesFor: mod) do: [ :pair |
+			aliasMap at: pair first ifAbsentPut: [ pair second ] ] ].
+	^ aliasMap
+]
 
 { #category : 'accessing' }
 ElixirFunctionExpanderStyler >> application [
@@ -25,19 +53,33 @@ ElixirFunctionExpanderStyler >> application: anApp [
 ]
 
 { #category : 'styling' }
-ElixirFunctionExpanderStyler >> attachWrenchesIn: aText source: source defmoduleHeads: skip aliasNodes: aliasNodes aliasMap: aliasMap resolution: resolution [
-	"Outermost alias outside any defmodule head is a wrench candidate.
-	 Build entries (1 per single, N per grouped), batch-resolve unknown
-	 names against the bridge, then attach for the unresolved."
-	| candidates entries |
-	candidates := self outermostAliasesIn:
-		(aliasNodes reject: [ :n | self node: n insideAnyOf: skip ]).
-	entries := candidates flatCollect: [ :n |
-		self wrenchEntriesFor: n source: source aliasMap: aliasMap ].
-	self
-		learnClassificationsFor: (entries collect: [ :e | e at: #resolved ]) asSet
-		on: resolution.
-	entries do: [ :e | self attachWrenchEntry: e in: aText resolution: resolution ]
+ElixirFunctionExpanderStyler >> attachUnknownModuleWrenchesIn: aText source: source [
+	"I attach a wrench dropdown after every Elixir module reference
+	 whose module isn't loaded."
+	| resolution ast aliases entries |
+	ast := self parsedAstFor: source.
+	ast ifNil: [ ^ self ].
+	resolution := BeamModuleResolution default.
+	aliases := self outermostAliasReferencesIn: ast source: source.
+	entries := self wrenchEntriesFor: aliases source: source.
+	self learnClassificationsFor: (entries collect: [ :e | e key value ]) asSet on: resolution.
+	entries do: [ :entry |
+		self attachWrenchEntry: entry in: aText resolution: resolution ]
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> attachWrenchEntry: entry in: aText resolution: resolution [
+	"Attach a wrench attribute at the entry's end position iff its
+	 resolved name is known-unresolved by the cache."
+	| resolved endPos attr |
+	resolved := entry key value.
+	endPos := entry value.
+	(resolution classify: resolved) = #unresolved ifFalse: [ ^ self ].
+	endPos > aText size ifTrue: [ ^ self ].
+	attr := ElixirUnknownModuleAttribute
+		forModule: resolved
+		application: self application.
+	self attribute: attr from: endPos to: endPos
 ]
 
 { #category : 'accessing' }
@@ -50,84 +92,33 @@ ElixirFunctionExpanderStyler >> contextModuleName [
 ]
 
 { #category : 'private' }
-ElixirFunctionExpanderStyler >> addDefmoduleHeadFor: node source: source into: heads [
-	"Add the alias being *defined* by `defmodule X` / `defprotocol X`
-	 so the wrench skips it."
-	| ident call identSrc |
-	ident := node identifier ifNil: [ ^ self ].
-	call := node call ifNil: [ ^ self ].
-	identSrc := source copyFrom: ident startPosition to: ident stopPosition.
-	(#('defmodule' 'defprotocol') includes: identSrc) ifFalse: [ ^ self ].
-	call expressions ifNotEmpty: [ heads add: call expressions first ]
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> parsedAstFor: source [
-	"Cached SmaCC parse — keyed on source hash so cursor moves /
-	 focus changes don't re-parse a multi-thousand-line file."
-	| hash ast |
-	hash := source hash.
-	hash = cachedAstHash ifTrue: [ ^ cachedAst ].
-	ast := [ ElixirParser parseStream: source readStream ]
-		on: Error do: [ nil ].
-	cachedAstHash := hash.
-	cachedAst := ast.
-	^ ast
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> callSiteFor: aParensCall aliasMap: aliasMap source: source resolution: resolution [
-	| dotIdent fnToken expr resolved isLocal arity |
-	dotIdent := self dotParenIdentifierOf: aParensCall identifier.
-	dotIdent ifNil: [ ^ nil ].
-	fnToken := dotIdent identifier ifNil: [ ^ nil ].
-	expr := dotIdent expression.
-	isLocal := expr isNil.
-	isLocal
-		ifTrue: [ resolved := self contextModuleName ]
-		ifFalse: [
-			resolved := self
-				resolveAlias: (source copyFrom: expr startPosition to: expr stopPosition)
-				with: aliasMap ].
-	resolved ifNil: [ ^ nil ].
-	(isLocal or: [ (resolution classify: resolved) = #resolved ])
-		ifFalse: [ ^ nil ].
-	arity := self arityFor: aParensCall.
-	(self isPipedCall: aParensCall) ifTrue: [ arity := arity + 1 ].
-	^ Dictionary new
-		at: #target_module put: resolved;
-		at: #function put: fnToken value;
-		at: #arity put: arity;
-		at: #fnEndPosition put: fnToken stopPosition;
-		yourself
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> isPipedCall: aParensCall [
-	"True if I'm the RHS of `|>` — the BEAM bumps arity by 1."
-	| grandparent |
-	grandparent := aParensCall parent ifNotNil: [ :p | p parent ].
-	^ (grandparent isKindOf: ElixirMatchedOpExprNode)
-		and: [ grandparent op value = '|>' ]
+ElixirFunctionExpanderStyler >> defmoduleHeadsIn: ast source: source [
+	"I return DotAliasNodes that are the head of a `defmodule` /
+	 `defprotocol` block — the module being defined, not a reference."
+	| skip |
+	skip := IdentitySet new.
+	ast withAllNodesDo: [ :node |
+		(node isKindOf: ElixirBlockExprNode) ifTrue: [
+			| identSrc |
+			identSrc := [ source
+				copyFrom: node identifier startPosition
+				to: node identifier stopPosition ]
+				on: Error do: [ '' ].
+			(#('defmodule' 'defprotocol') includes: identSrc) ifTrue: [
+				[ skip add: node call expressions first ]
+					on: Error do: [  ] ] ] ].
+	^ skip
 ]
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> extractAliasesFrom: source [
 	"I parse `alias` directives line-by-line and return a Dictionary
-	 mapping the short name to the fully qualified module name.
-
-	 Three forms:
+	 short-name → full-module-name.  Three forms:
 	   alias Foo.Bar.Baz             ->  Baz -> Foo.Bar.Baz
 	   alias Foo.Bar.Baz, as: Z      ->  Z   -> Foo.Bar.Baz
 	   alias Foo.Bar.{X, Y, Z}       ->  X   -> Foo.Bar.X
 	                                     Y   -> Foo.Bar.Y
-	                                     Z   -> Foo.Bar.Z
-
-	 Without me, every locally-aliased identifier (e.g. `Text` for
-	 `GtBridge.Phlow.Text`) shows up as an unresolved module and the
-	 styler attaches a wrench.  With me, the styler classifies the
-	 RESOLVED full name instead, so the wrench only fires when the
-	 module truly isn't loaded."
+	                                     Z   -> Foo.Bar.Z"
 	| aliases |
 	aliases := Dictionary new.
 	source lines do: [ :rawLine |
@@ -143,17 +134,8 @@ ElixirFunctionExpanderStyler >> extractAliasesFrom: source [
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> groupedAliasEntriesFor: aNode in: source [
-	"I expand a grouped-alias DotAlias node (whose source span is
-	 `Foo.{A, B, C}`) into per-name entries suitable for wrench
-	 attachment.  Returns OrderedCollection of associations
-	 `fullModuleName -> absoluteEndPositionInSource`, one per
-	 individual name inside the braces.
-
-	 Without me, the AST walker treats the whole `Foo.{A, B, C}`
-	 literal as a single module reference and offers to create that
-	 verbatim string -- which isn't a real module.  With me, each
-	 name resolves to its canonical full form (`Foo.A`, `Foo.B`,
-	 `Foo.C`) and gets its own wrench."
+	"I expand a grouped-alias node (`Foo.{A, B, C}`) into per-name
+	 associations `fullName -> absoluteEndPosition`, one per inner name."
 	| absStart nodeSrc |
 	absStart := aNode startPosition.
 	nodeSrc := source copyFrom: aNode startPosition to: aNode stopPosition.
@@ -168,13 +150,44 @@ ElixirFunctionExpanderStyler >> initialize [
 ]
 
 { #category : 'private' }
-ElixirFunctionExpanderStyler >> moduleAliasesFor: aModuleName [
-	"I return the surrounding module's `alias` declarations as an
-	 `OrderedCollection` of `{short. full}` pairs.  Bridge-cached
-	 per styler instance, keyed on the module name -- module aliases
-	 rarely change, and the styler runs on every keystroke.
+ElixirFunctionExpanderStyler >> learnClassificationsFor: resolvedNames on: resolution [
+	"Batch-classify any `resolvedNames` the cache hasn't seen via one
+	 bridge call; record each as resolved/unresolved so subsequent
+	 `classify:` calls answer locally."
+	| unknowns res resolved unresolved |
+	unknowns := resolvedNames select: [ :n |
+		(resolution classify: n) = #unknown ].
+	unknowns isEmpty ifTrue: [ ^ self ].
+	res := [ self application evaluateAndWait:
+		'GtBridge.Analysis.modules_loaded?(', (self listExprFor: unknowns), ')' ]
+		on: Error do: [ ^ self ].
+	res ifNil: [ ^ self ].
+	resolved := OrderedCollection new.
+	unresolved := OrderedCollection new.
+	unknowns do: [ :name |
+		| loaded |
+		loaded := [ res attributeAt: name ] on: Error do: [ nil ].
+		loaded == true ifTrue: [ resolved add: name ].
+		loaded == false ifTrue: [ unresolved add: name ] ].
+	resolution recordResolved: resolved unresolved: unresolved
+]
 
-	 Returns empty on bridge error or if the module has no aliases."
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> listExprFor: names [
+	"Render `names` as an Elixir list literal of double-quoted strings."
+	^ String streamContents: [ :s |
+		s nextPutAll: '['.
+		names asArray
+			do: [ :n | s nextPut: $"; nextPutAll: n; nextPut: $" ]
+			separatedBy: [ s nextPutAll: ', ' ].
+		s nextPutAll: ']' ]
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> moduleAliasesFor: aModuleName [
+	"I return `{short. full}` pairs for the module's `alias` lines.
+	 Cached per styler instance — module aliases rarely change and
+	 the styler runs on every keystroke."
 	cachedModuleAliasesFor = aModuleName ifTrue: [ ^ cachedModuleAliases ].
 	cachedModuleAliasesFor := aModuleName.
 	cachedModuleAliases := [
@@ -194,13 +207,30 @@ ElixirFunctionExpanderStyler >> nextIndex [
 ]
 
 { #category : 'private' }
+ElixirFunctionExpanderStyler >> outermostAliasReferencesIn: ast source: source [
+	"DotAliasNode references in `source`, minus the defmodule head and
+	 any bare children inside it.  SmaCC parses `Foo.Bar` as outer +
+	 bare-child `Foo`; skipping only the head would leave the prefix
+	 'outermost' and wrench the parent namespace, so drop entire spans
+	 inside any head."
+	| skip skipRanges all |
+	skip := self defmoduleHeadsIn: ast source: source.
+	skipRanges := skip collect: [ :h | h startPosition -> h stopPosition ].
+	all := OrderedCollection new.
+	ast withAllNodesDo: [ :n |
+		((n isKindOf: ElixirDotAliasNode)
+			and: [ (skip includes: n) not
+				and: [ skipRanges noneSatisfy: [ :r |
+					n startPosition >= r key
+						and: [ n stopPosition <= r value ] ] ] ])
+			ifTrue: [ all add: n ] ].
+	^ self outermostAliasesIn: all
+]
+
+{ #category : 'private' }
 ElixirFunctionExpanderStyler >> outermostAliasesIn: aCollection [
-	"I return the outermost ElixirDotAliasNodes from `aCollection`,
-	 dropping every node whose span is strictly contained in
-	 another.  Sort + single-pass O(n log n) — DotAliasNodes don't
-	 overlap (only nest or are disjoint), so once the current
-	 outermost ends, any later node with start > its stop is the
-	 next outermost."
+	"I drop nodes whose span is strictly contained in another.
+	 Sort + single-pass O(n log n)."
 	| sorted outermost outerStop |
 	sorted := aCollection asSortedCollection: [ :a :b |
 		a startPosition < b startPosition
@@ -227,16 +257,8 @@ ElixirFunctionExpanderStyler >> parseGroupedAlias: body into: aliases [
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> parseGroupedAliasBody: body [
-	"I parse a grouped alias body of the form `Foo.Bar.{A, B, C}`
-	 and return an OrderedCollection of associations
-	 `fullName -> endPositionInBody`, where the end position is the
-	 1-based index of the LAST character of each short name within
-	 `body`.  Returns an empty collection if the body is malformed
-	 or has no prefix.
-
-	 Both the alias-map extractor (which discards positions) and the
-	 grouped-wrench expander (which needs them to attach wrenches at
-	 each individual name) go through me."
+	"I parse `Foo.Bar.{A, B, C}` into associations
+	 `fullName -> 1-based-end-index-in-body`, one per inner name."
 	| openIdx closeIdx prefix result nameStart i ch endRel name |
 	openIdx := body indexOf: ${.
 	closeIdx := body indexOf: $} startingAt: openIdx.
@@ -287,12 +309,22 @@ ElixirFunctionExpanderStyler >> parseSingleAlias: body into: aliases [
 ]
 
 { #category : 'private' }
-ElixirFunctionExpanderStyler >> resolveAlias: aName with: anAliasMap [
-	"I expand `aName` through the alias map.  If the head segment
-	 (before the first dot) is a key in the map, replace it with the
-	 mapped full name.  Otherwise return `aName` unchanged.
+ElixirFunctionExpanderStyler >> parsedAstFor: source [
+	"Cached SmaCC parse of `source`.  Cache key is the source hash so
+	 back-to-back styles of the same buffer don't reparse."
+	| hash |
+	hash := source hash.
+	hash = cachedAstHash ifTrue: [ ^ cachedAst ].
+	cachedAst := [ ElixirParser parseStream: source readStream ]
+		on: Error do: [ nil ].
+	cachedAstHash := hash.
+	^ cachedAst
+]
 
-	 Examples (with map { 'Text' -> 'GtBridge.Phlow.Text' }):
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> resolveAlias: aName with: anAliasMap [
+	"I replace `aName`'s head segment via the alias map.  Examples
+	 with `{ 'Text' -> 'GtBridge.Phlow.Text' }`:
 	   'Text'            ->  'GtBridge.Phlow.Text'
 	   'Text.Inner'      ->  'GtBridge.Phlow.Text.Inner'
 	   'NotAnAlias.Foo'  ->  'NotAnAlias.Foo'  (unchanged)"
@@ -309,179 +341,69 @@ ElixirFunctionExpanderStyler >> resolveAlias: aName with: anAliasMap [
 
 { #category : 'styling' }
 ElixirFunctionExpanderStyler >> style: aText ast: theAst [
-	"One AST walk feeds two passes: wrench affordances on unresolved
-	 module aliases and |> expanders on resolved Mod.fun calls."
-	| source ast heads aliases parensCalls aliasMap resolution |
+	"I attach expander triangles at every resolvable call site.
+	 Each gets a unique ID (resetting lastIndex per cycle) so expand
+	 state persists across re-styles.  cachedHash/cachedSites
+	 short-circuits the BEAM round-trip for back-to-back styles of
+	 the same source."
+	| source hash sites b64 query |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
 	source size < 10 ifTrue: [ ^ self ].
-	ast := self parsedAstFor: source.
-	ast ifNil: [ ^ self ].
-	heads := IdentitySet new.
-	aliases := OrderedCollection new.
-	parensCalls := OrderedCollection new.
-	ast withAllNodesDo: [ :node |
-		(node isKindOf: ElixirDotAliasNode) ifTrue: [ aliases add: node ].
-		node class == ElixirParensCallNode ifTrue: [ parensCalls add: node ].
-		(node isKindOf: ElixirBlockExprNode) ifTrue: [
-			self addDefmoduleHeadFor: node source: source into: heads ] ].
+	hash := { source hash. self contextModuleName }.
+	hash = cachedHash
+		ifTrue: [ sites := cachedSites ]
+		ifFalse: [
+			b64 := ZnBase64Encoder new encode: source utf8Encoded.
+			query := 'GtBridge.Analysis.call_sites(Base.decode64!("', b64, '")'.
+			self contextModuleName ifNotNil: [ :mod |
+				query := query, ', ', mod ].
+			query := query, ')'.
+			sites := [ (self application evaluateAndWait: query) asList ]
+				on: Error do: [ #() ].
+			cachedHash := hash.
+			cachedSites := sites ].
+	sites do: [ :site |
+		| line col fnName absPos |
+		line := (site attributeAt: #line) asInteger.
+		col := (site attributeAt: #column) asInteger.
+		fnName := (site attributeAt: #function) asString.
+		absPos := self absolutePositionForLine: line column: col in: source.
+		(absPos isNotNil and: [ absPos + fnName size - 1 <= aText size ])
+			ifTrue: [
+				| endPos attr |
+				endPos := absPos + fnName size - 1.
+				attr := ElixirFunctionExpanderAttribute new
+					targetModule: (site attributeAt: #target_module) asString
+					functionName: fnName
+					arity: (site attributeAt: #arity) asInteger
+					application: self application.
+				attr id: ('elixir-expander--', self nextIndex asString) asSymbol.
+				self attribute: attr from: endPos to: endPos ] ].
+
+	self attachUnknownModuleWrenchesIn: aText source: source
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> wrenchEntriesFor: aliasNodes source: source [
+	"For each alias node, emit `(name -> resolved) -> endPosition`.
+	 Inline function editors show a body without the enclosing `alias`
+	 lines, so merge the context module's aliases into the local map
+	 before resolving.  Grouped `Foo.{A, B}` literals expand to one
+	 entry per inner name."
+	| aliasMap entries |
 	aliasMap := self aliasMapFor: source.
-	resolution := BeamModuleResolution default.
-	self
-		attachWrenchesIn: aText source: source
-		defmoduleHeads: heads aliasNodes: aliases
-		aliasMap: aliasMap resolution: resolution.
-	self
-		attachExpandersIn: aText source: source
-		parensCalls: parensCalls
-		aliasMap: aliasMap resolution: resolution
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> aliasMapFor: source [
-	"Source-level `alias` directives, merged with the surrounding
-	 module's aliases (when a context module is known).  Source wins
-	 on conflict — the user's local `alias` line takes precedence."
-	| aliasMap |
-	aliasMap := self extractAliasesFrom: source.
-	self contextModuleName ifNotNil: [ :mod |
-		(self moduleAliasesFor: mod) do: [ :pair |
-			aliasMap at: pair first ifAbsentPut: [ pair second ] ] ].
-	^ aliasMap
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> arityFor: aParensCall [
-	"Zero for `Mod.fun()` (parser models the empty parens with a nil
-	 args slot); arg count for `Mod.fun(a, b, ...)`."
-	^ (aParensCall call ifNotNil: [ :c | c args ifNotNil: [ :a | a args ] ])
-		ifNotNil: [ :a | a size ] ifNil: [ 0 ]
-]
-
-{ #category : 'styling' }
-ElixirFunctionExpanderStyler >> attachExpandersIn: aText source: source parensCalls: parensCalls aliasMap: aliasMap resolution: resolution [
-	"Attach a |> expander after every Mod.fun call whose target
-	 resolves to a loaded module."
-	parensCalls do: [ :n |
-		(self
-			callSiteFor: n
-			aliasMap: aliasMap
-			source: source
-			resolution: resolution) ifNotNil: [ :site |
-				self attachExpanderFor: site in: aText ] ]
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> attachExpanderFor: site in: aText [
-	"Attach a single expander attribute at the function's end position."
-	| endPos attr |
-	endPos := site at: #fnEndPosition.
-	endPos > aText size ifTrue: [ ^ self ].
-	attr := ElixirFunctionExpanderAttribute new
-		targetModule: (site at: #target_module)
-		functionName: (site at: #function)
-		arity: (site at: #arity)
-		application: self application.
-	attr id: ('elixir-expander--' , self nextIndex asString) asSymbol.
-	self attribute: attr from: endPos to: endPos
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> attachWrenchEntry: entry in: aText resolution: resolution [
-	"Attach a wrench attribute if the entry's resolved name is
-	 known-unresolved by the cache."
-	| endPos resolved |
-	resolved := entry at: #resolved.
-	(resolution classify: resolved) = #unresolved ifFalse: [ ^ self ].
-	endPos := entry at: #endPosition.
-	endPos > aText size ifTrue: [ ^ self ].
-	self
-		attribute: (ElixirUnknownModuleAttribute
-			forModule: resolved
-			application: self application)
-		from: endPos to: endPos
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> dotParenIdentifierOf: identifier [
-	"Return the inner ElixirDotParenIdentifierNode for a `Mod.fun`
-	 call shape, nil otherwise."
-	identifier class == ElixirDotCallIdentifierNode ifFalse: [ ^ nil ].
-	^ identifier identifier class == ElixirDotParenIdentifierNode
-		ifTrue: [ identifier identifier ]
-		ifFalse: [ nil ]
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> learnClassificationsFor: names on: resolution [
-	"Resolve any `names` the cache doesn't already know via one
-	 batch bridge call; record each as resolved/unresolved so
-	 subsequent classify: calls answer locally."
-	| unknowns res resolved unresolved |
-	unknowns := names select: [ :n | (resolution classify: n) = #unknown ].
-	unknowns isEmpty ifTrue: [ ^ self ].
-	res := [ self application evaluateAndWait:
-		'GtBridge.Analysis.modules_loaded?(' , (self listExprFor: unknowns) , ')' ]
-		on: Error do: [ ^ self ].
-	res ifNil: [ ^ self ].
-	resolved := OrderedCollection new.
-	unresolved := OrderedCollection new.
-	unknowns do: [ :name |
-		| loaded |
-		loaded := [ res attributeAt: name ] on: Error do: [ nil ].
-		loaded == true ifTrue: [ resolved add: name ].
-		loaded == false ifTrue: [ unresolved add: name ] ].
-	resolution recordResolved: resolved unresolved: unresolved
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> listExprFor: names [
-	"Render `names` as an Elixir list literal of double-quoted strings."
-	^ String streamContents: [ :s |
-		s nextPutAll: '['.
-		names asArray
-			do: [ :n | s nextPut: $"; nextPutAll: n; nextPut: $" ]
-			separatedBy: [ s nextPutAll: ', ' ].
-		s nextPutAll: ']' ]
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> node: aNode insideAnyOf: heads [
-	"True if `aNode` IS a defmodule head or sits inside one's span.
-	 Both cases must skip — the literal head, and bare prefix children
-	 that survive 'outermost' filtering once their parent is removed."
-	^ heads anySatisfy: [ :h |
-		aNode == h or: [
-			aNode startPosition >= h startPosition
-				and: [ aNode stopPosition <= h stopPosition ] ] ]
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> wrenchEntriesFor: aliasNode source: source aliasMap: aliasMap [
-	"Each outermost DotAlias node yields one or more wrench entries.
-	 Grouped literals `Foo.{A, B}` yield one entry per inner name;
-	 single literals yield one entry."
-	| nodeSrc |
-	nodeSrc := source copyFrom: aliasNode startPosition to: aliasNode stopPosition.
-	(nodeSrc includes: ${)
-		ifTrue: [
-			^ (self groupedAliasEntriesFor: aliasNode in: source) collect: [ :assoc |
-				self
-					wrenchEntryName: assoc key
-					resolvedAs: assoc key
-					endingAt: assoc value ] ].
-	^ Array with: (self
-		wrenchEntryName: nodeSrc
-		resolvedAs: (self resolveAlias: nodeSrc with: aliasMap)
-		endingAt: aliasNode stopPosition)
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> wrenchEntryName: name resolvedAs: resolvedName endingAt: endPosition [
-	^ Dictionary new
-		at: #name put: name;
-		at: #resolved put: resolvedName;
-		at: #endPosition put: endPosition;
-		yourself
+	entries := OrderedCollection new.
+	aliasNodes do: [ :n |
+		| nodeSrc |
+		nodeSrc := source copyFrom: n startPosition to: n stopPosition.
+		(nodeSrc includes: ${)
+			ifTrue: [
+				(self groupedAliasEntriesFor: n in: source) do: [ :assoc |
+					entries add: (assoc key -> assoc key) -> assoc value ] ]
+			ifFalse: [
+				entries add: (nodeSrc -> (self resolveAlias: nodeSrc with: aliasMap))
+					-> n stopPosition ] ].
+	^ entries
 ]
