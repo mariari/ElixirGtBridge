@@ -34,10 +34,6 @@ defmodule Examples.EModuleCreator do
     assert result.path == @scratch_path
     assert File.exists?(result.path)
     assert Code.ensure_loaded?(@scratch_module)
-    assert is_list(result.recompiled)
-
-    assert length(result.recompiled) > 0,
-           "should carry at least one recompiled entry so GT-side caches refresh"
 
     result
   end

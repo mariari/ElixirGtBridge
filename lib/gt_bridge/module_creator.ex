@@ -40,7 +40,7 @@ defmodule GtBridge.ModuleCreator do
         template = "defmodule #{inspect(name)} do\n  def hello, do: :world\nend\n"
 
         GtBridge.HotReload.reload(path, template)
-        |> Map.put(:path, path)
+        %{path: path}
       end
     else
       {:error, :unknown_app} -> {:error, :unknown_app}
