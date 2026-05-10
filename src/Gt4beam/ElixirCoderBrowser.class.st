@@ -320,6 +320,47 @@ ElixirCoderBrowser >> modulesForApplication: anAppName [
 		on: Error do: [ #() ]
 ]
 
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onAddedToSceneGraph [
+	"I subscribe to the wildcard `default` announcer (not a per-module
+	 one) because I display ALL loaded modules and need to invalidate
+	 my rawNodes cache on any recompile, not just one module's. The
+	 narrow per-module pattern is for coders attached to a specific
+	 module; my browsing surface inherently spans every module so the
+	 default singleton is the right channel.
+
+	 I subscribe only while in the scene graph — background or
+	 orphaned browser instances do not pay the per-event cost."
+	super onAddedToSceneGraph.
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
+		to: self
+]
+
+{ #category : 'announcements' }
+ElixirCoderBrowser >> onBeamModuleRecompiled: anAnnouncement [
+	"I just invalidate the cached node tree. I do NOT auto-refresh
+	 the sidebar — refreshSidebarTree fans out applicationNodes which
+	 (when unscoped) hits every loaded app via module_details, easily
+	 50+ BEAM round trips. Per save. Per live browser. That overloaded
+	 the bridge into request-fail cascades.
+
+	 Next time the user interacts with the filter input or otherwise
+	 triggers refreshSidebarTree, the lazy rawNodes will refetch
+	 from scratch. Trade auto-refresh UX for resource safety until
+	 a smaller-blast-radius refresh path is available."
+	rawNodes := nil
+]
+
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onRemovedFromSceneGraph [
+	"I unsubscribe when removed so recompile events stop reaching me
+	 the moment my window closes."
+	super onRemovedFromSceneGraph.
+	BeamEventAnnouncer default unsubscribe: self
+]
+
 { #category : 'as yet unclassified' }
 ElixirCoderBrowser >> openModule: aDocObject [
 	"I render a BeamDocumentationObject inline in the content pane

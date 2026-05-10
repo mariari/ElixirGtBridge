@@ -35,6 +35,12 @@ BeamPIDObject >> childrenTree [
 		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
 ]
 
+{ #category : 'accessing' }
+BeamPIDObject >> elixirClass [
+	"I return nil — PIDs are not modules and cannot be imported."
+	^ nil
+]
+
 { #category : 'gt-extensions' }
 BeamPIDObject >> gtDefaultInspectorTool [
 	"I collect inspector modes via <gtInspectorMode> pragmas."
@@ -92,7 +98,7 @@ BeamPIDObject >> gtSupervisionView: aView [
 				painting: [ :aMondrian |
 					| tree |
 					tree := self evaluateAndWait:
-						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+						'GtBridge.Supervision.tree(', self resolve, ')'.
 					BeamMondrianHelpers
 						supervisionTreeOn: aMondrian from: tree poolThreshold: 12 application: self application ]).
 			(aView mondrian
@@ -101,7 +107,7 @@ BeamPIDObject >> gtSupervisionView: aView [
 				painting: [ :aMondrian |
 					| tree |
 					tree := self evaluateAndWait:
-						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+						'GtBridge.Supervision.tree(', self resolve, ')'.
 					BeamMondrianHelpers
 						supervisionTreeOn: aMondrian from: tree poolThreshold: 999999 application: self application ]) }
 ]

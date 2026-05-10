@@ -8,8 +8,11 @@ Class {
 		'moduleName',
 		'application',
 		'focusLine',
+		'focusFunctionTarget',
 		'sessionId',
-		'selfObject'
+		'selfObject',
+		'saving',
+		'cachedFunctionEntries'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -58,10 +61,22 @@ ElixirModuleCoder >> addFunction: newText [
 	^ self saveAndCompile: (String lf join: newLines)
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> announceFunctionsChanged [
-	"I announce that my functions have changed, so the streaming list refreshes."
-	self announce: (GtCoderSourceCodeChanged new coder: self)
+{ #category : 'actions' }
+ElixirModuleCoder >> announceBeamRecompiledFrom: aResult [
+	"I extract the recompiled module list from a hot_reload result and
+	 fan out BeamModuleRecompiled announcements via the per-module
+	 dispatcher.
+
+	 Each entry is a payload dict (`mod`, `source_hash`, `source`,
+	 `functions`); the directly-saved module's entry carries `source`
+	 + `functions` so subscribers re-render without a bridge call.
+	 Sibling entries carry `mod` only — subscribers fall back.
+
+	 No error guard here on purpose: saveAndCompile filters error
+	 wrappers before calling me, so any DNU is a real bug (mis-shaped
+	 success response) and should surface."
+	(aResult attributeAt: #recompiled) asList do: [ :modPayload |
+		BeamEventAnnouncer announceRecompiledFrom: modPayload ]
 ]
 
 { #category : 'accessing' }
@@ -172,12 +187,12 @@ ElixirModuleCoder >> buildExampleMapElement [
 
 { #category : 'private' }
 ElixirModuleCoder >> buildFunctionsViewElement [
-	"I build the Functions tab: an Add function button row on top,
-	 then the streaming list of function coders below. Clicking Add
-	 inserts a draft editor between the button row and the list; the
-	 Source tab stays accessible so the user can reference it while
-	 drafting."
-	| container addRow streaming vm streamingElement |
+	"I build the Functions tab. If focusLine is set, I set a scroll
+	 target on the view model — the streaming element handles
+	 scroll via list scrollToItemSuchThat:offset: when the matching
+	 item loads (same pattern as GtPharoStreamingMethodsCoderElement).
+	 Each function coder starts folded so the user scans the list."
+	| container addRow streaming vm streamingElement focusStart |
 	container := BlElement new
 		layout: BlLinearLayout vertical;
 		constraintsDo: [ :c |
@@ -195,12 +210,23 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 			action: [ :btn | self buildAddFunctionDraftPaneIn: container afterRow: addRow ]);
 		yourself.
 	streaming := ElixirFunctionStreamingModel forModuleCoder: self.
-	vm := GtStreamingCodersViewModel new
+	vm := ElixirFoldedCodersViewModel new
 		streamingCodersModel: streaming;
 		yourself.
 	streamingElement := ElixirFunctionStreamingElement new
 		streamingCodersViewModel: vm;
 		yourself.
+	"Caller-supplied focusFunctionTarget wins (works for macro-generated
+	 entries with no source line, and for source-having entries when
+	 the caller knows the function name).  Otherwise build a startLine
+	 target from focusLine."
+	focusFunctionTarget
+		ifNotNil: [ vm scrollToTarget: focusFunctionTarget ]
+		ifNil: [
+			focusStart := focusLine ifNotNil: [ :lines |
+				lines isArray ifTrue: [ lines first ] ifFalse: [ lines ] ].
+			focusStart ifNotNil: [
+				vm scrollToTarget: (ElixirFunctionScrollTarget new startLine: focusStart) ] ].
 	container
 		addChild: addRow;
 		addChild: streamingElement matchParent.
@@ -210,15 +236,11 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 { #category : 'private' }
 ElixirModuleCoder >> buildSourceViewElement [
 	"I build a self-refreshing container for the Source tab. The inner
-	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me
-	 (e.g. after a function save or delete) so the displayed source
-	 always matches what's on disk. Using a rebuild block instead of
-	 mutating the existing coder's sourceCode because GtCoderModel
-	 doesn't broadcast mid-life source replacements to its element.
-
-	 I also handle Ctrl-S on the inner coder view model by subscribing
-	 to GtSourceCoderViewModelSaveRequested and routing the current
-	 text through saveAndCompile:."
+	 coder is rebuilt whenever GtCoderSourceCodeChanged fires on me —
+	 my #initialize subscribes weakly to the global bus and republishes
+	 matching events as local GtCoderSourceCodeChanged, so the closure
+	 captured here lives only as long as I do.
+	 If focusLine is set, I scroll to that line after rendering."
 	| container rebuild |
 	container := BlElement new
 		layout: BlLinearLayout vertical;
@@ -226,10 +248,11 @@ ElixirModuleCoder >> buildSourceViewElement [
 			c horizontal matchParent.
 			c vertical matchParent ].
 	rebuild := [
-		| coderModel vm |
+		| coderModel vm element |
 		container removeChildren.
 		coderModel := GtElixirCoderModel new.
 		coderModel elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
+		coderModel contextModuleName: moduleName.
 		coderModel sourceCode: (GtCoderExplicitStringSource new source: self sourceCode).
 		vm := coderModel asCoderViewModel.
 		vm expanded: true.
@@ -238,12 +261,44 @@ ElixirModuleCoder >> buildSourceViewElement [
 			do: [ :ann |
 				self saveAndCompile: coderModel currentSourceString.
 				ann consumed: true ].
+		focusLine ifNotNil: [ :lines |
+			| startLine source pos |
+			startLine := lines isArray
+				ifTrue: [ lines first ]
+				ifFalse: [ lines ].
+			source := self sourceCode.
+			pos := 0.
+			1 to: (startLine - 1 min: source lines size) do: [ :i |
+				pos := pos + (source lines at: i) size + 1 ].
+			vm moveCursorTo: pos.
+			vm scrollToLine: startLine withCharacterPosition: 1 ].
 		container addChild: vm asElement matchParent ].
 	rebuild value.
 	self announcer
 		when: GtCoderSourceCodeChanged
 		do: [ :ann | rebuild value ].
 	^ container
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> cacheFunctionEntries: anArrayOrNil [
+	"I install a precomputed function entry list as the cache backing
+	 `functionEntries`. Used by `onBeamModuleRecompiled:` when the
+	 announcement payload carried the freshly-compiled list."
+	cachedFunctionEntries := anArrayOrNil
+		ifNotNil: [ :a |
+			(a isKindOf: BeamProxyObject)
+				ifTrue: [ a asList ]
+				ifFalse: [ a ] ]
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> cachedFunctionEntries [
+	"I expose the function-entry cache populated by
+	 `cacheFunctionEntries:` (typically from an event payload).
+	 Useful for regression tests that assert the cache was primed
+	 without making a follow-up bridge call."
+	^ cachedFunctionEntries
 ]
 
 { #category : 'private' }
@@ -270,6 +325,14 @@ ElixirModuleCoder >> coderName [
 ]
 
 { #category : 'accessing' }
+ElixirModuleCoder >> contextModuleName [
+	"Common interface with GtElixirCoderModel and ElixirFunctionCoder
+	 — lets context-aware tooling (styler, completion) call one
+	 method regardless of which Elixir coder it's attached to."
+	^ moduleName
+]
+
+{ #category : 'accessing' }
 ElixirModuleCoder >> editorSessionId [
 	"I return a unique session ID for this coder instance, with the
 	 module's imports/aliases/requires loaded. The session is finalized
@@ -277,11 +340,19 @@ ElixirModuleCoder >> editorSessionId [
 	^ sessionId ifNil: [
 		sessionId := 'editor_', moduleName, '_', UUID new asString.
 		application evaluateAndWait:
-			'GtBridge.Analysis.editor_session(', moduleName, ', "', sessionId, '")'.
+			'GtBridge.Eval.Preamble.editor_session(', moduleName, ', "', sessionId, '")'.
 		FinalizationRegistry default
 			add: self
 			finalizer: (BeamSessionFinalizer sessionId: sessionId application: application).
 		sessionId ]
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> focusFunctionTarget: aTarget [
+	"I take an ElixirFunctionScrollTarget directly so callers that
+	 know the function name+arity (BeamDocumentationObject>>gtCoderFor:)
+	 can land on macro-generated entries that share startLine = 0."
+	focusFunctionTarget := aTarget
 ]
 
 { #category : 'accessing' }
@@ -296,10 +367,23 @@ ElixirModuleCoder >> focusLine: aLineNumber [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> functionEntries [
-	"I return all function entries with line ranges, annotations, and source text."
-	^ [ application evaluateAndWait:
+	"I return all function entries with line ranges, annotations, and source text.
+
+	 If a recompile event has populated `cachedFunctionEntries` (via
+	 `onBeamModuleRecompiled:`), I return that cache and skip the
+	 bridge round-trip — the announcement carried the new list inline.
+
+	 On first call (cache empty) I bridge-call `Analysis.all_functions/1`
+	 and materialize any BeamProxyObject so every caller gets a uniform
+	 iterable type."
+	| result |
+	cachedFunctionEntries ifNotNil: [ ^ cachedFunctionEntries ].
+	result := [ application evaluateAndWait:
 		'GtBridge.Analysis.all_functions(', moduleName, ')' ]
-		on: Error do: [ #() ]
+		on: Error do: [ #() ].
+	^ (result isKindOf: BeamProxyObject)
+		ifTrue: [ result asList ]
+		ifFalse: [ result ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -362,7 +446,7 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 ElixirModuleCoder >> hasFunctions [
 	"I return true if the bridge can enumerate my functions.
 	 Precompiled modules without debug info return empty."
-	^ [ (self functionEntries asList) isNotEmpty ]
+	^ [ self functionEntries isNotEmpty ]
 		on: Error do: [ false ]
 ]
 
@@ -377,6 +461,17 @@ ElixirModuleCoder >> hasLocalSource [
 	^ sourcePath asFileReference exists
 ]
 
+{ #category : 'initialization' }
+ElixirModuleCoder >> initialize [
+	"Subscription to BeamEventAnnouncer is deferred to my `moduleName:`
+	 setter — at construction time my module name isn't known yet, and
+	 per-module dispatch needs the name to pick the right announcer.
+	 Source tab subscribers still keep their cheap closure-based pattern
+	 against `self announcer`; my onBeamModuleRecompiled: handler
+	 republishes the global event as a local GtCoderSourceCodeChanged."
+	super initialize
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> moduleName [
 	^ moduleName
@@ -384,13 +479,54 @@ ElixirModuleCoder >> moduleName [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> moduleName: aString [
-	moduleName := aString
+	"Canonicalize on input: strip the 'Elixir.' atom prefix that the
+	 inspector path passes through (e.g. 'Elixir.LocalUpload.Uploads.Upload').
+	 BeamModuleRecompiled events carry the bare form, so storing the
+	 bare form here lets the per-module announcer key just match.
+
+	 I also subscribe (weakly) to my module's per-module announcer here
+	 — `initialize` can't because moduleName isn't known yet. If
+	 reassigned to a different module, drop the prior subscription
+	 first so I don't leak."
+	| bare |
+	bare := (aString beginsWith: 'Elixir.')
+		ifTrue: [ aString copyFrom: 8 to: aString size ]
+		ifFalse: [ aString ].
+	moduleName ifNotNil: [
+		(BeamEventAnnouncer for: moduleName) unsubscribe: self ].
+	moduleName := bare.
+	(BeamEventAnnouncer for: moduleName) weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
+		to: self
+]
+
+{ #category : 'announcements' }
+ElixirModuleCoder >> onBeamModuleRecompiled: anAnnouncement [
+	"I republish my module's recompile event as a local
+	 GtCoderSourceCodeChanged so my own announcer-based subscribers
+	 (Source tab rebuild, etc.) react. I am the bridge between the
+	 per-module dispatcher and per-coder local announcer chains.
+	 No mod= check needed — narrow events for other modules don't
+	 reach me.
+
+	 When the announcement carries fresh function entries (always for
+	 the directly-saved module, nil for siblings), I prime my cache so
+	 downstream callers like ElixirFunctionStreamingModel skip their
+	 own bridge round-trip."
+	self cacheFunctionEntries: anAnnouncement functions.
+	self announce: (GtCoderSourceCodeChanged new coder: self)
 ]
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
-	"I write source to disk, format, recompile, and announce the source
-	 change so views listening to me refresh (Source tab, function stream).
+	"I write source to disk, format, and recompile. Surfaces refresh
+	 via BeamEventAnnouncer — every module the BEAM recompiled (direct
+	 + dep siblings parallel-recompiled for struct propagation) gets a
+	 BeamModuleRecompiled announcement, so subscribed surfaces (Source
+	 tab, function stream, |> expander, future browser/doc coder) all
+	 reach freshness through one channel.
+
 	 Preserves the original file's line ending convention and trailing
 	 newline."
 	| b64 normalized usesCrlf ending result |
@@ -404,12 +540,20 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		normalized := normalized , ending ].
 	b64 := ZnBase64Encoder new encode: normalized utf8Encoded.
 	result := application newCommandFactory
-		<< ('content = Base.decode64!("', b64, '")
-File.write!("', sourcePath, '", content)
-Mix.Tasks.Format.run(["', sourcePath, '"])
-IEx.Helpers.recompile()');
+		<< ('GtBridge.HotReload.reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
-	self announceFunctionsChanged.
+	(result isKindOf: BeamBridgeEvalError) ifTrue: [
+		"BEAM eval failed (compile error, file IO, etc.). Surface in the
+		 Transcript so the user sees it instead of silent stale-UI; don't
+		 fan out BeamModuleRecompiled because nothing actually recompiled.
+		 Future: lift to a BeamCompileFailed announcement once the
+		 radical-save error sliver UI lands."
+		Transcript
+			show: 'ElixirModuleCoder >> saveAndCompile failed for ', moduleName, ': ';
+			show: result printString;
+			cr.
+		^ result ].
+	self announceBeamRecompiledFrom: result.
 	^ result
 ]
 
@@ -439,14 +583,28 @@ ElixirModuleCoder >> sourcePath: aString [
 ]
 
 { #category : 'actions' }
-ElixirModuleCoder >> spliceFunction: newText fromLine: startLine toLine: endLine [
-	"I replace lines startLine..endLine in the source with newText, save, and compile."
-	| lines newLines |
+ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
+	"I find the function's current position in the file by name/arity,
+	 splice the new text in, and save. Skips if a save is already running.
+
+	 `functionEntries` short-circuits on the cache populated by the
+	 most recent BeamModuleRecompiled, so back-to-back saves don't
+	 each pay an `all_functions/1` round-trip."
+	| match lines newLines st en |
+	saving == true ifTrue: [ ^ self ].
+	saving := true.
+	[ match := self functionEntries
+		detect: [ :e | (e attributeAt: #name) asString = aName
+			and: [ (e attributeAt: #arity) = anArity ] ]
+		ifNone: [ ^ self ].
+	st := match attributeAt: #start.
+	en := match attributeAt: #end_line.
 	lines := self sourceCode lines.
-	newLines := (lines copyFrom: 1 to: startLine - 1) asOrderedCollection.
+	newLines := (lines copyFrom: 1 to: st - 1) asOrderedCollection.
 	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: endLine + 1 to: lines size).
-	^ self saveAndCompile: (String lf join: newLines)
+	newLines addAll: (lines copyFrom: en + 1 to: lines size).
+	self saveAndCompile: (String lf join: newLines) ]
+	ensure: [ saving := false ]
 ]
 
 { #category : 'actions' }
