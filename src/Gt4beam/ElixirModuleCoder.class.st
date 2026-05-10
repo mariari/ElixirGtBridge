@@ -61,24 +61,6 @@ ElixirModuleCoder >> addFunction: newText [
 	^ self saveAndCompile: (String lf join: newLines)
 ]
 
-{ #category : 'actions' }
-ElixirModuleCoder >> announceBeamRecompiledFrom: aResult [
-	"I extract the recompiled module list from a hot_reload result and
-	 fan out BeamModuleRecompiled announcements via the per-module
-	 dispatcher.
-
-	 Each entry is a payload dict (`mod`, `source_hash`, `source`,
-	 `functions`); the directly-saved module's entry carries `source`
-	 + `functions` so subscribers re-render without a bridge call.
-	 Sibling entries carry `mod` only — subscribers fall back.
-
-	 No error guard here on purpose: saveAndCompile filters error
-	 wrappers before calling me, so any DNU is a real bug (mis-shaped
-	 success response) and should surface."
-	(aResult attributeAt: #recompiled) asList do: [ :modPayload |
-		BeamEventAnnouncer announceRecompiledFrom: modPayload ]
-]
-
 { #category : 'accessing' }
 ElixirModuleCoder >> application [
 	^ application
@@ -496,6 +478,10 @@ ElixirModuleCoder >> moduleName: aString [
 		(BeamEventAnnouncer for: moduleName) unsubscribe: self ].
 	moduleName := bare.
 	(BeamEventAnnouncer for: moduleName) weak
+		when: BeamModuleSourceWritten
+		send: #onBeamModuleSourceWritten:
+		to: self.
+	(BeamEventAnnouncer for: moduleName) weak
 		when: BeamModuleRecompiled
 		send: #onBeamModuleRecompiled:
 		to: self
@@ -503,29 +489,28 @@ ElixirModuleCoder >> moduleName: aString [
 
 { #category : 'announcements' }
 ElixirModuleCoder >> onBeamModuleRecompiled: anAnnouncement [
-	"I republish my module's recompile event as a local
-	 GtCoderSourceCodeChanged so my own announcer-based subscribers
-	 (Source tab rebuild, etc.) react. I am the bridge between the
-	 per-module dispatcher and per-coder local announcer chains.
-	 No mod= check needed — narrow events for other modules don't
-	 reach me.
+	"BEAM accepted new code (success path). Prime cache from the
+	 full `Analysis.all_functions/1` payload — includes default-arg
+	 siblings + macro-generated entries that AST-only parses miss."
+	self cacheFunctionEntries: anAnnouncement functions.
+	self announce: (GtCoderSourceCodeChanged new coder: self)
+]
 
-	 When the announcement carries fresh function entries (always for
-	 the directly-saved module, nil for siblings), I prime my cache so
-	 downstream callers like ElixirFunctionStreamingModel skip their
-	 own bridge round-trip."
+{ #category : 'announcements' }
+ElixirModuleCoder >> onBeamModuleSourceWritten: anAnnouncement [
+	"Disk has new bytes but BEAM doesn't (compile failed, or external
+	 file-watcher fired). Prime cache from the AST-only parse; the
+	 Source tab + function stream re-render against disk."
 	self cacheFunctionEntries: anAnnouncement functions.
 	self announce: (GtCoderSourceCodeChanged new coder: self)
 ]
 
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
-	"I write source to disk, format, and recompile. Surfaces refresh
-	 via BeamEventAnnouncer — every module the BEAM recompiled (direct
-	 + dep siblings parallel-recompiled for struct propagation) gets a
-	 BeamModuleRecompiled announcement, so subscribed surfaces (Source
-	 tab, function stream, |> expander, future browser/doc coder) all
-	 reach freshness through one channel.
+	"I write source to disk and trigger compile.  Bridge-side events
+	 (`:source_written`, `:recompiled`, `:compile_failed`) flow through
+	 `BeamEventStreamReader` and fire on `BeamEventAnnouncer` —
+	 subscribers see them without me observing the HTTP response.
 
 	 Preserves the original file's line ending convention and trailing
 	 newline."
@@ -543,17 +528,10 @@ ElixirModuleCoder >> saveAndCompile: newSource [
 		<< ('GtBridge.HotReload.reload("', sourcePath, '", Base.decode64!("', b64, '"))');
 		sendAndWait.
 	(result isKindOf: BeamBridgeEvalError) ifTrue: [
-		"BEAM eval failed (compile error, file IO, etc.). Surface in the
-		 Transcript so the user sees it instead of silent stale-UI; don't
-		 fan out BeamModuleRecompiled because nothing actually recompiled.
-		 Future: lift to a BeamCompileFailed announcement once the
-		 radical-save error sliver UI lands."
 		Transcript
-			show: 'ElixirModuleCoder >> saveAndCompile failed for ', moduleName, ': ';
+			show: 'ElixirModuleCoder >> saveAndCompile bridge error for ', moduleName, ': ';
 			show: result printString;
-			cr.
-		^ result ].
-	self announceBeamRecompiledFrom: result.
+			cr ].
 	^ result
 ]
 
