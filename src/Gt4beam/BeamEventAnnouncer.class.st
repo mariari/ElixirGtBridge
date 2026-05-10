@@ -47,12 +47,36 @@ Class {
 
 { #category : 'announcing' }
 BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
-	"Per-module + default fan-out, mirroring announceRecompiledFrom:."
+	"Per-module + default fan-out, mirroring announceRecompiledFrom:.
+	 Also pops a global GtNotificationMessage so the user sees the
+	 failure regardless of which coder is open."
 	| announcement perModule |
 	announcement := BeamCompileFailed mod: aModuleName errors: aListOfErrors.
 	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
 	perModule ifNotNil: [ perModule announce: announcement ].
-	self default announce: announcement
+	self default announce: announcement.
+	GtWorld showNotification:
+		(GtNotificationMessage new
+			message: (self compileFailureMessage: announcement);
+			yourself)
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> compileFailureMessage: anAnnouncement [
+	| first read line msg |
+	first := anAnnouncement errors ifNotNil: [ :e | e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
+	first ifNil: [ ^ 'Compile failed for ' , anAnnouncement mod ].
+	read := [ :key |
+		(first respondsTo: #attributeAt:)
+			ifTrue: [ first attributeAt: key ]
+			ifFalse: [ first at: key ifAbsent: [ nil ] ] ].
+	line := read value: #line.
+	msg := (read value: #message) ifNil: [ '(no message)' ].
+	^ String streamContents: [ :s |
+		s << 'Compile failed for ' << anAnnouncement mod.
+		(line isNil or: [ line = 0 ]) ifFalse: [
+			s << ' (line ' << line asString << ')' ].
+		s << ': ' << msg asString ]
 ]
 
 { #category : 'announcing' }
