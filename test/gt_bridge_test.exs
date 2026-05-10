@@ -38,3 +38,7 @@ end
 defmodule GtBridgeTest.Analysis do
   use ExExample.ExUnit, for: Examples.EAnalysis
 end
+
+defmodule GtBridgeTest.CodeMonitor do
+  use ExExample.ExUnit, for: Examples.ECodeMonitor
+end
