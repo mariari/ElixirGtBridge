@@ -39,7 +39,8 @@ Class {
 	#instVars : [
 		'mod',
 		'sources',
-		'entries'
+		'entries',
+		'lastGoodSource'
 	],
 	#classInstVars : [
 		'caches'
@@ -364,7 +365,17 @@ BeamModuleSourceCache >> mod [
 BeamModuleSourceCache >> mod: aModuleName [
 	mod := aModuleName.
 	sources := Dictionary new.
-	entries := #()
+	entries := #().
+	lastGoodSource := nil
+]
+
+{ #category : 'accessing' }
+BeamModuleSourceCache >> lastGoodSource [
+	"Whole-file source from the most recent successful compile.  Splice
+	 operations should prefer this over disk content — disk may carry
+	 the broken bytes from a failed save whose line numbers no longer
+	 match cached function entries."
+	^ lastGoodSource
 ]
 
 { #category : 'subscriptions' }
@@ -377,6 +388,7 @@ BeamModuleSourceCache >> onBeamModuleRecompiled: anAnnouncement [
 	functions := anAnnouncement functions ifNil: [ ^ self ].
 	(functions isKindOf: BeamProxyObject) ifTrue: [
 		functions := functions asList ].
+	anAnnouncement source ifNotNil: [ :s | lastGoodSource := s ].
 	entries := functions collect: [ :each |
 		(each isKindOf: Dictionary)
 			ifTrue: [ BeamFunctionEntry fields: each ]

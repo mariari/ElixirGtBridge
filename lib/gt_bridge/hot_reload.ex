@@ -57,10 +57,24 @@ defmodule GtBridge.HotReload do
     rescue
       e in [CompileError, SyntaxError, TokenMissingError] ->
         compile_failure(path, formatted, [compile_error_payload(e)])
+
+      e ->
+        compile_failure(path, formatted, [exception_error_payload(path, e)])
     catch
       {:gt_compile_failed, errors} ->
         compile_failure(path, formatted, errors)
     end
+  end
+
+  defp exception_error_payload(path, e) do
+    %{
+      phase: :unknown,
+      file: path,
+      line: nil,
+      column: nil,
+      message: Exception.message(e),
+      module: module_in_file(path)
+    }
   end
 
   defp compile_failure(path, content, errors) do
@@ -88,8 +102,8 @@ defmodule GtBridge.HotReload do
     :ets.delete_all_objects(:elixir_modules)
     abs_path = Path.expand(path)
 
-    direct_mods = parallel_compile_or_throw([path])
-    [mod | _] = direct_mods
+    compiled = Code.compile_file(path)
+    [{mod, _} | _] = compiled
     app = Application.get_application(mod)
     main_app = Mix.Project.config()[:app]
 
@@ -102,6 +116,8 @@ defmodule GtBridge.HotReload do
           []
 
         _ ->
+          for {m, binary} <- compiled, do: persist_beam(m, binary)
+
           self_path = __ENV__.file |> Path.expand()
 
           siblings =
@@ -111,9 +127,122 @@ defmodule GtBridge.HotReload do
           parallel_compile_or_throw(siblings)
       end
 
-    IEx.Helpers.recompile()
-    broadcast_recompiled(direct_mods, sibling_mods, content)
-    %{recompiled: recompiled_payloads(direct_mods, sibling_mods, content)}
+    recompile_preserving_modules()
+    broadcast_recompiled(compiled, sibling_mods, content)
+    %{recompiled: recompiled_payloads(compiled, sibling_mods, content)}
+  end
+
+  # Mix's failed retry purges the module being compiled and may delete
+  # its .beam.  Snapshot bytecode in memory before, restore via
+  # load_binary after.
+  defp recompile_preserving_modules do
+    snapshot = snapshot_project_modules()
+
+    try do
+      recompile_or_throw()
+    after
+      for {m, file, beam} <- snapshot, :code.is_loaded(m) == false do
+        :code.load_binary(m, file, beam)
+      end
+    end
+  end
+
+  defp snapshot_project_modules do
+    apps = [Mix.Project.config()[:app] | path_dep_apps()] |> Enum.reject(&is_nil/1)
+
+    for app <- apps,
+        {:ok, mods} <- [:application.get_key(app, :modules)],
+        m <- mods,
+        {^m, beam, file} <- [safe_get_object_code(m)] do
+      {m, file, beam}
+    end
+  end
+
+  defp safe_get_object_code(m) do
+    case :code.get_object_code(m) do
+      {^m, _beam, _file} = ok -> ok
+      _ -> nil
+    end
+  end
+
+  defp path_dep_apps do
+    for dep <- Mix.Project.config()[:deps] || [],
+        {app, opts} = normalize_dep(dep),
+        Keyword.has_key?(opts, :path) do
+      app
+    end
+  end
+
+  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _}), do: {app, []}
+  defp normalize_dep(app) when is_atom(app), do: {app, []}
+
+  defp recompile_or_throw do
+    if mix_started?() do
+      Mix.Project.with_build_lock(fn ->
+        maybe_purge_mix_listener()
+        diagnostics = run_mix_compile_capturing_diagnostics()
+        errors = Enum.filter(diagnostics, &(Map.get(&1, :severity) == :error))
+
+        if errors != [] do
+          throw({:gt_compile_failed, Enum.map(errors, &diagnostic_error_payload/1)})
+        end
+      end)
+    end
+  end
+
+  defp mix_started? do
+    List.keyfind(Application.started_applications(), :mix, 0) != nil
+  end
+
+  defp maybe_purge_mix_listener do
+    if Code.ensure_loaded?(IEx.MixListener) and
+         function_exported?(IEx.MixListener, :purge, 0) do
+      IEx.MixListener.purge()
+    end
+  end
+
+  defp run_mix_compile_capturing_diagnostics do
+    config = Mix.Project.config()
+    consolidation = Mix.Project.consolidation_path(config)
+
+    Mix.Task.reenable("compile")
+    Mix.Task.reenable("compile.all")
+    Mix.Task.reenable("compile.protocols")
+    compilers = config[:compilers] || Mix.compilers()
+    Enum.each(compilers, &Mix.Task.reenable("compile.#{&1}"))
+
+    args = ["--purge-consolidation-path-if-stale", consolidation, "--return-errors"]
+
+    case Mix.Task.run("compile", args) do
+      {_status, diagnostics} when is_list(diagnostics) -> diagnostics
+      _ -> []
+    end
+  end
+
+  defp diagnostic_error_payload(%{file: file, position: position, message: message}) do
+    {line, column} =
+      case position do
+        {l, c} -> {l, c}
+        n when is_integer(n) -> {n, nil}
+        _ -> {nil, nil}
+      end
+
+    file_str = file && to_string(file)
+    source = file_str && read_source(file_str)
+    enclosing = source && line && enclosing_function(source, line)
+
+    %{
+      phase: :compile,
+      file: file_str,
+      line: line,
+      column: column,
+      message: to_string(message),
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
+    }
   end
 
   # I compile a list of files via ParallelCompiler so verifier errors
@@ -146,6 +275,8 @@ defmodule GtBridge.HotReload do
 
   defp build_error_payload(file, line, column, message) do
     file_str = to_string(file)
+    source = read_source(file_str)
+    enclosing = source && line && enclosing_function(source, line)
 
     %{
       phase: :compile,
@@ -153,15 +284,31 @@ defmodule GtBridge.HotReload do
       line: line,
       column: column,
       message: to_string(message),
-      module: module_in_file(file_str)
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
     }
   end
 
   defp module_in_file(file) do
+    case read_source(file) do
+      nil -> nil
+      source -> GtBridge.Analysis.module_in_source(source)
+    end
+  end
+
+  defp read_source(nil), do: nil
+
+  defp read_source(file) do
     case File.read(file) do
-      {:ok, content} -> GtBridge.Analysis.module_in_source(content)
+      {:ok, content} -> content
       _ -> nil
     end
+  end
+
+  defp enclosing_function(source, line) do
+    GtBridge.Analysis.functions_in_source(source)
+    |> Enum.find(fn f -> f.start <= line and line <= f.end_line end)
   end
 
   defp source_written_payload(path, content) do
@@ -181,8 +328,8 @@ defmodule GtBridge.HotReload do
   # Siblings stay bare — the directly-saved module is the only one
   # whose coder/streaming surface is guaranteed to be active in the
   # same view.
-  defp recompiled_payloads(direct_mods, sibling_mods, content) do
-    direct = for m <- direct_mods, do: enriched_payload(m, content)
+  defp recompiled_payloads(compiled, sibling_mods, content) do
+    direct = for {m, _} <- compiled, do: enriched_payload(m, content)
     siblings = for m <- sibling_mods, do: bare_payload(m)
     direct ++ siblings
   end
@@ -191,6 +338,7 @@ defmodule GtBridge.HotReload do
     %{
       mod: module_name(mod),
       source_hash: :erlang.phash2(content),
+      source: content,
       functions: GtBridge.Analysis.all_functions(mod)
     }
   end
@@ -203,10 +351,10 @@ defmodule GtBridge.HotReload do
     mod |> to_string() |> String.replace_prefix("Elixir.", "")
   end
 
-  defp broadcast_recompiled(direct_mods, sibling_mods, content) do
+  defp broadcast_recompiled(compiled, sibling_mods, content) do
     source_hash = :erlang.phash2(content)
 
-    for m <- direct_mods do
+    for {m, _} <- compiled do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
         mod: m,
@@ -226,14 +374,19 @@ defmodule GtBridge.HotReload do
 
   defp compile_error_payload(e) do
     file = Map.get(e, :file)
+    line = Map.get(e, :line)
+    source = file && read_source(file)
+    enclosing = source && line && enclosing_function(source, line)
 
     %{
       phase: error_phase(e),
       file: file,
-      line: Map.get(e, :line),
+      line: line,
       column: Map.get(e, :column),
       message: Exception.message(e),
-      module: file && module_in_file(file)
+      module: source && GtBridge.Analysis.module_in_source(source),
+      function: enclosing && enclosing.name,
+      arity: enclosing && enclosing.arity
     }
   end
 
