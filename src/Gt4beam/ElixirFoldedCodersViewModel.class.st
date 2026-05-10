@@ -1,8 +1,9 @@
 Class {
 	#name : 'ElixirFoldedCodersViewModel',
 	#superclass : 'GtStreamingCodersViewModel',
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Coder',
+	#package : 'Gt4beam',
+	#tag : 'Coder'
 }
 
 { #category : 'accessing' }

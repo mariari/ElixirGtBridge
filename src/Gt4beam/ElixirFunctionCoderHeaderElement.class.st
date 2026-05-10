@@ -99,8 +99,8 @@ ElixirFunctionCoderHeaderElement >> newButton: aText action: aBlock [
 ElixirFunctionCoderHeaderElement >> newSeparator [
 	^ BrLabel new
 		aptitude: (BrGlamorousLabelAptitude new thin
-			padding: (BlInsets all: 0);
-			foreground: self theme label metadataTextForeground);
+				padding: (BlInsets all: 0);
+				foreground: self theme label metadataTextForeground);
 		text: '>';
 		margin: (BlInsets left: 5 right: 5)
 ]

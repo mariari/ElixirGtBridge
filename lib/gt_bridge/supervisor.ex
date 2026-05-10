@@ -16,6 +16,7 @@ defmodule GtBridge.Supervisor do
       {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]},
       {GtBridge.CacheReaper, []},
       {GtBridge.CodeMonitor, []},
+      {GtBridge.Analysis.LoadedModules, []},
       {GtBridge.Xref, []}
     ]
 

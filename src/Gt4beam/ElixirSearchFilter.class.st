@@ -6,8 +6,9 @@ Class {
 		'items',
 		'application'
 	],
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Filters',
+	#package : 'Gt4beam',
+	#tag : 'Filters'
 }
 
 { #category : 'accessing' }
