@@ -55,14 +55,9 @@ defmodule GtBridge.ModuleCreator do
   @spec project_apps() :: [atom()]
   def project_apps do
     main = Mix.Project.config()[:app]
-    deps = for dep <- Mix.Project.config()[:deps] || [], do: elem(normalize_dep(dep), 0)
+    deps = for dep <- Mix.Project.config()[:deps] || [], do: elem(GtBridge.Mix.normalize_dep(dep), 0)
     [main | deps] |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
-
-  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _}), do: {app, []}
-  defp normalize_dep(app) when is_atom(app), do: {app, []}
 
   # Path-deps land in their checked-out tree; everything else writes
   # into `deps/<app>/lib` (which Mix unpacks during `deps.get`).  Hex
@@ -72,24 +67,15 @@ defmodule GtBridge.ModuleCreator do
   defp app_lib_dir(app) do
     cond do
       app == Mix.Project.config()[:app] -> {:ok, "lib"}
-      dep = path_dep_opts(app) -> {:ok, Path.join(dep[:path], "lib")}
+      dep = GtBridge.Mix.path_dep_opts(app) -> {:ok, Path.join(dep[:path], "lib")}
       declared_dep?(app) -> {:ok, Path.join(["deps", to_string(app), "lib"])}
       true -> {:error, :unknown_app}
     end
   end
 
-  defp path_dep_opts(app) do
-    Enum.find_value(Mix.Project.config()[:deps] || [], fn dep ->
-      case normalize_dep(dep) do
-        {^app, opts} -> if Keyword.has_key?(opts, :path), do: opts
-        _ -> nil
-      end
-    end)
-  end
-
   defp declared_dep?(app) do
     Enum.any?(Mix.Project.config()[:deps] || [], fn dep ->
-      elem(normalize_dep(dep), 0) == app
+      elem(GtBridge.Mix.normalize_dep(dep), 0) == app
     end)
   end
 
