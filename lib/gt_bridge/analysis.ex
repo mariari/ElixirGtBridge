@@ -315,7 +315,6 @@ defmodule GtBridge.Analysis do
     end
   end
 
-
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
     # safe_exported_functions / fetch_specs / fetch_types all return
@@ -974,7 +973,6 @@ defmodule GtBridge.Analysis do
   defp synth_no_source(name_str, arity, spec_string),
     do: "@spec #{spec_string}\n# #{name_str}/#{arity}, no source"
 
-
   defp modules(app) do
     case :application.get_key(app, :modules) do
       {:ok, mods} -> mods
@@ -1038,8 +1036,10 @@ defmodule GtBridge.Analysis do
   end
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
+
   defp function_head({name, _, args}) when is_atom(name) and is_list(args),
     do: {name, length(args)}
+
   defp function_head({name, _, _}) when is_atom(name), do: {name, 0}
   defp function_head(name) when is_atom(name), do: {name, 0}
   # Catch-all so non-name heads (e.g. `__aliases__` tuples wrapped
@@ -1075,5 +1075,4 @@ defmodule GtBridge.Analysis do
       _ in [UndefinedFunctionError, ArgumentError] -> false
     end
   end
-
 end
