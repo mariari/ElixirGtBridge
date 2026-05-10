@@ -154,25 +154,36 @@ defmodule GtBridge.Analysis do
   accessors, etc.) are visible. Runtime-only entries get default
   `start: 0`, `end_line: 0`, `kind: :def`, and a placeholder source.
   """
+  @doc """
+  I parse `source` and return the AST function entries — the same shape
+  `all_functions/1` returns minus the runtime-export merging (which
+  needs the module to be loaded). Works on disk bytes alone, so safe
+  to call before / after a failed compile.
+  """
+  @spec functions_in_source(String.t()) :: [map()]
+  def functions_in_source(source) do
+    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+      {:ok, ast} ->
+        lines = String.split(source, "\n")
+
+        extract_functions(ast)
+        |> merge_clauses()
+        |> Enum.map(fn f ->
+          start = walk_back_annotations(lines, f.start)
+          source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
+          %{f | start: start} |> Map.put(:source, source_text)
+        end)
+
+      _ ->
+        []
+    end
+  end
+
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
     ast_entries =
       GtBridge.Resolve.with_source(mod, [], fn source ->
-        case Code.string_to_quoted(source, columns: true, token_metadata: true) do
-          {:ok, ast} ->
-            lines = String.split(source, "\n")
-
-            extract_functions(ast)
-            |> merge_clauses()
-            |> Enum.map(fn f ->
-              start = walk_back_annotations(lines, f.start)
-              source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
-              %{f | start: start} |> Map.put(:source, source_text)
-            end)
-
-          _ ->
-            []
-        end
+        functions_in_source(source)
       end)
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
