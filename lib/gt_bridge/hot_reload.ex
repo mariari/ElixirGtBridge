@@ -46,7 +46,6 @@ defmodule GtBridge.HotReload do
     [{mod, _} | _] = compiled
     app = Application.get_application(mod)
     main_app = Mix.Project.config()[:app]
-    bridge_app = Application.get_application(__MODULE__)
 
     sibling_mods =
       case app do
@@ -64,11 +63,11 @@ defmodule GtBridge.HotReload do
           # Exclude __ENV__.file to avoid purging the running code.
           for {m, binary} <- compiled, do: persist_beam(m, binary)
 
-          excluded_mods = bridge_self_modification_excluded_mods(app == bridge_app)
+          self_path = __ENV__.file |> Path.expand()
 
           siblings =
-            app_source_files(app, excluded_mods)
-            |> Enum.reject(&(&1 == abs_path))
+            app_source_files(app)
+            |> Enum.reject(&(&1 in [abs_path, self_path]))
 
           {:ok, mods, _} =
             Kernel.ParallelCompiler.compile(siblings,
@@ -123,20 +122,14 @@ defmodule GtBridge.HotReload do
   defp broadcast_recompiled(compiled, sibling_mods, content) do
     source_hash = :erlang.phash2(content)
 
-    # Directly-saved modules carry source + per-function entries so
-    # GT-side caches re-render without follow-up bridge calls.
     for {m, _} <- compiled do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
         mod: m,
-        source_hash: source_hash,
-        source: content,
-        functions: GtBridge.Analysis.all_functions(m)
+        source_hash: source_hash
       })
     end
 
-    # Siblings from cascade compile arrive bare; subscribers refetch
-    # if they need fresher data.
     for m <- sibling_mods do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
@@ -161,36 +154,9 @@ defmodule GtBridge.HotReload do
   defp error_phase(%SyntaxError{}), do: :parse
   defp error_phase(%TokenMissingError{}), do: :parse
 
-  @spec app_source_files(atom(), MapSet.t(module())) :: [String.t()]
-  defp app_source_files(app, excluded_mods \\ MapSet.new()) do
+  defp app_source_files(app) do
     {:ok, mods} = :application.get_key(app, :modules)
-
-    for m <- mods,
-        not MapSet.member?(excluded_mods, m),
-        f = GtBridge.Resolve.source_file(m),
-        is_binary(f),
-        uniq: true,
-        do: f
-  end
-
-  # Modules whose recompile after the BEAM two-version purge cycle
-  # would kill a live process: SSE plug, `:code_server` tracer, this
-  # module, and every event type the plug pattern-matches against.
-  @spec bridge_self_modification_excluded_mods(boolean()) :: MapSet.t(module())
-  defp bridge_self_modification_excluded_mods(true) do
-    MapSet.new([
-      __MODULE__,
-      GtBridge.Http.EventStream,
-      GtBridge.Http.Router,
-      GtBridge.CodeMonitor,
-      GtBridge.Events,
-      GtBridge.Events.AnyModuleEvent,
-      GtBridge.Events.ModuleEvent
-    ])
-  end
-
-  defp bridge_self_modification_excluded_mods(false) do
-    MapSet.new([__MODULE__])
+    mods |> Enum.map(&GtBridge.Resolve.source_file/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
 
   defp persist_beam(mod, binary) do
