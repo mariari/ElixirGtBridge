@@ -1,6 +1,8 @@
 Class {
 	#name : 'GtElixirCoderModel',
 	#superclass : 'GtSourceCoder',
+	#traits : 'TElixirNavigationCoder',
+	#classTraits : 'TElixirNavigationCoder classTrait',
 	#instVars : [
 		'application',
 		'elixirLinkApplicationStrategy',
