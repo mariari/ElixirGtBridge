@@ -61,11 +61,9 @@ BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: a
 	 bridge couldn't identify the function (parse failure on the saved
 	 file makes Analysis.functions_in_source return [], module-level
 	 diagnostics carry no usable line)."
-	| announcement perModule |
+	| announcement |
 	announcement := BeamCompileFailed mod: aModuleName errors: aListOfErrors.
-	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
-	perModule ifNotNil: [ perModule announce: announcement ].
-	self default announce: announcement.
+	self dispatch: announcement on: aModuleName.
 	GtWorld showNotification:
 		(self compileFailureNotificationFor: announcement
 			application: anApp
@@ -77,55 +75,6 @@ BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: a
 BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
 	"Convenience for callers without an application reference."
 	^ self announceCompileFailedFor: aModuleName application: nil errors: aListOfErrors
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp [
-	^ self
-		compileFailureNotificationFor: anAnnouncement
-		application: anApp
-		functionHint: nil
-		arityHint: nil
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp functionHint: aFunctionName arityHint: anArity [
-	"Build the notification from the first error.  Function / arity
-	 fall back to the caller-supplied hints when the error entry
-	 doesn't carry them."
-	| first |
-	first := anAnnouncement errors ifNotNil: [ :e |
-		e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
-	^ BeamCompileFailureNotification new
-		moduleName: ((self read: #module from: first) ifNil: [ anAnnouncement mod ]) asString;
-		sourcePath: (self read: #file from: first);
-		line: (self read: #line from: first);
-		errorMessage: ((self read: #message from: first) ifNil: [ 'compile failed' ]) asString;
-		functionName: (((self read: #function from: first)
-			ifNotNil: [ :f | f asString ]) ifNil: [ aFunctionName ]);
-		arity: ((self read: #arity from: first) ifNil: [ anArity ]);
-		application: anApp;
-		yourself
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> read: aKey from: anEntry [
-	"Polymorphic field read that handles both Smalltalk Dictionary
-	 entries (tests) and BeamProxyObject map proxies (live bridge)."
-	anEntry ifNil: [ ^ nil ].
-	^ (anEntry respondsTo: #attributeAt:)
-		ifTrue: [ anEntry attributeAt: aKey ]
-		ifFalse: [ anEntry at: aKey ifAbsent: [ nil ] ]
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> announceSourceWrittenFor: aModuleName fromPayload: aPayload [
-	"Per-module + default fan-out for the disk-write fact."
-	| announcement perModule |
-	announcement := BeamModuleSourceWritten fromPayload: aPayload mod: aModuleName.
-	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
-	perModule ifNotNil: [ perModule announce: announcement ].
-	self default announce: announcement
 ]
 
 { #category : 'announcing' }
@@ -153,14 +102,9 @@ BeamEventAnnouncer class >> announceRecompiledFrom: aDictionary [
 	 modules carry `mod` only and let subscribers fall back to a
 	 bridge call if they need fresher data."
 
-	| announcement modName perModule |
+	| announcement |
 	announcement := BeamModuleRecompiled fromPayload: aDictionary.
-	modName := announcement mod.
-
-	perModule := self announcers at: modName ifAbsent: [ nil ].
-	perModule ifNotNil: [ perModule announce: announcement ].
-
-	self default announce: announcement
+	self dispatch: announcement on: announcement mod
 ]
 
 { #category : 'announcing' }
@@ -170,11 +114,26 @@ BeamEventAnnouncer class >> announceSourceRemoved: aModuleName [
 	 the module clear themselves and the resolution cache flips the
 	 name back to `unresolved`."
 
-	| announcement perModule |
-	announcement := BeamModuleSourceRemoved mod: aModuleName.
+	self dispatch: (BeamModuleSourceRemoved mod: aModuleName) on: aModuleName
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> announceSourceWrittenFor: aModuleName fromPayload: aPayload [
+	"Per-module + default fan-out for the disk-write fact."
+	self
+		dispatch: (BeamModuleSourceWritten fromPayload: aPayload mod: aModuleName)
+		on: aModuleName
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> dispatch: anAnnouncement on: aModuleName [
+	"Fire `anAnnouncement` on the per-module announcer (if any subscribers
+	 are listening narrowly) AND on the default singleton (so wildcard
+	 subscribers continue to hear everything)."
+	| perModule |
 	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
-	perModule ifNotNil: [ perModule announce: announcement ].
-	self default announce: announcement
+	perModule ifNotNil: [ perModule announce: anAnnouncement ].
+	self default announce: anAnnouncement
 ]
 
 { #category : 'accessing' }
@@ -182,6 +141,35 @@ BeamEventAnnouncer class >> announcers [
 	"Lazy per-module announcer registry. Keyed by bare module name."
 
 	^ announcers ifNil: [ announcers := Dictionary new ]
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp [
+	^ self
+		compileFailureNotificationFor: anAnnouncement
+		application: anApp
+		functionHint: nil
+		arityHint: nil
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp functionHint: aFunctionName arityHint: anArity [
+	"Build the notification from the first error.  Function / arity
+	 fall back to the caller-supplied hints when the error entry
+	 doesn't carry them."
+	| first |
+	first := anAnnouncement errors ifNotNil: [ :e |
+		e isEmpty ifTrue: [ nil ] ifFalse: [ e first ] ].
+	^ BeamCompileFailureNotification new
+		moduleName: ((BeamModuleAnnouncement payloadValue: #module from: first) ifNil: [ anAnnouncement mod ]) asString;
+		sourcePath: (BeamModuleAnnouncement payloadValue: #file from: first);
+		line: (BeamModuleAnnouncement payloadValue: #line from: first);
+		errorMessage: ((BeamModuleAnnouncement payloadValue: #message from: first) ifNil: [ 'compile failed' ]) asString;
+		functionName: (((BeamModuleAnnouncement payloadValue: #function from: first)
+			ifNotNil: [ :f | f asString ]) ifNil: [ aFunctionName ]);
+		arity: ((BeamModuleAnnouncement payloadValue: #arity from: first) ifNil: [ anArity ]);
+		application: anApp;
+		yourself
 ]
 
 { #category : 'accessing' }

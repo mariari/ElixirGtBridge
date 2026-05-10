@@ -35,15 +35,6 @@ BeamModuleRecompiled class >> mod: aSymbol sourceHash: anIntegerOrNil [
 		yourself
 ]
 
-{ #category : 'private' }
-BeamModuleRecompiled class >> payloadValue: aKey from: aPayload [
-	"I read a value polymorphically from either a Dictionary or a
-	 BeamProxyObject map. Missing keys return nil from both paths."
-	^ (aPayload respondsTo: #attributeAt:)
-		ifTrue: [ aPayload attributeAt: aKey ]
-		ifFalse: [ aPayload at: aKey ifAbsent: [ nil ] ]
-]
-
 { #category : 'accessing' }
 BeamModuleRecompiled >> functions [
 	"I return the new function entries for the recompiled module

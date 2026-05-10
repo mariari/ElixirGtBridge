@@ -313,36 +313,25 @@ BeamModuleSourceCache >> ensureSubscribed [
 	 The announcer can be reset out from under me (`BeamEventAnnouncer
 	 reset`) while I'm still alive in `caches`, leaving my prior
 	 subscription orphaned on a now-garbage announcer."
-	| ann subs |
+	| ann |
 	ann := BeamEventAnnouncer for: mod.
-	subs := ann subscriptions subscriptions ifNil: [ #() ].
+	self ensureWeakOn: ann to: BeamModuleRecompiled send: #onBeamModuleRecompiled:.
+	self ensureWeakOn: ann to: BeamModuleSourceRemoved send: #onBeamModuleSourceRemoved:.
+	self ensureWeakOn: ann to: BeamModuleSourceWritten send: #onBeamModuleSourceWritten:
+]
+
+{ #category : 'subscriptions' }
+BeamModuleSourceCache >> ensureWeakOn: anAnnouncer to: anEventClass send: aSelector [
+	"Add a weak subscription on `anAnnouncer` for `anEventClass` if I'm
+	 not already wired up.  Idempotent — re-running ensureSubscribed
+	 after an announcer reset re-registers without duplicates."
+	| subs |
+	subs := anAnnouncer subscriptions subscriptions ifNil: [ #() ].
 	(subs anySatisfy: [ :sub |
 		sub subscriber == self
-			and: [ [ sub announcementClass = BeamModuleRecompiled ]
-				on: Error do: [ false ] ] ])
-		ifFalse: [
-			ann weak
-				when: BeamModuleRecompiled
-				send: #onBeamModuleRecompiled:
-				to: self ].
-	(subs anySatisfy: [ :sub |
-		sub subscriber == self
-			and: [ [ sub announcementClass = BeamModuleSourceRemoved ]
-				on: Error do: [ false ] ] ])
-		ifFalse: [
-			ann weak
-				when: BeamModuleSourceRemoved
-				send: #onBeamModuleSourceRemoved:
-				to: self ].
-	(subs anySatisfy: [ :sub |
-		sub subscriber == self
-			and: [ [ sub announcementClass = BeamModuleSourceWritten ]
-				on: Error do: [ false ] ] ])
-		ifFalse: [
-			ann weak
-				when: BeamModuleSourceWritten
-				send: #onBeamModuleSourceWritten:
-				to: self ]
+			and: [ [ sub announcementClass = anEventClass ]
+				on: Error do: [ false ] ] ]) ifTrue: [ ^ self ].
+	anAnnouncer weak when: anEventClass send: aSelector to: self
 ]
 
 { #category : 'querying' }
