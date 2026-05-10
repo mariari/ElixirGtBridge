@@ -10,7 +10,7 @@ defmodule GtBridge.Events.ModuleEvent do
   use TypedStruct
 
   typedstruct do
-    field(:kind, :recompiled | :compile_failed | :source_written, enforce: true)
+    field(:kind, :recompiled | :compile_failed | :source_written | :source_removed, enforce: true)
     field(:mod, module() | nil, default: nil)
     field(:source_hash, integer() | nil, default: nil)
     field(:source, String.t() | nil, default: nil)

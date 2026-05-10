@@ -149,6 +149,6 @@ BeamEventStreamReaderExamples >> singletonPerApplication [
 	readerA2 := BeamEventStreamReader for: appA.
 	readerB := BeamEventStreamReader for: appB.
 	self assert: readerA1 == readerA2.
-	self deny: readerA1 == readerB.
+	self assert: readerA1 ~~ readerB.
 	^ readerA1
 ]
