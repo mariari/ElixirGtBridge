@@ -1,0 +1,258 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:03.116647+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:03.116647+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "A2aayFUUR8e9fyJvZB92AA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Triangle expanders (▶) after each resolvable Elixir function call. Built on {{gtClass:name=BrGlamorousTriangleExpanderTextAttribute}}."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:07.742516+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:07.742516+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "BHKZzFTpQjKgJe6lPvV4TA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## GT's reference\n\n{{gtClass:name=GtPharoMethodExpanderStyler}} + {{gtClass:name=GtPharoMethodExpanderAttribute}}. Styler walks the AST in {{gtMethod:name=GtPharoMethodExpanderStyler>>visitMessage:}} and attaches an attribute per message send. We mirror this."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=ElixirFunctionExpanderStyler>>style:ast:}} queries BEAM for call sites, attaches attributes inline."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=ElixirFunctionExpanderAttribute>>buildExpandedElement}} fetches the source and renders it with a `Module > function/arity` header."
+						},
+						{
+							"__type" : "elementSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"code" : "BrGlamorousTriangleExpanderTextAttribute gtSubclassesFor: GtPhlowView new",
+							"elementHeight" : 192,
+							"codeHeight" : 50,
+							"codeVisible" : false
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:11.603675+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:11.603675+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "x12GzIahSu6PYQIalEN3Ug=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Our chain"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:21.454021+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:21.454021+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "6CXq/A35SIWF9EudMoZvGg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Registration\n\n`addOns addStyler: ElixirFunctionExpanderStyler new` in {{gtMethod:name=GtElixirCoderModel>>initializeAddOns:}}. Composite styler runs it on text changes."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:26.175976+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:26.175976+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "4X+pIufdQPigSJcswMh0VA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## BEAM-side\n\n`GtBridge.Analysis.call_sites(source, contextModule)` parses the AST, resolves aliases (using the context module's preamble when missing from source), filters unresolvable / unsourced / non-existent calls. Returns `[%{target_module, function, arity, line, column}]`. Styler caches by source hash."
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.181478+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.181478+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Inline expanders pattern (|>)"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "b889ac15-c40e-4949-ac15-abb730a0f05e"
+	}
+}
