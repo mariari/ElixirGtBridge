@@ -2,63 +2,99 @@ defmodule GtBridge.ModuleCreator do
   @moduledoc """
   I create a fresh Elixir source file for a module name and recompile.
 
-  Used by the GT-side "+ Create module" button to materialize a missing
-  module reference into an actual `.ex` file in the host project's
-  `lib/` directory.
+  Used by the GT-side wrench "Create module" form to materialize a
+  missing module reference into an actual `.ex` file under the
+  chosen application's `lib/` directory.
 
   ### Public API
 
-  - `create/1` — write a `defmodule` skeleton at the path implied by
-    the atom name and recompile through `GtBridge.HotReload`.
+  - `create/1` — write the skeleton under the main project's `lib/`.
+  - `create/2` — write under a specific app's `lib/` (path-deps land
+    in `deps/<app>/lib/...`).
+  - `project_apps/0` — apps the form's autocomplete offers.
   """
+
+  @doc "I create the module under the main project's `lib/`."
+  @spec create(atom()) :: map() | {:error, :exists | :not_elixir_module | :unknown_app}
+  def create(name) when is_atom(name) do
+    create(name, Mix.Project.config()[:app])
+  end
 
   @doc """
-  I write `defmodule <name> do; end` to the path implied by `name`
-  (e.g. `Foo.Bar` → `lib/foo/bar.ex`, snake-cased per
-  `Macro.underscore/1`), create any missing parent directories, and
-  recompile via `GtBridge.HotReload.reload/2`.
-
-  On success I return the reload result extended with `:path`:
-
-      %{recompiled: [...], path: "lib/foo/bar.ex"}
-
-  The `:recompiled` entries are the same shape as a normal save's
-  payload, so GT-side callers can drive their cache update through
-  the same `BeamEventAnnouncer announceRecompiledFrom:` flow they
-  already use after `saveAndCompile` — without that, the GT side
-  doesn't learn about the new module until the next save and the
-  wrench stays visible.
-
-  Errors:
-  - `{:error, :exists}` — the target file already exists.
-  - `{:error, :not_elixir_module}` — `name` is not an `Elixir.*` atom
-    (Erlang atoms like `:gen_server` aren't Elixir modules).
+  I write `defmodule <name> do; end` under the chosen app's `lib/`.
+  Path-deps land in their checked-out source tree so changes propagate
+  back to the dep.
   """
-  @spec create(atom()) :: map() | {:error, :exists | :not_elixir_module}
-  def create(name) when is_atom(name) do
-    case to_string(name) do
-      "Elixir." <> rest ->
-        path = lib_path(rest)
+  @spec create(atom(), atom() | nil) ::
+          map() | {:error, :exists | :not_elixir_module | :unknown_app}
+  def create(name, app) when is_atom(name) and is_atom(app) do
+    with "Elixir." <> rest <- to_string(name),
+         {:ok, lib_dir} <- app_lib_dir(app) do
+      path = lib_path(lib_dir, rest)
 
-        if File.exists?(path) do
-          {:error, :exists}
-        else
-          File.mkdir_p!(Path.dirname(path))
+      if File.exists?(path) do
+        {:error, :exists}
+      else
+        File.mkdir_p!(Path.dirname(path))
 
-          template =
-            "defmodule #{inspect(name)} do\n  def hello, do: :world\nend\n"
+        template = "defmodule #{inspect(name)} do\n  def hello, do: :world\nend\n"
 
-          GtBridge.HotReload.reload(path, template)
-          |> Map.put(:path, path)
-        end
-
-      _ ->
-        {:error, :not_elixir_module}
+        GtBridge.HotReload.reload(path, template)
+        |> Map.put(:path, path)
+      end
+    else
+      {:error, :unknown_app} -> {:error, :unknown_app}
+      _ -> {:error, :not_elixir_module}
     end
   end
 
-  defp lib_path(rest) do
+  @doc """
+  I list apps the form's autocomplete offers: the main project plus
+  every top-level dep declared in mix.exs.  Returns `[atom()]`.
+  """
+  @spec project_apps() :: [atom()]
+  def project_apps do
+    main = Mix.Project.config()[:app]
+    deps = for dep <- Mix.Project.config()[:deps] || [], do: elem(normalize_dep(dep), 0)
+    [main | deps] |> Enum.reject(&is_nil/1) |> Enum.uniq()
+  end
+
+  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
+  defp normalize_dep({app, _}), do: {app, []}
+  defp normalize_dep(app) when is_atom(app), do: {app, []}
+
+  # Path-deps land in their checked-out tree; everything else writes
+  # into `deps/<app>/lib` (which Mix unpacks during `deps.get`).  Hex
+  # / git deps will get overwritten by the next `mix deps.compile` if
+  # they aren't path-linked, but writing there is what the user asked
+  # for when picking that app.
+  defp app_lib_dir(app) do
+    cond do
+      app == Mix.Project.config()[:app] -> {:ok, "lib"}
+      dep = path_dep_opts(app) -> {:ok, Path.join(dep[:path], "lib")}
+      declared_dep?(app) -> {:ok, Path.join(["deps", to_string(app), "lib"])}
+      true -> {:error, :unknown_app}
+    end
+  end
+
+  defp path_dep_opts(app) do
+    Enum.find_value(Mix.Project.config()[:deps] || [], fn dep ->
+      case normalize_dep(dep) do
+        {^app, opts} -> if Keyword.has_key?(opts, :path), do: opts
+        _ -> nil
+      end
+    end)
+  end
+
+  defp declared_dep?(app) do
+    Enum.any?(Mix.Project.config()[:deps] || [], fn dep ->
+      elem(normalize_dep(dep), 0) == app
+    end)
+  end
+
+  defp lib_path(lib_dir, rest) do
     parts = rest |> String.split(".") |> Enum.map(&Macro.underscore/1)
-    Path.join(["lib" | parts]) <> ".ex"
+    Path.join([lib_dir | parts]) <> ".ex"
   end
 end
