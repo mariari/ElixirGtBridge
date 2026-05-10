@@ -43,20 +43,26 @@ defmodule GtBridge.HotReload do
     # Mutually exclusive — at most one of `recompiled` / `source_written`
     # is present in the result, so subscribers don't need dedup.
     File.write!(path, content)
+    Mix.Tasks.Format.run([path])
+    formatted = File.read!(path)
+
+    GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
+      kind: :source_written,
+      mod: parse_module_name(formatted),
+      source_hash: :erlang.phash2(formatted)
+    })
 
     try do
-      Mix.Tasks.Format.run([path])
-      formatted = File.read!(path)
       do_compile(path, formatted)
     rescue
       e in [CompileError, SyntaxError, TokenMissingError] ->
-        compile_failure(path, content, [compile_error_payload(e)])
+        compile_failure(path, formatted, [compile_error_payload(e)])
 
       e ->
-        compile_failure(path, content, [exception_error_payload(path, e)])
+        compile_failure(path, formatted, [exception_error_payload(path, e)])
     catch
       {:gt_compile_failed, errors} ->
-        compile_failure(path, content, errors)
+        compile_failure(path, formatted, errors)
     end
   end
 
@@ -74,12 +80,20 @@ defmodule GtBridge.HotReload do
   defp compile_failure(path, content, errors) do
     GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
       kind: :compile_failed,
-      mod: nil,
+      mod: parse_module_name(content),
       errors: errors
     })
 
     Map.merge(source_written_payload(path, content), %{errors: errors})
   end
+
+  defp parse_module_name(source) do
+    case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do
+      [_, name] -> Module.concat([name])
+      _ -> nil
+    end
+  end
+
 
   # I do the compile + sibling propagation half. Pulled out of `reload/2`
   # so the disk-write half can run unconditionally and the compile half
