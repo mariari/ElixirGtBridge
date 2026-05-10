@@ -1,7 +1,6 @@
 # credo:disable-for-this-file
 defmodule GtBridge.Analysis do
   # mnesia is an optional runtime dependency — not available at compile time
-  @compile {:no_warn_undefined, [:mnesia]}
   @moduledoc """
   I provide static analysis data for GT visualization.
 
@@ -19,7 +18,6 @@ defmodule GtBridge.Analysis do
 
   @type edge :: {module(), module()}
   @type doc_status :: :full | :partial | :none
-  @infrastructure_apps MapSet.new([:kernel, :stdlib, :elixir, :compiler, :logger])
 
   @doc """
   I return module-level call edges for an application.
@@ -284,94 +282,6 @@ defmodule GtBridge.Analysis do
     |> Enum.filter(&String.contains?(&1, q))
     |> Enum.take(max)
   end
-
-  @doc """
-  I create or return an eval session with a module's preamble loaded.
-
-  Walks the source file's use/import/alias/require lines and evals
-  them into the session's env, so completion works in context.
-  Returns the session ID.
-  """
-  @spec editor_session(module(), String.t()) :: String.t()
-  def editor_session(mod, sid) do
-    # Create the session if it doesn't exist — safe for module
-    # coder sessions which use synchronous eval (no port needed)
-    pid = GtBridge.EvalRegistry.get_or_create(sid)
-    load_imports(mod, pid)
-    sid
-  end
-
-  @doc """
-  I load module imports into an existing eval session. Unlike
-  editor_session/2, I never create the session — if it doesn't
-  exist, I return nil. Use this for snippet sessions where the
-  session must be created by the HTTP handler (with the port
-  for async result callbacks).
-  """
-  @spec preload_imports(module(), String.t()) :: String.t() | nil
-  def preload_imports(mod, sid) do
-    case Registry.lookup(GtBridge.EvalRegistry, sid) do
-      [{pid, _}] when is_pid(pid) ->
-        if Process.alive?(pid) do
-          load_imports(mod, pid)
-          sid
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  defp load_imports(mod, pid) do
-    state = :sys.get_state(pid)
-
-    base_env = eval_into_env("import #{inspect(mod)}", state.env)
-
-    new_env =
-      with path when is_binary(path) <- GtBridge.Resolve.source_file(mod),
-           {:ok, source} <- File.read(path) do
-        source
-        |> preamble_directives()
-        |> Enum.reduce(base_env, &eval_into_env/2)
-      else
-        _ -> base_env
-      end
-
-    :sys.replace_state(pid, fn s -> %{s | env: new_env} end)
-  end
-
-  # Skip "use " — it requires a module context and crashes in
-  # eval env (e.g. "use TypedStruct" triggers __meta__ errors)
-  @preamble_starts ["import ", "alias ", "require "]
-
-  defp preamble_directives(source) do
-    source
-    |> String.split("\n")
-    |> Stream.map(&String.trim/1)
-    |> Stream.take_while(fn line ->
-      not (String.starts_with?(line, "def ") or String.starts_with?(line, "defp "))
-    end)
-    |> Enum.filter(fn line ->
-      Enum.any?(@preamble_starts, &String.starts_with?(line, &1))
-    end)
-  end
-
-  defp eval_into_env(line, env) do
-    # Suppress compiler diagnostics (e.g. Ecto's __meta__ warnings)
-    # during preamble eval — they're harmless but noisy in the terminal
-    old = Code.get_compiler_option(:no_warn_undefined)
-    Code.put_compiler_option(:no_warn_undefined, :all)
-
-    try do
-      {_, _, new_env} = Code.eval_quoted_with_env(Code.string_to_quoted!(line), [], env)
-      new_env
-    rescue
-      _ -> env
-    after
-      Code.put_compiler_option(:no_warn_undefined, old)
-    end
-  end
-
   @doc "I return exported functions matching a query within an app."
   @spec search_functions(atom(), String.t(), pos_integer()) :: [map()]
   def search_functions(app, query, max \\ 30) do
@@ -394,43 +304,6 @@ defmodule GtBridge.Analysis do
     end)
     |> Enum.sort_by(&"#{&1.module}.#{&1.name}/#{&1.arity}")
     |> Enum.take(max)
-  end
-
-  @doc "I return root applications — apps not depended on by any other loaded app."
-  @spec root_apps() :: [atom()]
-  def root_apps do
-    skip = @infrastructure_apps
-
-    loaded =
-      for {a, _, _} <- Application.loaded_applications(),
-          a not in skip,
-          into: MapSet.new(),
-          do: a
-
-    depended_on =
-      for {a, _, _} <- Application.loaded_applications(),
-          a not in skip,
-          dep <- Application.spec(a, :applications) || [],
-          dep not in skip,
-          into: MapSet.new(),
-          do: dep
-
-    loaded
-    |> MapSet.difference(depended_on)
-    |> MapSet.to_list()
-    |> Enum.sort()
-  end
-
-  # I return {app, dep} pairs for every loaded application's
-  # filtered deps. No self-edges.
-  defp app_dep_edges do
-    skip = @infrastructure_apps
-
-    for {a, _, _} <- Application.loaded_applications(),
-        a not in skip,
-        dep <- Application.spec(a, :applications) || [],
-        dep not in skip,
-        do: {a, dep}
   end
 
   @doc "I return exported functions for a module (works for both Elixir and Erlang)."
@@ -473,194 +346,9 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  @doc "I return mnesia table info for the table list.
-  Returns an empty list when mnesia is not started."
-  @spec mnesia_tables() :: [map()]
-  def mnesia_tables do
-    if Code.ensure_loaded?(:mnesia) and :mnesia.system_info(:is_running) == :yes do
-      :mnesia.system_info(:tables)
-      |> Enum.reject(&(&1 == :schema))
-      |> Enum.map(fn t ->
-        %{
-          name: Atom.to_string(t),
-          size: :mnesia.table_info(t, :size),
-          type: Atom.to_string(:mnesia.table_info(t, :type)),
-          attrs:
-            Enum.map_join(:mnesia.table_info(t, :attributes), ", ", &Atom.to_string/1)
-        }
-      end)
-      |> Enum.sort_by(& &1.name)
-    else
-      []
-    end
-  end
-
-  @doc "I return schema info for a mnesia table.
-  Returns an empty map when mnesia is not running."
-  @spec mnesia_schema(atom()) :: map()
-  def mnesia_schema(table) do
-    if Code.ensure_loaded?(:mnesia) and :mnesia.system_info(:is_running) == :yes do
-      %{
-        type: :mnesia.table_info(table, :type),
-        size: :mnesia.table_info(table, :size),
-        memory: :mnesia.table_info(table, :memory),
-        storage: :mnesia.table_info(table, :storage_type),
-        record_name: :mnesia.table_info(table, :record_name),
-        attributes:
-          Enum.map_join(:mnesia.table_info(table, :attributes), ", ", &Atom.to_string/1),
-        indexes: inspect(:mnesia.table_info(table, :index)),
-        access_mode: :mnesia.table_info(table, :access_mode),
-        load_order: :mnesia.table_info(table, :load_order)
-      }
-    else
-      %{}
-    end
-  end
-
-  @doc "I return records from a mnesia table."
-  @spec mnesia_records(atom(), non_neg_integer()) :: [list()]
-  def mnesia_records(table, limit \\ 500) do
-    attrs = :mnesia.table_info(table, :attributes)
-
-    :mnesia.dirty_all_keys(table)
-    |> Enum.take(limit)
-    |> Enum.flat_map(fn key ->
-      :mnesia.dirty_read(table, key)
-      |> Enum.map(fn rec ->
-        values = rec |> Tuple.to_list() |> tl()
-
-        Enum.zip(attrs, values)
-        |> Enum.map(fn {a, v} -> {Atom.to_string(a), inspect(v)} end)
-      end)
-    end)
-  end
-
-  @doc """
-  I return a nested supervision tree starting from a PID.
-
-  Each node is a map with `:pid`, `:name`, `:module`, `:supervisor`,
-  `:children`, `:queue`, and `:status`. Large worker pools appear
-  as-is — GT collapses them during rendering.
-  """
-  @spec supervision_tree(pid()) :: map()
-  def supervision_tree(pid) when is_pid(pid), do: build_sup_node(pid)
-
-  @doc """
-  I return a reverse dependency tree — who depends on this app.
-
-  Each node has `:name` and `:children` (apps that depend on it).
-  """
-  @spec app_reverse_dep_tree(atom()) :: map()
-  def app_reverse_dep_tree(app) do
-    reverse =
-      app_dep_edges()
-      |> Enum.reject(fn {a, b} -> a == b end)
-      |> Enum.group_by(fn {_, dep} -> dep end, fn {a, _} -> a end)
-
-    build_tree(app, fn a -> Map.get(reverse, a, []) |> Enum.sort() end, prune?: false)
-  end
-
-  @doc """
-  I return a dependency tree rooted at an application.
-
-  Each node has `:name` and `:children`. Transitive deps already
-  reachable through a child are pruned. Cycles are broken by
-  not revisiting already-seen apps.
-  """
-  @spec app_dep_tree(atom()) :: map()
-  def app_dep_tree(app) do
-    skip = @infrastructure_apps
-
-    deps_fn = fn a ->
-      (Application.spec(a, :applications) || [])
-      |> Enum.reject(&MapSet.member?(skip, &1))
-    end
-
-    build_tree(app, deps_fn, prune?: true)
-  end
-
-  # I build a dependency tree node for `app` using `deps_fn` to find
-  # children. With prune?: true, transitive children reachable through
-  # another child are removed (so the tree shows minimal direct deps).
-  defp build_tree(app, deps_fn, opts) do
-    build_tree(app, deps_fn, MapSet.new(), Keyword.fetch!(opts, :prune?))
-  end
-
-  defp build_tree(app, deps_fn, visited, prune?) do
-    if app in visited do
-      %{name: Atom.to_string(app), children: []}
-    else
-      visited = MapSet.put(visited, app)
-      children = Enum.map(deps_fn.(app), &build_tree(&1, deps_fn, visited, prune?))
-
-      children =
-        if prune? do
-          grandchild_names = children |> Enum.flat_map(&all_dep_names/1) |> MapSet.new()
-          Enum.reject(children, &MapSet.member?(grandchild_names, &1.name))
-        else
-          children
-        end
-
-      %{name: Atom.to_string(app), children: children}
-    end
-  end
-
-  defp all_dep_names(%{children: children}) do
-    Enum.flat_map(children, fn c -> [c.name | all_dep_names(c)] end)
-  end
-
   ############################################################
   #                   Private Implementation                 #
   ############################################################
-
-  defp build_sup_node(pid) do
-    info =
-      Process.info(pid, [
-        :dictionary,
-        :initial_call,
-        :status,
-        :message_queue_len,
-        :registered_name
-      ])
-
-    name =
-      case info[:registered_name] do
-        [] -> inspect(pid)
-        n -> inspect(n)
-      end
-
-    mod =
-      case info[:dictionary][:"$initial_call"] || info[:initial_call] do
-        {m, _, _} -> m
-        _ -> nil
-      end
-
-    is_sup = mod != nil and function_exported?(mod, :which_children, 1)
-
-    children =
-      if is_sup do
-        try do
-          for {_, child_pid, _, _} <- Supervisor.which_children(pid),
-              is_pid(child_pid),
-              Process.alive?(child_pid),
-              do: build_sup_node(child_pid)
-        rescue
-          _ -> []
-        end
-      else
-        []
-      end
-
-    %{
-      pid: inspect(pid),
-      name: name,
-      module: inspect(mod),
-      supervisor: is_sup,
-      children: children,
-      queue: info[:message_queue_len] || 0,
-      status: to_string(info[:status] || :unknown)
-    }
-  end
 
   defp modules(app) do
     case :application.get_key(app, :modules) do
@@ -673,6 +361,10 @@ defmodule GtBridge.Analysis do
 
   defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
     Enum.flat_map(body, &function_entry/1)
+  end
+
+  defp extract_functions({:defmodule, _, [_, [do: body]]}) do
+    Enum.flat_map([body], &function_entry/1)
   end
 
   defp extract_functions(_), do: []
