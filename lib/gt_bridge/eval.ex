@@ -45,14 +45,20 @@ defmodule GtBridge.Eval do
   #                      Public RPC API                      #
   ############################################################
 
+  # User code under eval can legitimately take arbitrarily long. The
+  # OTP default 5s GenServer.call timeout cascades any slow call into
+  # a Cowboy worker crash + log spam + queueing of subsequent calls.
+  # Wait as long as the work needs.
+  @call_timeout :infinity
+
   @spec eval(GenServer.server(), String.t(), String.t() | nil) :: any()
   def eval(pid, code, command_id) do
-    GenServer.call(pid, {:eval, code, command_id})
+    GenServer.call(pid, {:eval, code, command_id}, @call_timeout)
   end
 
   @spec complete(GenServer.server(), String.t(), String.t() | nil) :: [String.t()]
   def complete(pid, code_prefix, source \\ nil) do
-    GenServer.call(pid, {:complete, code_prefix, source})
+    GenServer.call(pid, {:complete, code_prefix, source}, @call_timeout)
   end
 
   @doc """
@@ -62,7 +68,7 @@ defmodule GtBridge.Eval do
   """
   @spec get_bindings(GenServer.server()) :: map()
   def get_bindings(pid) do
-    GenServer.call(pid, :get_bindings)
+    GenServer.call(pid, :get_bindings, @call_timeout)
   end
 
   @doc """
@@ -72,6 +78,50 @@ defmodule GtBridge.Eval do
   @spec remove(non_neg_integer()) :: :ok
   def remove(id) do
     GtBridge.ObjectRegistry.remove(id)
+  end
+
+  @doc """
+  I evaluate `code` in a fresh process with no per-page bindings.
+
+  GT-side `evaluateAndWait` calls that don't pass a `sessionId` (view-
+  block fetches, proxy-GC finalizers, browser fan-out queries) used
+  to land on a single shared "default" Eval GenServer, which
+  serialized them through one mailbox and cascaded any slow call
+  into a Cowboy worker timeout storm.
+
+  Per-page snippet evals still use the session-bound `eval/3` path so
+  bindings persist across snippets on the same page. This stateless
+  path is for everything else — parallelism is bounded only by the
+  BEAM scheduler, not by a shared GenServer.
+
+  The eval string is expected to call `GtBridge.Eval.notify/3` itself
+  (same protocol as the session path) to deliver its result back to
+  GT via `/EVAL`. Registered objects in ObjectRegistry live until GT
+  GCs the corresponding proxy and fires `Eval.remove/1`.
+  """
+  @spec eval_stateless(String.t(), String.t() | nil, pos_integer() | nil) :: :ok
+  def eval_stateless(code, command_id, port) do
+    Task.start(fn ->
+      try do
+        quoted =
+          code
+          |> String.replace("\r", "\n")
+          |> Code.string_to_quoted!()
+
+        bindings =
+          if port,
+            do: [port: port, command_id: command_id],
+            else: [command_id: command_id]
+
+        Code.eval_quoted_with_env(quoted, bindings, GtBridge.Eval.Env.env())
+      catch
+        kind, e ->
+          error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
+          if port, do: notify(error, command_id, port)
+      end
+    end)
+
+    :ok
   end
 
   ############################################################

@@ -20,7 +20,10 @@ ElixirFunctionStreamingElement >> initialize [
 	listItemsProvider := BrStreamItemsProvider new stream: AsyncEmptyStream new.
 	list := BrSimpleList new
 		itemType: [ :anItemTypeFactory :anItemObject | anItemObject elementClass ];
-		itemStencil: [ :anElementClass | anElementClass new vFitContentLimited ];
+		itemStencil: [ :anElementClass |
+			anElementClass new
+				vFitContentLimited;
+				yourself ];
 		itemId: [ :eachCoderViewModel | eachCoderViewModel coder id ];
 		itemDataBinder: [ :aCoderElement :aCoderViewModel :anItemIndex |
 			aCoderElement
@@ -29,6 +32,26 @@ ElixirFunctionStreamingElement >> initialize [
 		itemsProvider: listItemsProvider;
 		matchParent.
 	self addChild: list
+]
+
+{ #category : 'as yet unclassified' }
+ElixirFunctionStreamingElement >> onScrollTargetChanged: anAnnouncement [
+	"I scroll to the matching coder VM AND expand+focus it. Coders
+	 default to folded in this list, so a navigation target (e.g.
+	 'show me string/2 in GtBridge.Phlow.Text') would otherwise land
+	 on a folded row even after scrolling. The match block runs only
+	 on items the scanner inspects; the side-effect fires on the
+	 single item where applicableTo: returns true."
+	anAnnouncement scrollTarget ifNotNil: [ :aTarget |
+		list
+			scrollToItemSuchThat: [ :each |
+				(aTarget applicableTo: each)
+					ifTrue: [
+						each expanded: true.
+						each focused: true.
+						true ]
+					ifFalse: [ false ] ]
+			offset: 0 ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -53,5 +76,8 @@ ElixirFunctionStreamingElement >> streamingCodersViewModel: aViewModel [
 ElixirFunctionStreamingElement >> subscribeToStreamingCodersViewModel [
 	streamingCodersViewModel
 		when: GtStreamingCodersViewModelStreamChanged
-		send: #onStreamingCodersChanged: to: self
+		send: #onStreamingCodersChanged: to: self.
+	streamingCodersViewModel
+		when: GtStreamingCodersViewModelScrollTargetChanged
+		send: #onScrollTargetChanged: to: self
 ]

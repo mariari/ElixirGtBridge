@@ -24,10 +24,21 @@ ElixirFunctionStreamingModel >> moduleCoder [
 
 { #category : 'accessing' }
 ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
+	"I subscribe (weakly) to the coder's local announcer for
+	 GtCoderSourceCodeChanged.  The coder is the single subscriber to
+	 the global per-module BeamEventAnnouncer; it primes its
+	 functionEntries cache from the announcement payload and republishes
+	 GtCoderSourceCodeChanged locally.  I read the freshly cached
+	 entries via `moduleCoder functionEntries` — no global subscription
+	 of my own, no second bridge call.
+
+	 If reassigned to a different coder, drop the prior subscription
+	 first so I don't leak."
+	moduleCoder ifNotNil: [ moduleCoder announcer unsubscribe: self ].
 	moduleCoder := anElixirModuleCoder.
-	moduleCoder weak
-		when: GtCoderSourceCodeChanged 
-		send: #refreshStream 
+	moduleCoder announcer weak
+		when: GtCoderSourceCodeChanged
+		send: #onModuleSourceCodeChanged:
 		to: self
 ]
 
@@ -49,15 +60,39 @@ ElixirFunctionStreamingModel >> newCoderFor: anEntry [
 
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newItemsStream [
-	"I return function entries in source file order as an async stream."
-	^ (moduleCoder functionEntries asList
-		sort: [ :a :b | (a attributeAt: #start) < (b attributeAt: #start) ])
-		asAsyncStream
+	"I return function entries as an async stream in the order
+	 GtBridge.Analysis.all_functions/1 emits them.  The BEAM-side
+	 already groups default-arg arity siblings (start: 0) above
+	 their AST counterpart and parks orphan macro-generated entries
+	 at the end, so re-sorting by start would just lump every
+	 start: 0 entry at the top."
+	^ moduleCoder functionEntries asAsyncStream
+]
+
+{ #category : 'announcements' }
+ElixirFunctionStreamingModel >> onModuleSourceCodeChanged: anAnnouncement [
+	"I refresh whenever my coder publishes its translated
+	 GtCoderSourceCodeChanged.  The coder has already populated its
+	 cache from the BeamModuleRecompiled payload by the time I run, so
+	 `refreshStream` reads cached function entries — no bridge call."
+	self refreshStream
 ]
 
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
-	"I re-query function entries from the module coder and refresh my stream."
-	self refreshItemsStreamDueTo: 'functions reordered'.
-	coders := Dictionary new
+	"Drops cached entries whose key isn't in the fresh set —
+	 recovers from a transient `nil/nil` entry captured before
+	 the source cache primed."
+	| freshKeys |
+	freshKeys := Set new.
+	moduleCoder functionEntries do: [ :entry |
+		| key cached |
+		key := self newCoderCacheKeyFor: entry.
+		freshKeys add: key.
+		cached := mutex critical: [ coders at: key ifAbsent: [ nil ] ].
+		cached ifNotNil: [ cached refreshFromEntry: entry ] ].
+	mutex critical: [
+		coders keys copy do: [ :k |
+			(freshKeys includes: k) ifFalse: [ coders removeKey: k ] ] ].
+	self refreshItemsStreamDueTo: 'functions reordered'
 ]

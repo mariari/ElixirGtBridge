@@ -31,6 +31,21 @@ defmodule GtBridgeTest.Documentation do
   use ExExample.ExUnit, for: Examples.EDocumentation
 end
 
+defmodule GtBridgeTest.Analysis do
+  use ExUnit.Case
+
+  test "implementors/2 entries include all keys expected by Smalltalk side" do
+    required = [:name, :arity, :module, :kind, :start, :end_line, :sig, :source]
+    results = GtBridge.Analysis.implementors(:new, nil)
+
+    assert length(results) > 0
+
+    for entry <- results, key <- required do
+      assert Map.has_key?(entry, key), "missing #{inspect(key)} in #{inspect(entry)}"
+    end
+  end
+end
+
 defmodule GtBridgeTest.CodeMonitor do
   use ExExample.ExUnit, for: Examples.ECodeMonitor
 end

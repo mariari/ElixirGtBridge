@@ -35,6 +35,12 @@ BeamPIDObject >> elixirClass [
 	^ nil
 ]
 
+{ #category : 'accessing' }
+BeamPIDObject >> elixirClass [
+	"I return nil — PIDs are not modules and cannot be imported."
+	^ nil
+]
+
 { #category : 'gt-extensions' }
 BeamPIDObject >> gtDefaultInspectorTool [
 	"I collect inspector modes via <gtInspectorMode> pragmas."
