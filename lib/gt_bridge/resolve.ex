@@ -17,6 +17,29 @@ defmodule GtBridge.Resolve do
   @spec source_file(any()) :: String.t() | nil
   def source_file(obj), do: obj |> extract_module() |> compile_source()
 
+  @doc """
+  I read `mod`'s source file once and pass the contents to `fun`,
+  returning whatever `fun` returns.  When the module has no source
+  file or the file can't be read I return `default` -- macro-only
+  modules, BEAM-only deps, etc. fall through cleanly without
+  raising.
+
+  Every analysis pass that walks a module's text (function
+  extraction, alias map, eval preamble, editor session) routes
+  through me so the source-resolution + read + fallback shape
+  lives in one place.
+  """
+  @spec with_source(module(), default, (String.t() -> default | result)) :: default | result
+        when default: any(), result: any()
+  def with_source(mod, default, fun) do
+    with path when is_binary(path) <- source_file(mod),
+         {:ok, source} <- File.read(path) do
+      fun.(source)
+    else
+      _ -> default
+    end
+  end
+
   defp extract_module(%GtBridge.Documentation{query: query}), do: elem(query, 1)
   defp extract_module(%{__struct__: module}), do: module
   defp extract_module(module) when is_atom(module), do: module
