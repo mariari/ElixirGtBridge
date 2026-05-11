@@ -25,8 +25,9 @@ Class {
 		'targetModule',
 		'application'
 	],
-	#category : 'Gt4beam',
-	#package : 'Gt4beam'
+	#category : 'Gt4beam-Styler',
+	#package : 'Gt4beam',
+	#tag : 'Styler'
 }
 
 { #category : 'instance creation' }
@@ -80,55 +81,101 @@ ElixirUnknownModuleAttribute >> buildButton [
 
 { #category : 'private' }
 ElixirUnknownModuleAttribute >> buildMenuContent [
-	"I return the dropdown body — vertical list of actions.  Add
-	 entries here as more module-scoped actions land (rename,
-	 browse references, etc.)."
-	^ BrVerticalPane new
+	| nameField appField createButton form completionController |
+	nameField := self formEditorWithText: targetModule.
+	appField := self formEditorWithText: self defaultApp asString.
+	completionController := GtCompletionController
+		on: appField
+		strategy: (BeamAppCompletionStrategy new apps: self projectApps).
+	completionController install.
+	completionController showOnTextModification: true.
+	appField when: BlFocusInEvent do: [ :evt |
+		completionController startCompletionAt: 0 ].
+	createButton := BrButton new
+		aptitude: BrGlamorousButtonWithLabelAptitude;
+		label: 'Create';
+		action: [ :btn |
+			btn fireEvent: BrDropdownHideWish new.
+			self
+				createTargetModuleNamed: nameField text asString trimBoth
+				in: appField text asString trimBoth ].
+	form := BrVerticalPane new
 		fitContentLimited;
+		padding: (BlInsets all: 8);
+		addChild: (self labeledRow: 'Module:' field: nameField);
+		addChild: (self labeledRow: 'App:' field: appField);
+		addChild: (BrHorizontalPane new
+			hMatchParent;
+			vFitContent;
+			alignCenterRight;
+			margin: (BlInsets top: 6);
+			addChild: createButton;
+			yourself);
+		yourself.
+	^ form
+]
+
+{ #category : 'private' }
+ElixirUnknownModuleAttribute >> createTargetModuleNamed: aModuleName in: anAppName [
+	"Errors (`{:error, :exists | :not_elixir_module | :unknown_app}`)
+	 come back as BeamTupleObject; the bridge fires no event for them
+	 and the wrench stays visible."
+	| sanitizedApp |
+	sanitizedApp := anAppName
+		select: [ :ch | ch isLetter or: [ ch isDigit or: [ ch = $_ ] ] ].
+	(aModuleName isEmpty or: [ sanitizedApp isEmpty ]) ifTrue: [ ^ self ].
+	application evaluateAndWait:
+		'GtBridge.ModuleCreator.create(', aModuleName, ', :', sanitizedApp, ')'
+]
+
+{ #category : 'accessing' }
+ElixirUnknownModuleAttribute >> defaultApp [
+	"`Atom.to_string` on the BEAM side ensures we cross as a String,
+	 not a BeamAtomObject (whose printString includes a `#` prefix)."
+	^ ([ application evaluateAndWait: 'Mix.Project.config()[:app] |> Atom.to_string' ]
+		on: Error do: [ nil ]) ifNil: [ '' ]
+]
+
+{ #category : 'private' }
+ElixirUnknownModuleAttribute >> formEditorWithText: aString [
+	"Default `BrGlamorousEditorAptitude` paints text with no border
+	 or background; without affordance the field looks unclickable."
+	^ BrEditor new
+		aptitude: (BrGlamorousEditorAptitude new glamorousCodeFont; fontSize: 12);
+		text: aString;
+		hMatchParent;
+		vFitContent;
 		padding: (BlInsets all: 4);
-		addChild: (self
-			menuItemLabel: 'Create module ', targetModule
-			action: [ self createTargetModule ]);
+		background: (Color fromHexString: 'F5F5F5');
+		border: (BlBorder paint: (Color gray alpha: 0.4) width: 1)
+]
+
+{ #category : 'private' }
+ElixirUnknownModuleAttribute >> labeledRow: aLabel field: aField [
+	^ BrHorizontalPane new
+		hMatchParent;
+		vFitContent;
+		alignCenterLeft;
+		margin: (BlInsets bottom: 4);
+		addChild: (BrLabel new
+			aptitude: BrGlamorousLabelAptitude;
+			text: aLabel;
+			margin: (BlInsets right: 6);
+			constraintsDo: [ :c | c linear horizontal alignCenter ]);
+		addChild: aField;
 		yourself
 ]
 
-{ #category : 'private' }
-ElixirUnknownModuleAttribute >> createTargetModule [
-	"I write a fresh `defmodule targetModule do; end` to disk,
-	 recompile, and announce the BEAM-side recompile events on the
-	 GT-side bus so per-module caches (`BeamModuleResolution`,
-	 `BeamModuleSourceCache`) learn about the new module without
-	 waiting for the next save.  Without this fan-out the wrench
-	 stays visible until the user manually triggers a re-style
-	 against a refreshed cache.
-
-	 Mirrors the saveAndCompile flow's
-	 `ElixirModuleCoder>>announceBeamRecompiledFrom:`.
-
-	 Errors (`{:error, :exists}` / `{:error, :not_elixir_module}`)
-	 come back as a `BeamTupleObject` proxy instead of a `Map`
-	 proxy; we detect that by the absence of `:recompiled` on the
-	 response and skip the fan-out silently."
-	| result recompiled |
-	result := application evaluateAndWait:
-		'GtBridge.ModuleCreator.create(', targetModule, ')'.
-	(result respondsTo: #attributeAt:) ifFalse: [ ^ self ].
-	recompiled := result attributeAt: #recompiled.
-	recompiled ifNil: [ ^ self ].
-	recompiled asList do: [ :modPayload |
-		BeamEventAnnouncer announceRecompiledFrom: modPayload ]
-]
-
-{ #category : 'private' }
-ElixirUnknownModuleAttribute >> menuItemLabel: aLabel action: anAction [
-	"I return a single menu-row button that hides the parent dropdown
-	 before invoking its action — matches GT's fix-it menu behaviour."
-	^ BrButton new
-		aptitude: BrGlamorousButtonWithLabelAptitude;
-		label: aLabel;
-		action: [ :btn |
-			btn fireEvent: BrDropdownHideWish new.
-			anAction value ]
+{ #category : 'accessing' }
+ElixirUnknownModuleAttribute >> projectApps [
+	"Main project + path-dep apps as Strings, for the App field's
+	 autocomplete.  Falls back to [defaultApp] on bridge error."
+	^ [ | result list |
+		result := application evaluateAndWait:
+			'GtBridge.ModuleCreator.project_apps() |> Enum.map(&Atom.to_string/1)'.
+		list := (result respondsTo: #asList) ifTrue: [ result asList ] ifFalse: [ result ].
+		list collect: [ :each | each asString ] ]
+		on: Error do: [ { self defaultApp asString } ]
 ]
 
 { #category : 'accessing' }
