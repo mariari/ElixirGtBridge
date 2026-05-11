@@ -136,6 +136,20 @@ BeamEventAnnouncer class >> dispatch: anAnnouncement on: aModuleName [
 	self default announce: anAnnouncement
 ]
 
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> announceSourceRemoved: aModuleName [
+	"Source artifact for `aModuleName` was deleted (e.g. user trashed
+	 the file).  I fan out on per-module + default so caches keyed on
+	 the module clear themselves and the resolution cache flips the
+	 name back to `unresolved`."
+
+	| announcement perModule |
+	announcement := BeamModuleSourceRemoved mod: aModuleName.
+	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
+	perModule ifNotNil: [ perModule announce: announcement ].
+	self default announce: announcement
+]
+
 { #category : 'accessing' }
 BeamEventAnnouncer class >> announcers [
 	"Lazy per-module announcer registry. Keyed by bare module name."
