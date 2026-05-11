@@ -1,0 +1,794 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:38.777627+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:12:47.406552+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "C4kFm1zTQfmTRWmRI3XcEA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "The {{gtClass:name=TElixirNavigationCoder}} Provides cursor-based navigation (C-m, C-n) and shortcut registration. Avoids duplicating the same code on both classes."
+			},
+			{
+				"__type" : "elementSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:58:27.511584+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:01:52.182022+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "FKitd8vPQ6KjVI/zVyDY/A=="
+				},
+				"code" : "TElixirNavigationCoder  gtUsersFor: GtPhlowView new",
+				"elementHeight" : 103,
+				"codeHeight" : 30,
+				"codeVisible" : false
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:42.459129+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:42.459129+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "r0/rN0KqTdaVbewrH26fnQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Why a trait\n\nDifferent superclasses, compatible protocol (`currentSourceString`, `application`, `notifyObjectSpawn:requesterObject:`). Inheritance refactor would conflict with GT's class hierarchy."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668183+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668183+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "cDEKJSogRVm+tqAuKQnzyw=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=TElixirNavigationCoder>>detectElixirFunctionAt:ifFound:ifNone:}} extracts `(moduleName, functionName)` from cursor position."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668189+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668189+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "syYwoQI+SO2J9NwwFlsmxg=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=TElixirNavigationCoder>>browseImplementorsAt:requesterObject:}} and {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsIn:requesterObject:}} handle C-m (cursor and selection paths)."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668194+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668194+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "Lcyb+risToe4amMnUQvKuA=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=TElixirNavigationCoder>>browseReferencesAt:requesterObject:}} and {{gtMethod:name=TElixirNavigationCoder>>browseReferencesIn:requesterObject:}} handle C-n."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668199+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668199+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "O7DnWed7TnmaNJucUOyfew=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=TElixirNavigationCoder>>resolveModuleName:}} resolves aliases via `GtBridge.Analysis.resolve_alias`. {{gtMethod:name=TElixirNavigationCoder>>contextModuleName}} is the override hook — what module is being edited (nil for snippets). {{gtMethod:name=TElixirNavigationCoder>>initializeNavigationShortcuts:}} registers C-m and C-n."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725499+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725499+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "CJTzPvdXQxWunR6COcUVfg=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "**Lesson learned:** an earlier version dispatched C-m through private helpers (`navigateToQualified:function:requesterObject:`, `functionDocsQueryFor:...`, `moduleDocsQuery:`) that spawned docs directly for qualified calls and only filtered for unqualified ones. The split dispatch was confusing — sometimes the user wants the implementors filter even on a qualified call (multiple arities, cross-module overrides). The trait was simplified so C-m *always* spawns the implementors filter via {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsInModule:function:requesterObject:}}, and those private helpers were removed."
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:48.679734+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:48.679734+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "7b2s/9lDQbifIWwfh5Xulw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Protocol\n\nPublic navigation methods, plus four private helpers extracted to keep them focused."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:13:25.01711+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:13:41.608997+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "bXTOmySxRRquNGac11oVDA=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=ElixirFunctionCoder>>contextModuleName}} returns `moduleCoder moduleName`. "
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:13:30.394543+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:13:30.394543+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "NtYLSDY4Sm6z2Bc11KwSOQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "{{gtMethod:name=GtElixirCoderModel>>contextModuleName}} stores it as an ivar (set by callers like {{gtMethod:name=ElixirModuleCoder>>buildSourceViewElement}}).\n"
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:34:51.373801+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:13:30.401621+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "wuqCT8gcQqG1kx+LPvpQVg=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "`application` is usually inherited or already implemented."
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:13:41.602229+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:13:48.536471+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "JxkE/W7VSJiP06vDIslcSQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Required overrides\n\nThree methods are declared on the trait via `^ self explicitRequirement` and inherited from the composing coder hierarchy: {{gtMethod:name=TElixirNavigationCoder>>application}}, {{gtMethod:name=TElixirNavigationCoder>>currentSourceString}}, {{gtMethod:name=TElixirNavigationCoder>>notifyObjectSpawn:requesterObject:}}.\n\n`contextModuleName` is the override hook — the trait returns nil; users override to provide module context. {{gtMethod:name=ElixirFunctionCoder>>contextModuleName}} returns `moduleCoder moduleName`; {{gtMethod:name=GtElixirCoderModel>>contextModuleName}} reads an ivar set by callers like {{gtMethod:name=ElixirModuleCoder>>buildSourceViewElement}}."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:55.700204+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:55.700204+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "mtkz2azwTNOnEwOuIECemA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Shortcut registration\n\nEach user calls `self initializeNavigationShortcuts: addOns` from its own `initializeShortcuts:`. Don't reuse Ctrl-G — it's {{gtClass:name=GtSourceCoderDoItAndInspectShortcut}}."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:59.766113+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:34:59.766113+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "K1KToA6ET3GxgYjGTqLP6w=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## ^ self in shortcut actions — DON'T\n\nThe `action:` block in {{gtClass:name=BlShortcutWithAction}} fires after the defining method has already returned. `^ self` raises `BlockCannotReturn`. Use `ifNotNil:` / `ifTrue:` guards. Same rule applies to any block that outlives its definer — announcement subscriptions, scheduled tasks, etc."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725512+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725512+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "DkWbhgW9T9eOzpc/fHLPJQ=="
+							},
+							"exampleSelector" : "cursorDetectsQualifiedCall",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtPrintFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725518+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725518+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "LqFoT4VzTNG/W1MgBbYvgA=="
+							},
+							"exampleSelector" : "cmBareFunctionShowsImplementors",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725523+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725523+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "Qi5+I1amTruzCHwKUC+27w=="
+							},
+							"exampleSelector" : "cmNavigatesToFunction",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725529+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725529+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "LlvB5m4KQLSNJjfX+hDHLg=="
+							},
+							"exampleSelector" : "cnShowsReferences",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:21.267324+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:21.267324+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "sAwbpau5R2yF5cLthvULGg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Examples"
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.182472+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.182472+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Coder navigation trait"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "048662e2-8a2c-4a94-8273-95145b32d436"
+	}
+}

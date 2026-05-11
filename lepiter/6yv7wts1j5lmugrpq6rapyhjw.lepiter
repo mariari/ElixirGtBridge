@@ -1,0 +1,696 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:35:55.638938+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:35:55.638938+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "1qczBgHAQHeMNa1UtYBq0w=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "When a BEAM module recompiles, one announcement fans out to every GT surface that depends on it: Functions tab, Source tab, |> expander coders, browser sidebar. The payload carries the new function-entry list inline, so subscribers re-render without a follow-up bridge call.\n\nThe sections below open inline views (Fanout, Flow, Lifecycle) that already paint most of the architecture. Prose only points at what the picture shows."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:32.501741+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:32.501741+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "0uJlSdVySbCkyVFdzgkqJQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## The dispatcher\n\n{{gtClass:name=BeamEventAnnouncer}}'s `Fanout` view paints the live subscription graph. Reading the colors: pink is the dispatcher class, blue the announcer instances (the `default` wildcard plus one per module), green the cache writers, gray the consumer groups (Arrays of receivers, labelled with class and count). Click any node to inspect the underlying object."
+			},
+			{
+				"__type" : "elementSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "HhCLQME7euQvIz/Bxr9bMw=="
+				},
+				"code" : "BeamEventAnnouncer gtFanoutFor: GtPhlowView new",
+				"elementHeight" : 560,
+				"codeHeight" : 30,
+				"codeVisible" : true
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:37.033323+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:37.033323+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "JOgilUWbSAKpNJUBbsPvaQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Two channels, visible in Fanout\n\nThe split is right there in the Fanout view above. Every recompile fires on `default` (top, wildcard listeners like {{gtClass:name=ElixirCoderBrowser}}) AND on the matching per-module announcer (one row per loaded module, narrow listeners only). The per-module rows that have a green cache writer are currently mirrored locally; the rows without one are tracked but unowned. See {{gtMethod:name=BeamEventAnnouncer class>>announceRecompiledFrom:}} for the dispatch."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:40.918469+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:40.918469+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "qcGThVwqQ8+iJzfDElKLNw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Payload-carrying broadcasts\n\n{{gtClass:name=BeamModuleRecompiled}} carries the new function-entry list inline (for the directly-saved module). Subscribers re-render from the payload alone, no follow-up `Analysis.all_functions/1` per surface. The example below subscribes a tap, saves HotReloadTest, and inspects the inline `functions` field."
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:42.172282+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:42.172282+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "yDftZpV6TBmp9sdJxxw6Ew=="
+				},
+				"code" : "BeamEventBusExamples new recompileEventCarriesFunctionsInline"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:03.541341+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:03.541341+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "f42vTI7NSum6J7S9Mh5Z2g=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Sole-writer-per-derivation\n\nEach derived state has exactly one cache that owns it. The cache subscribes once to the raw input, recomputes, and emits narrow events for downstream consumers. Consumers don't touch the input event; they listen on the cache's outputs. Heavy work happens once, cheap re-rendering happens N times.\n\nThe `Flow` view on {{gtClass:name=BeamModuleSourceCache}} below paints this concretely: input event (yellow) flows into the cache (pink, sole subscriber), which fans out two narrow output events (yellow) to its consumer classes (gray). The two caches we built are {{gtClass:name=BeamModuleResolution}} (singleton, \"is this module loaded?\") and {{gtClass:name=BeamModuleSourceCache}} (per-module, source + function entries)."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:13.028036+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:13.028036+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "lUWqVMU3TquUFqnco9WTqg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## {{gtClass:name=BeamModuleResolution}}, the loaded-module cache\n\nA class-side singleton holding two `Set`s: `resolved` (BEAM-confirmed loaded) and `unresolved` (BEAM-confirmed not loaded). Names in neither set are `#unknown`. {{gtMethod:name=BeamModuleResolution>>classify:}} is what the wrench styler asks; truly-unknown names get batched into one `Analysis.modules_loaded?/1` bridge call rather than one round-trip per name.\n\nIt subscribes weakly to `BeamModuleRecompiled` on the wildcard channel and additively moves the named module from `unresolved` to `resolved` on each event. No invalidation, no follow-up bridge call. Inspect the singleton to see what's in each set right now:"
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:18.540784+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:18.540784+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "ox7lFZ+LTwaTAdmPZRohAg=="
+				},
+				"code" : "BeamModuleResolution default"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:31.873557+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:31.873557+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "9e22r2NVRWWTcuyYyQ2iqg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## {{gtClass:name=BeamModuleSourceCache}}, per-module source\n\nPer-module instance via `BeamModuleSourceCache for: aModuleName`. Sole subscriber to `BeamModuleRecompiled` for its module. On each event it updates its source map and entries list from the payload, then fans out two narrow events on the per-module announcer:\n\n- {{gtClass:name=BeamModuleSourceChanged}}: per (function, arity) whose source actually changed (filter is in {{gtMethod:name=BeamModuleSourceCache>>onBeamModuleRecompiled:}}).\n- {{gtClass:name=BeamModuleEntriesUpdated}}: coarse, fired once per recompile.\n\nThe `Flow` view below is the static architecture, useful as docs even with no live caches. `Lifecycle` underneath it shows the actual live cache instances and their consumers; click any green cache instance there to open its `Consumers` view (one module's announcer at a time)."
+			},
+			{
+				"__type" : "elementSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "7vcpmaotDpc8vcttBCpA9g=="
+				},
+				"code" : "BeamModuleSourceCache gtFlowFor: GtPhlowView new",
+				"elementHeight" : 420,
+				"codeHeight" : 30,
+				"codeVisible" : false
+			},
+			{
+				"__type" : "elementSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "mnVMPjKgEgVtJy0dk/0GZw=="
+				},
+				"code" : "BeamModuleSourceCache gtLifecycleFor: GtPhlowView new",
+				"elementHeight" : 520,
+				"codeHeight" : 30,
+				"codeVisible" : false
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:47.920485+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:47.920485+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "zp3W/hOmQWuAjssKYfy8gA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Two consumers, two events\n\nThe `Flow` view above shows the cache emitting two narrow events. The two consumers wire as follows:\n\n- {{gtClass:name=ElixirModuleCoder}} listens on {{gtClass:name=BeamModuleEntriesUpdated}} (coarse, fires once per recompile) and primes its `cachedFunctionEntries` ivar in {{gtMethod:name=ElixirModuleCoder>>onBeamModuleEntriesUpdated:}}, then republishes a local `GtCoderSourceCodeChanged` for module-wide consumers (Source tab, Functions tab list).\n- {{gtClass:name=ElixirFunctionExpanderAttribute}} listens on {{gtClass:name=BeamModuleSourceChanged}} (narrow, per (function, arity)) and filters to its own coordinates in {{gtMethod:name=ElixirFunctionExpanderAttribute>>onSourceChanged:}}. Most events are no-ops for any given expander.\n\nThe example below saves HotReloadTest and asserts the coder ivar got primed."
+			},
+			{
+				"__type" : "pharoSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:48.127518+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:48.127518+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "72MRl5LQQZG0/ritV/NgcA=="
+				},
+				"code" : "BeamEventBusExamples new saveCachesFunctionEntriesOnCoder"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:54.357387+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:36:54.357387+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "HhsaKbmmRhiNMzxwo39z5A=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Weak subscriptions\n\nEvery subscription uses `weak when:send:to:` so closed inspectors and GC'd coders don't pin themselves alive. Watch the Fanout view to see this directly: close a coder, run `Smalltalk garbageCollect`, refresh the view, the receiver count drops.\n\nBloc elements with non-trivial work on each event (e.g. {{gtClass:name=ElixirCoderBrowser}}'s sidebar fan-out) additionally subscribe in `onAddedToSceneGraph` and unsubscribe in `onRemovedFromSceneGraph` so background browsers stay silent. The browser's handler is pure invalidation: drop `rawNodes`, let the next user interaction refetch lazily. That keeps a save fan-out from triggering 50+ round trips per browser."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:58.84156+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T17:19:58.84156+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "wjR8/ff4RkGq9hTHoNrnug=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Stale-proxy detection\n\n`BeamProxyObject`s in cached entries carry `elixirVar` IDs that point at slots in the prior session's `GtBridge.ObjectRegistry`. After a BEAM restart those slots no longer exist. {{gtMethod:name=BeamModuleSourceCache>>entries}} probes `entries first attributeAt: #name`; nil triggers a `clear` so the next consumer read goes through a bridge fallback rather than rendering `nil/nil` rows."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T18:57:37.146054+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "jfZ7Z5QjQWymM5v+W7NYbA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Bridge-restart lifecycle\n\nBoth caches subscribe idempotently (via `class >> initialize`) to `LanguageLinkStartAnnouncement` on `LanguageLinkApplication announcer`. When the BEAM bridge restarts:\n\n- {{gtClass:name=BeamModuleResolution}} drops its singleton (`reset`). The `resolved`/`unresolved` sets the prior session classified are no longer authoritative.\n- {{gtClass:name=BeamModuleSourceCache}} walks `liveCaches` and calls `clear` on each, *keeping the registry intact*. Consumers (`ElixirFunctionExpanderAttribute`, `ElixirModuleCoder`) hold the cache instance strongly via `sourceCache` ivars; dropping the registry would orphan those instances while the next `for:` built a fresh one, and both would process recompile events so consumers would see every event twice.\n\nThe next consumer read of an instance finds an empty cache and falls back through the bridge call that returns fresh proxies."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-27T00:37:01.329067+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-29T19:20:43.801874+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "tIp18ys5Tu2trXg9WXpkHw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## BEAM-side mirror\n\nThe same pattern lives on the BEAM side in `GtBridge.Events` via the EventBroker library. `%ModuleEvent{kind: :recompiled, mod: ..., source_hash: ...}` fans out to subscribers like `GtBridge.CacheReaper` (invalidates the per-module ETS cache) and `GtBridge.Xref` (replaces the module's call-graph entries). The HTTP response carries the same `recompiled` payload list to GT, where {{gtMethod:name=ElixirModuleCoder>>announceBeamRecompiledFrom:}} hands it to {{gtClass:name=BeamEventAnnouncer}}.\n\nLive regression coverage: {{gtClass:name=BeamEventBusExamples}} has 17 examples covering announcer dispatch, per-module routing, payload propagation, cross-coder sync, Source/Functions tab refresh, and the browser-invalidation path. Each one runs from the inspector."
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-27T00:35:55.633225+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-27T00:35:55.633225+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "BEAM Event Architecture"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "5cdecdda-65d6-4659-bb19-b5c4dcf7b475"
+	}
+}

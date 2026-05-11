@@ -1,0 +1,643 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:14.416962+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:14.416962+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "02XdIt6nQFehOMLRqAjqlw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Implementors / references browser built on {{gtClass:name=GtSearchFilter}}. Filter chrome, scope dropdown, Results tab — all reused."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:18.908993+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:18.908993+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "TyGl6ztHR0apJB12rgGwLQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "1. {{gtClass:name=GtSourceCoderBrowseImplementorsShortcut}} or {{gtClass:name=GtSourceCoderBrowseReferencesShortcut}} fires. Registered via {{gtMethod:name=TElixirNavigationCoder>>initializeNavigationShortcuts:}}, called from each coder's `initializeShortcuts:`."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.7253+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.7253+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "sBbZmvgvTxuxNR49LglLiQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "2. The shortcut's {{gtMethod:name=GtSourceCoderBrowseImplementorsShortcut>>performOnEditor:element:coder:dueTo:requesterObject:}} calls {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsAt:requesterObject:}} (cursor) or {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsIn:requesterObject:}} (selection). C-n dispatches via the equivalent References pair."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:19.494626+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:19.494626+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "DCg5lqFSRDaEjhR2ooi1rg=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "3. {{gtMethod:name=TElixirNavigationCoder>>detectElixirFunctionAt:ifFound:ifNone:}} extracts `(moduleName, functionName)` at the cursor."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:21.348994+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:21.348994+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "us5OpWP1TDa8Be08yvE19g=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "4. The BEAM is queried via `GtBridge.Analysis.implementors/2` or `function_references/3`."
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:23.141547+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T14:33:23.141547+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "CFmVGP8YRLWPnIcTL9rzDw=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "5. The trait calls `notifyObjectSpawn:requesterObject:` with an {{gtClass:name=ElixirSearchFilter}}; GT renders the filter chrome."
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:14.707711+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:14.707711+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "kQe1KcO9QD2WSfhPzPOXLw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## The chain\n\nC-m / C-n fires five steps:"
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "elementSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668028+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-25T15:27:36.668028+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "Oepo769wR5S/r7UE32c2EA=="
+							},
+							"code" : "GtSearchFilter gtSubclassesFor: GtPhlowView new",
+							"elementHeight" : 100,
+							"codeHeight" : 50,
+							"codeVisible" : true
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:27.790905+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:29:58.665253+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "T4jylfABSWW5onOfinMtOA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## ElixirSearchFilter protocol\n\nSix methods on a {{gtClass:name=GtSearchFilter}} subclass:\n\n- {{gtMethod:name=ElixirSearchFilter>>defaultFilterScope}} — items as async stream.\n- {{gtMethod:name=ElixirSearchFilter>>matches:}} — always true (results are pre-filtered).\n- {{gtMethod:name=ElixirSearchFilter>>gtDisplayOn:}} — title.\n- {{gtMethod:name=ElixirSearchFilter >> =}} + {{gtMethod:name=ElixirSearchFilter >> hash}} — identity for deduplication.\n- {{gtMethod:name=ElixirSearchFilter>>gtItemsFor:}} — overrides to render via streaming coders (see [[Streaming coders pattern]])."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:33.188005+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:33.188005+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "VgNXMOvOSMSpVMOedzqJXg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Why not GtSearchMethodsFilter?\n\n{{gtClass:name=GtSearchMethodsFilter}} is coupled to `CompiledMethod`. Our items are {{gtClass:name=BeamProxyObject}} maps. Its grouping views (`gtItemsByClassFor:`, `gtItemsByPackageFor:`) are Pharo-specific too — we skip them and keep the Results tab."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:37.34422+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:37.34422+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "HWd1itB2RHSGk2irdJYfzg=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Qualified vs bare\n\nQualified `Module.function`: {{gtMethod:name=TElixirNavigationCoder>>browseImplementorsAt:requesterObject:}} skips the filter, jumps straight via `Documentation.for_function(...)`.\n\nBare `function`: needs the filter to disambiguate across modules."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:38.69247+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T14:33:38.69247+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "Muci2SpUQ7CRheS0kbJZqw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Alias resolution\n\nQualified module names go through {{gtMethod:name=TElixirNavigationCoder>>resolveModuleName:}} → `GtBridge.Analysis.resolve_alias` before any BEAM query."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725346+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725346+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "i05ZQTTkSaaSWicpo+szoQ=="
+							},
+							"exampleSelector" : "cmBareFunctionShowsImplementors",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.72542+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.72542+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "nKNyaDgxRWOKsfbDuQ5VFg=="
+							},
+							"exampleSelector" : "cmNavigatesToFunction",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						},
+						{
+							"__type" : "exampleSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725431+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-04-29T19:09:45.725431+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "stUaJGcZQNKmwK4grBca9Q=="
+							},
+							"exampleSelector" : "cnShowsReferences",
+							"previewHeight" : 200,
+							"previewShowSelector" : "gtViewsFor:",
+							"exampleBehaviorName" : "ElixirCodeNavigationExamples",
+							"codeExpanded" : true,
+							"previewExpanded" : false,
+							"noCode" : false
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:30.507769+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-04-25T15:59:30.507769+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "yNzGeSbvQ9GbD2/8uMPAqw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Examples\n\nAll three compose on {{gtMethod:name=ElixirCodeNavigationExamples>>qualifiedDottedCoder}}."
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.180227+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-04-25T14:17:40.180227+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Filter pattern (C-m, C-n)"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "33d4ca94-5b28-4807-aaed-e14b210403e0"
+	}
+}
