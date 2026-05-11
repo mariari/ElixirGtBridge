@@ -214,6 +214,20 @@ defmodule Examples.EAnalysis do
     results
   end
 
+  @spec implementors_required_keys() :: [map()]
+  example implementors_required_keys do
+    required = [:name, :arity, :module, :kind, :start, :end_line, :sig, :source]
+    results = Analysis.implementors(:new, nil)
+
+    assert length(results) > 0
+
+    for entry <- results, key <- required do
+      assert Map.has_key?(entry, key), "missing #{inspect(key)} in #{inspect(entry)}"
+    end
+
+    results
+  end
+
   ############################################################
   #              Function References Examples                 #
   ############################################################
@@ -247,6 +261,17 @@ defmodule Examples.EAnalysis do
     assert "String" in modules
     assert Enum.all?(sites, &Map.has_key?(&1, :line))
     sites
+  end
+
+  @spec modules_loaded_batch_query() :: %{String.t() => boolean()}
+  example modules_loaded_batch_query do
+    result =
+      Analysis.modules_loaded?(["GtBridge.Eval", "Enum", "TotallyNotAModuleXYZ"])
+
+    assert result["GtBridge.Eval"] == true
+    assert result["Enum"] == true
+    assert result["TotallyNotAModuleXYZ"] == false
+    result
   end
 
   @spec call_sites_with_aliases() :: [map()]

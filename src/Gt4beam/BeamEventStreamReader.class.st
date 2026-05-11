@@ -137,7 +137,10 @@ BeamEventStreamReader >> dispatch: aDict [
 		mod ifNil: [ ^ self ].
 		^ BeamEventAnnouncer
 			announceCompileFailedFor: mod
-			errors: (aDict at: 'errors' ifAbsent: [ #() ]) ]
+			errors: (aDict at: 'errors' ifAbsent: [ #() ]) ].
+	kind = 'source_removed' ifTrue: [
+		mod ifNil: [ ^ self ].
+		^ BeamEventAnnouncer announceSourceRemoved: mod ]
 ]
 
 { #category : 'private' }

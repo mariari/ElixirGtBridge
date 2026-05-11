@@ -11,7 +11,8 @@ Class {
 		'endLine',
 		'selfObject',
 		'showsModuleInHeader',
-		'kind'
+		'kind',
+		'indent'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -80,25 +81,28 @@ ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
-	<gtCoderAction>
 	"I run 0-arity functions directly, or 1-arity functions with
 	 selfObject piped in as the first argument."
+
+	<gtCoderAction>
 	| canRun callExpr |
-	arity = 0 ifTrue: [
-		callExpr := moduleCoder moduleName, '.', functionName, '()'.
-		canRun := true ].
-	(arity = 1 and: [ selfObject notNil ]) ifTrue: [
-		callExpr := moduleCoder moduleName, '.', functionName, '(', selfObject resolve, ')'.
-		canRun := true ].
+	arity = 0
+		ifTrue: [ callExpr := moduleCoder moduleName , '.' , functionName , '()'.
+			canRun := true ].
+	(arity = 1 and: [ selfObject notNil ])
+		ifTrue: [ callExpr := moduleCoder moduleName , '.' , functionName , '('
+					, selfObject resolve , ')'.
+			canRun := true ].
 	(canRun ifNil: [ false ]) ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Run' translated
-		icon: BrGlamorousVectorIcons play
+		icon: BrGlamorousVectorIcons playinspect
 		action: [ :aCoderVM :anElement |
-			anElement phlow spawnObject:
-				(moduleCoder application newCommandFactory
-					<< callExpr;
-					sendAndWait) ]
+			self isModified ifTrue: [ self saveFunction ].
+			anElement phlow
+				spawnObject: (moduleCoder application newCommandFactory
+						<< callExpr;
+						sendAndWait) ]
 		id: #elixirFunctionRunAction
 ]
 
@@ -111,8 +115,7 @@ ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 	anAddOns
 		addMainAction: 'Save' translated
 		icon: BrGlamorousVectorIcons accept
-		action: [ :aCoderVM :anElement |
-			anElement phlow spawnObject: self saveFunction ]
+		action: [ :aCoderVM :anElement | self saveFunction ]
 		id: #elixirFunctionSaveAction
 ]
 
@@ -136,19 +139,8 @@ ElixirFunctionCoder >> asCoderViewModel [
 
 { #category : 'accessing' }
 ElixirFunctionCoder >> collapsedText [
-	"Macro-generated entries (start = 0, kind = def) get a trailing
-	 '(no source)' hint so the user can tell at a glance there's
-	 nothing to expand to and that Save/Delete/Move are unavailable.
-	 Type entries (kind = type) expand to a typedstruct block or @type
-	 body, so they don't need the warning — show the signature plain.
-
-	 We highlight via a light-pink BACKGROUND on the suffix.  Per-
-	 character foreground attributes get clobbered when GT's
-	 GtSourceCoderCollapsedContentElement assigns its element-level
-	 `foreground:` (the BlTextDelegatedAttributesBuilder applies it
-	 across positions 0..size when the rope is set into the element,
-	 overwriting per-char foreground).  Backgrounds aren't set at
-	 the element level, so a per-char background tint survives."
+	"Tint the '(no source)' suffix via background, not foreground:
+	 element-level `foreground:` clobbers per-char foreground."
 	| text |
 	(self isType or: [ startLine isNotNil and: [ startLine > 0 ] ])
 		ifTrue: [ ^ self signature asRopedText ].
@@ -167,6 +159,37 @@ ElixirFunctionCoder >> computeAst: theSourceString [
 { #category : 'navigation' }
 ElixirFunctionCoder >> contextModuleName [
 	^ moduleCoder moduleName
+]
+
+{ #category : 'private' }
+ElixirFunctionCoder >> dedentSource: aString [
+	"I record the common leading-space indent of aString on `indent`
+	 and return aString with that prefix stripped from each line.
+	 Functions inside a defmodule arrive indented; `Code.format_string!`
+	 normalises top-level expressions to column 0, so without this
+	 the buffer-vs-baseline diff is permanent and Ctrl-Shift-F would
+	 always look modified.  `reindent:` puts the prefix back on save."
+	| lines minIndent |
+	lines := aString lines.
+	minIndent := SmallInteger maxVal.
+	lines do: [ :line |
+		line trimRight isEmpty ifFalse: [
+			| leading |
+			leading := 0.
+			[ leading < line size and: [ (line at: leading + 1) = Character space ] ]
+				whileTrue: [ leading := leading + 1 ].
+			minIndent := minIndent min: leading ] ].
+	minIndent = SmallInteger maxVal ifTrue: [ minIndent := 0 ].
+	indent := String new: minIndent withAll: Character space.
+	minIndent = 0 ifTrue: [ ^ aString ].
+	^ String streamContents: [ :s |
+		| first |
+		first := true.
+		lines do: [ :line |
+			first ifTrue: [ first := false ] ifFalse: [ s nextPut: Character lf ].
+			s nextPutAll: (line size >= minIndent
+				ifTrue: [ line copyFrom: minIndent + 1 to: line size ]
+				ifFalse: [ line trimLeft ]) ] ]
 ]
 
 { #category : 'accessing' }
@@ -194,14 +217,19 @@ ElixirFunctionCoder >> initializeAddOns: addOns [
 		addStyler: ElixirFunctionExpanderStyler new
 ]
 
-{ #category : 'add-ons' }
+{ #category : 'as yet unclassified' }
 ElixirFunctionCoder >> initializeAddOns: addOns viewModel: aViewModel [
+	"Populate the action bar imperatively in display order. Save
+	 leftmost matches `GtPharoMethodCoder`; Discard is contributed
+	 separately via `<gtAstCoderAddOns: 2>` and only when modified."
 	super initializeAddOns: addOns viewModel: aViewModel.
-	self addSaveAddOnsTo: addOns to: aViewModel from: self.
-	self addDeleteAddOnsTo: addOns to: aViewModel from: self.
-	self addMoveAddOnsTo: addOns to: aViewModel from: self.
-	self addRunAddOnsTo: addOns to: aViewModel from: self.
-	self addHelpAddOnsTo: addOns to: aViewModel from: self
+	#(addSaveAddOnsTo:to:from:
+	  addRunAddOnsTo:to:from:
+	  addHelpAddOnsTo:to:from:
+	  addMoveAddOnsTo:to:from:
+	  addDeleteAddOnsTo:to:from:)
+		do: [ :sel |
+			self perform: sel with: addOns with: aViewModel with: self ]
 ]
 
 { #category : 'initialization' }
@@ -238,6 +266,7 @@ ElixirFunctionCoder >> refreshFromEntries: entries [
 ElixirFunctionCoder >> initializeShortcuts: addOns [
 	super initializeShortcuts: addOns.
 	addOns addShortcut: GtSourceCoderSaveShortcut new.
+	addOns addShortcut: ElixirCoderFormatShortcut new.
 	self initializeNavigationShortcuts: addOns
 ]
 
@@ -253,6 +282,23 @@ ElixirFunctionCoder >> kind [
 	^ kind
 ]
 
+{ #category : 'add-ons' }
+ElixirFunctionCoder >> modifiedAddOnsFor: anAst into: coderAddOns [
+	<gtAstCoderAddOns: 2>
+	"I add the ✗ Discard main action only when there are pending
+	 edits — mirrors `GtPharoMethodCoder >> modifiedMessageAstFor:
+	 into:`. The framework re-runs me whenever the coder's modified
+	 state changes, so the action appears on first edit and
+	 disappears on save."
+	self hasSource ifFalse: [ ^ self ].
+	self isModified ifFalse: [ ^ self ].
+	coderAddOns
+		addMainAction: 'Discard changes' translated
+		icon: BrGlamorousVectorIcons cancel
+		action: [ :aCoderUIModel :anElement | aCoderUIModel discardChanges ]
+		id: #elixirFunctionDiscardAction
+]
+
 { #category : 'accessing' }
 ElixirFunctionCoder >> moduleCoder [
 	^ moduleCoder
@@ -260,15 +306,8 @@ ElixirFunctionCoder >> moduleCoder [
 
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> moveBy: anOffset [
-	"I swap myself with my neighbor at myIndex + anOffset.
-	 swapFunctions:with: calls saveAndCompile: which fires
-	 BeamModuleRecompiled — surfaces refresh through that bus.
-
-	 Filter out macro-generated entries (start = 0) before computing
-	 indices: those have no file location, so swapping with one would
-	 try to splice empty source over a real function.  Without this,
-	 Move Up on the first real function found a start=0 sibling at
-	 the previous index and crashed."
+	"Filter out macro-generated entries (start = 0) before indexing:
+	 they have no file location and can't be spliced."
 	| entries myIndex targetIndex |
 	entries := (moduleCoder functionEntries
 		select: [ :e | (e attributeAt: #start) > 0 ])
@@ -319,19 +358,8 @@ ElixirFunctionCoder >> printOn: aStream [
 
 { #category : 'initialization' }
 ElixirFunctionCoder >> refreshFromEntry: anEntry [
-	"I refresh my function/type metadata and source from a new BEAM
-	 entry.  Called both during initial construction and when a peer
-	 save (e.g. via a |> expander on the same module) shifts my line
-	 range or reformats my body; the streaming Functions tab caches
-	 row coders by name/arity, so without this the cached row keeps
-	 displaying the pre-save text.
-
-	 The bridge sometimes hands `#kind` back as a BeamAtomObject (one-off
-	 evaluateAndWait calls) and sometimes as a plain ByteString (the
-	 streaming-coder pipeline that paints rows in the Functions tab),
-	 depending on which serializer path the value travelled through.
-	 Normalise both to a Smalltalk symbol so isType / collapsedText
-	 don't have to care."
+	"Bridge hands `#kind` back as either BeamAtomObject or ByteString
+	 depending on the serializer path; normalise to a symbol."
 	| rawKind |
 	functionName := (anEntry attributeAt: #name) asString.
 	arity := anEntry attributeAt: #arity.
@@ -341,7 +369,7 @@ ElixirFunctionCoder >> refreshFromEntry: anEntry [
 	kind := (rawKind respondsTo: #symbol)
 		ifTrue: [ rawKind symbol ]
 		ifFalse: [ rawKind asString asSymbol ].
-	self sourceCode: (GtCoderExplicitStringSource new source: (anEntry attributeAt: #source) asString)
+	self sourceCode: (GtCoderExplicitStringSource new source: (self dedentSource: (anEntry attributeAt: #source) asString))
 ]
 
 { #category : 'as yet unclassified' }
@@ -361,6 +389,21 @@ ElixirFunctionCoder >> refreshLinesAfterSwap [
 		endLine := myEntry attributeAt: #end_line ]
 ]
 
+{ #category : 'private' }
+ElixirFunctionCoder >> reindent: aString [
+	"I re-prepend the indent recorded by `dedentSource:` to each
+	 non-blank line so the spliced text aligns with the surrounding
+	 module body."
+	(indent isNil or: [ indent isEmpty ]) ifTrue: [ ^ aString ].
+	^ String streamContents: [ :s |
+		| first |
+		first := true.
+		aString lines do: [ :line |
+			first ifTrue: [ first := false ] ifFalse: [ s nextPut: Character lf ].
+			line trimRight isEmpty ifFalse: [ s nextPutAll: indent ].
+			s nextPutAll: line ] ]
+]
+
 { #category : 'actions' }
 ElixirFunctionCoder >> saveFunction [
 	"I splice my current source text into the module file at
@@ -371,7 +414,7 @@ ElixirFunctionCoder >> saveFunction [
 	 round-trip is needed."
 	| match freshSource |
 	moduleCoder
-		spliceFunction: self currentSourceString
+		spliceFunction: (self reindent: self currentSourceString)
 		forFunction: functionName
 		arity: arity.
 	match := moduleCoder functionEntries
@@ -379,7 +422,7 @@ ElixirFunctionCoder >> saveFunction [
 			and: [ (e attributeAt: #arity) = arity ] ]
 		ifNone: [ ^ self ].
 	freshSource := (match attributeAt: #source) asString.
-	self sourceCode: (GtCoderExplicitStringSource new source: freshSource)
+	self sourceCode: (GtCoderExplicitStringSource new source: (self dedentSource: freshSource))
 ]
 
 { #category : 'accessing' }
