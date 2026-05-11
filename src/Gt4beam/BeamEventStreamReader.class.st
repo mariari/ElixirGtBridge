@@ -26,7 +26,6 @@ Class {
 		'running'
 	],
 	#classVars : [
-		'KindHandlers',
 		'Readers'
 	],
 	#category : 'Gt4beam-Events',
@@ -45,177 +44,15 @@ BeamEventStreamReader class >> for: anApp [
 		ifAbsentPut: [ self new application: anApp; yourself ]
 ]
 
-{ #category : 'private' }
-BeamEventStreamReader class >> kindHandlers [
-	"Map SSE `kind` → instance-side selector that handles the decoded
-	 frame.  Adding an event type means dropping a new handler method
-	 and an entry here, no change to `dispatch:`."
-	^ KindHandlers ifNil: [
-		KindHandlers := Dictionary new
-			at: 'recompiled' put: #handleRecompiled:;
-			at: 'source_written' put: #handleSourceWritten:;
-			at: 'compile_failed' put: #handleCompileFailed:;
-			at: 'source_removed' put: #handleSourceRemoved:;
-			yourself ]
-]
-
 { #category : 'accessing' }
 BeamEventStreamReader >> application: anApp [
 	application := anApp
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> dispatch: aDict [
-	| kind handler |
-	kind := aDict at: 'kind' ifAbsent: [ ^ self ].
-	handler := self class kindHandlers at: kind ifAbsent: [ ^ self ].
-	self perform: handler with: aDict
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> handleCompileFailed: aDict [
-	| mod |
-	mod := aDict at: 'mod' ifAbsent: [ ^ self ].
-	BeamEventAnnouncer
-		announceCompileFailedFor: mod
-		application: application
-		errors: (aDict at: 'errors' ifAbsent: [ #() ])
-		functionHint: nil
-		arityHint: nil
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> handleLine: aLine [
-	| trimmed payload event |
-	trimmed := aLine trimBoth.
-	(trimmed beginsWith: 'data:') ifFalse: [ ^ self ].
-	payload := (trimmed allButFirst: 5) trimBoth.
-	event := [ STONJSON fromString: payload ] on: Error do: [ :e |
-		self logError: e.
-		^ self ].
-	[ self dispatch: event ] on: Error do: [ :e | self logError: e ]
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> handleRecompiled: aDict [
-	BeamEventAnnouncer
-		announceRecompiledFrom: (self payloadFrom: aDict keys: #(mod source_hash source functions))
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> handleSourceRemoved: aDict [
-	| mod |
-	mod := aDict at: 'mod' ifAbsent: [ ^ self ].
-	BeamEventAnnouncer announceSourceRemoved: mod
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> handleSourceWritten: aDict [
-	| mod |
-	mod := aDict at: 'mod' ifAbsent: [ ^ self ].
-	BeamEventAnnouncer
-		announceSourceWrittenFor: mod
-		fromPayload: (self payloadFrom: aDict keys: #(source_hash source functions))
 ]
 
 { #category : 'accessing' }
 BeamEventStreamReader >> isRunning [
 	^ running == true
 		and: [ readerProcess notNil and: [ readerProcess isTerminated not ] ]
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> logError: anException [
-	Transcript
-		show: 'BeamEventStreamReader error: ';
-		show: anException printString;
-		cr
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> openAndConsume [
-	"Open a raw TCP socket to /EVENTS and drain SSE bytes.  I poll
-	 `socket receiveDataTimeout: 1` instead of `socket waitForDataFor:`
-	 because the latter has been observed to leave the reader suspended
-	 in this Pharo image even when bytes arrive on the socket.  Polling
-	 is reliable; the 200 ms idle sleep keeps CPU near zero."
-	| serverAddress |
-	serverAddress := application settings serverSocketAddress.
-	client := Socket newTCP.
-	client
-		connectTo: (NetNameResolver addressForName: serverAddress ipOrName)
-		port: serverAddress port
-		waitForConnectionFor: 5.
-	client sendData:
-		('GET /EVENTS HTTP/1.1' , String crlf
-			, 'Host: ' , serverAddress ipOrName , String crlf
-			, 'Accept: text/event-stream' , String crlf
-			, 'Connection: keep-alive' , String crlf
-			, String crlf) asByteArray.
-	"Drain response headers (best-effort; we don't validate them)."
-	[ client receiveDataTimeout: 2 ] on: ConnectionTimedOut do: [ '' ].
-	[ self pollUntilClosed: client ]
-		on: ConnectionClosed do: [ "expected; my caller reconnects" ]
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> payloadFrom: aDict keys: aKeysList [
-	| payload |
-	payload := Dictionary new.
-	aKeysList do: [ :key |
-		payload at: key put: (aDict at: key asString ifAbsent: [ nil ]) ].
-	^ payload
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> pollUntilClosed: aSocket [
-	"Drain the socket until disconnect or `running` flips false.  `buf`
-	 carries trailing partial lines across recv boundaries; chunked
-	 transfer interleaves chunk-size lines with SSE data, so a frame
-	 that straddles a recv would corrupt with naive `lines do:`."
-	| buf |
-	buf := String new.
-	[ aSocket isConnected and: [ running ] ] whileTrue: [
-		| data |
-		data := [ aSocket receiveDataTimeout: 1 ]
-			on: ConnectionTimedOut do: [ '' ].
-		data isEmpty
-			ifTrue: [ (Delay forMilliseconds: 200) wait ]
-			ifFalse: [
-				| lines |
-				buf := buf , data asString.
-				lines := buf lines.
-				(buf endsWith: String lf)
-					ifTrue: [
-						lines do: [ :l | self handleLine: l ].
-						buf := String new ]
-					ifFalse: [
-						lines size > 1 ifTrue: [
-							(lines copyFrom: 1 to: lines size - 1) do: [ :l |
-								self handleLine: l ].
-							buf := lines last ] ] ] ]
-]
-
-{ #category : 'private' }
-BeamEventStreamReader >> readLoop [
-	"I open the SSE connection and reconnect while running.  Backoff
-	 grows on consecutive failures so a down BEAM doesn't spam logs;
-	 errors only log on transition (failing class changes) so a stable
-	 outage produces one line, not one per second."
-	| backoff lastError |
-	backoff := 1.
-	lastError := nil.
-	[ running ] whileTrue: [
-		[ self openAndConsume.
-		  backoff := 1.
-		  lastError := nil ]
-			on: Error do: [ :e |
-				e class = lastError ifFalse: [
-					self logError: e.
-					lastError := e class ] ].
-		running ifTrue: [
-			(Delay forSeconds: backoff) wait.
-			backoff := (backoff * 2) min: 30 ] ]
 ]
 
 { #category : 'lifecycle' }
@@ -237,4 +74,79 @@ BeamEventStreamReader >> stop [
 	readerProcess ifNotNil: [
 		[ readerProcess terminate ] on: Error do: [ ].
 		readerProcess := nil ]
+]
+
+{ #category : 'private' }
+BeamEventStreamReader >> readLoop [
+	"I open the SSE connection and dispatch each frame.  On stream end
+	 or transient error I back off and reconnect while running."
+
+	[ running ] whileTrue: [
+		[ self openAndConsume ] on: Error do: [ :e | self logError: e ].
+		running ifTrue: [ (Delay forSeconds: 1) wait ] ]
+]
+
+{ #category : 'private' }
+BeamEventStreamReader >> openAndConsume [
+	| serverAddress url |
+	serverAddress := application settings serverSocketAddress.
+	url := 'http://' , serverAddress ipOrName , ':'
+		, serverAddress port asString , '/EVENTS'.
+	client := ZnClient new
+		url: url;
+		method: #GET;
+		streaming: true;
+		getConnectionAndExecute.
+	client connection
+		liveReadLoopDo: [ :line | self handleLine: line ]
+]
+
+{ #category : 'private' }
+BeamEventStreamReader >> handleLine: aLine [
+	| trimmed payload event |
+	trimmed := aLine trimBoth.
+	(trimmed beginsWith: 'data:') ifFalse: [ ^ self ].
+	payload := (trimmed allButFirst: 5) trimBoth.
+	event := [ STONJSON fromString: payload ] on: Error do: [ :e |
+		self logError: e.
+		^ self ].
+	self dispatch: event
+]
+
+{ #category : 'private' }
+BeamEventStreamReader >> dispatch: aDict [
+	"I route a decoded SSE frame to the matching announcer call.
+	 Each event-introducing topic extends me with its own kind."
+
+	| kind mod |
+	kind := aDict at: 'kind' ifAbsent: [ ^ self ].
+	mod := aDict at: 'mod' ifAbsent: [ nil ].
+	kind = 'recompiled' ifTrue: [
+		^ BeamEventAnnouncer announceRecompiledFrom: (Dictionary new
+			at: #mod put: mod;
+			at: #source_hash put: (aDict at: 'source_hash' ifAbsent: [ nil ]);
+			yourself) ].
+	kind = 'source_written' ifTrue: [
+		mod ifNil: [ ^ self ].
+		^ BeamEventAnnouncer
+			announceSourceWrittenFor: mod
+			fromPayload: (Dictionary new
+				at: #source_hash put: (aDict at: 'source_hash' ifAbsent: [ nil ]);
+				yourself) ].
+	kind = 'compile_failed' ifTrue: [
+		mod ifNil: [ ^ self ].
+		^ BeamEventAnnouncer
+			announceCompileFailedFor: mod
+			errors: (aDict at: 'errors' ifAbsent: [ #() ]) ].
+	kind = 'source_removed' ifTrue: [
+		mod ifNil: [ ^ self ].
+		^ BeamEventAnnouncer announceSourceRemoved: mod ]
+]
+
+{ #category : 'private' }
+BeamEventStreamReader >> logError: anException [
+	Transcript
+		show: 'BeamEventStreamReader error: ';
+		show: anException printString;
+		cr
 ]
