@@ -30,3 +30,7 @@ end
 defmodule GtBridgeTest.Documentation do
   use ExExample.ExUnit, for: Examples.EDocumentation
 end
+
+defmodule GtBridgeTest.CodeMonitor do
+  use ExExample.ExUnit, for: Examples.ECodeMonitor
+end
