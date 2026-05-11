@@ -1,6 +1,10 @@
 Class {
 	#name : 'BeamPlatform',
 	#superclass : 'LanguageLinkPlatform',
+	#instVars : [
+		'sessionPrefix',
+		'counter'
+	],
 	#category : 'Gt4beam-Processes',
 	#package : 'Gt4beam',
 	#tag : 'Processes'
@@ -38,5 +42,10 @@ BeamPlatform >> folderForApplication [
 
 { #category : 'utils' }
 BeamPlatform >> newRandomName [
-	^ 'beam' , UUID new asString36
+	"Per-session UUID prefix + monotonic counter; UUID generated once."
+	sessionPrefix ifNil: [
+		sessionPrefix := UUID new asString36.
+		counter := 0 ].
+	counter := counter + 1.
+	^ 'beam' , sessionPrefix , '_' , counter printString
 ]
