@@ -36,7 +36,7 @@ defmodule GtBridge.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib mix.exs README.md LICENSE)
+      files: ~w(lib mix.exs README.md LICENSE fixtures)
     ]
   end
 
@@ -44,13 +44,15 @@ defmodule GtBridge.MixProject do
     [
       {:msgpax, "~> 2.4"},
       {:typed_struct, "~> 0.3.0"},
+      {:event_broker, github: "anoma/event-broker", tag: "v1.1.0"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
       {:req, "~> 0.5.0"},
-      {:ex_example, "~> 0.1.0"}
+      {:ex_example, "~> 0.1.1"},
+      {:hot_reload_test, path: "fixtures/hot_reload_test"}
     ]
   end
 end

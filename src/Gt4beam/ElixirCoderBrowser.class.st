@@ -52,16 +52,6 @@ ElixirCoderBrowser >> appNode: anAppName [
 ]
 
 { #category : 'as yet unclassified' }
-ElixirCoderBrowser >> applicationAnalysisFor: anAppName [
-	"I build an ElixirSystemAnalysis on my bridge application and
-	 return the ElixirApplicationAnalysis matching anAppName, or nil
-	 if no such application is loaded."
-	^ (ElixirSystemAnalysis onApplication: application) applications
-		detect: [ :app | app name symbol = anAppName ]
-		ifNone: [ nil ]
-]
-
-{ #category : 'as yet unclassified' }
 ElixirCoderBrowser >> application [
 	^ application
 ]
@@ -70,6 +60,16 @@ ElixirCoderBrowser >> application [
 ElixirCoderBrowser >> application: anApp [
 	application := anApp.
 	self buildUI
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> applicationAnalysisFor: anAppName [
+	"I build an ElixirSystemAnalysis on my bridge application and
+	 return the ElixirApplicationAnalysis matching anAppName, or nil
+	 if no such application is loaded."
+	^ (ElixirSystemAnalysis onApplication: application) applications
+		detect: [ :app | app name symbol = anAppName ]
+		ifNone: [ nil ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -89,96 +89,6 @@ ElixirCoderBrowser >> applicationNodes [
 	 BEAM — the fetch happens once per browser instance, filtering is
 	 pure Smalltalk after that."
 	^ self filterNodes: self rawNodes
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> rawNodes [
-	"I lazily fetch and cache the unfiltered top-level nodes. When
-	 scoped to a single application, I skip the app wrapper and
-	 return the module namespace groups directly. Otherwise I return
-	 one node per loaded application with modules nested underneath."
-	^ rawNodes ifNil: [ rawNodes := scopedApplicationName
-		ifNotNil: [
-			| modules |
-			modules := [ self moduleInfoForApplication: scopedApplicationName ]
-				on: Error do: [ #() ].
-			self groupModulesByNamespace: modules ]
-		ifNil: [
-			self applicationNames collect: [ :appName | self appNode: appName ] ] ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> filterNodes: nodes [
-	"I return nodes filtered by filterText. A branch is kept if its
-	 label matches or any descendant matches. A leaf is kept if its
-	 label or its full #module name matches. Empty filterText means
-	 pass everything through unchanged."
-	(filterText isNil or: [ filterText isEmpty ])
-		ifTrue: [ ^ nodes ].
-	^ nodes
-		collect: [ :node | self filterNode: node ]
-		thenSelect: [ :node | node notNil ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> filterNode: aNode [
-	"I return a filtered copy of aNode, or nil when neither the node
-	 nor any descendant matches filterText. Matches are substring,
-	 case-insensitive, against the node's label and module name."
-	| lowerFilter children filteredChildren labelMatches nameMatches selfMatches copy |
-	lowerFilter := filterText asLowercase.
-	labelMatches := ((aNode at: #label ifAbsent: [ '' ]) asString asLowercase
-		includesSubstring: lowerFilter).
-	nameMatches := (aNode at: #module ifAbsent: [ nil ])
-		ifNil: [ false ]
-		ifNotNil: [ :name | name asLowercase includesSubstring: lowerFilter ].
-	selfMatches := labelMatches or: [ nameMatches ].
-	children := (aNode at: #children ifAbsent: [ #() ]) asArray.
-	filteredChildren := selfMatches
-		ifTrue: [ children ]
-		ifFalse: [
-			(children collect: [ :c | self filterNode: c ])
-				select: [ :c | c notNil ] ].
-	(selfMatches or: [ filteredChildren notEmpty ]) ifFalse: [ ^ nil ].
-	copy := Dictionary new.
-	aNode associationsDo: [ :assoc |
-		copy at: assoc key put: assoc value ].
-	copy at: #children put: filteredChildren asArray.
-	^ copy
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> buildNamespaceNode: label from: entries depth: depth [
-	"I recursively group entries under this namespace level."
-	| leaves branches branchGroups node |
-	leaves := entries select: [ :e | e third size = depth ].
-	branches := entries reject: [ :e | e third size = depth ].
-	branchGroups := Dictionary new.
-	branches do: [ :e |
-		| key |
-		key := e third at: depth + 1.
-		(branchGroups at: key ifAbsentPut: [ OrderedCollection new ]) add: e ].
-	node := Dictionary new.
-	node at: #label put: label.
-	leaves size = 1 ifTrue: [
-		node at: #module put: leaves first first.
-		node at: #functions put: (leaves first second attributeAt: #functions).
-		node at: #has_doc put: (leaves first second attributeAt: #has_doc) ].
-	node at: #children put: (
-		((leaves size > 1 
-			ifTrue: [ leaves collect: [ :e |
-				| leaf |
-				leaf := Dictionary new.
-				leaf at: #label put: e third last.
-				leaf at: #module put: e first.
-				leaf at: #functions put: (e second attributeAt: #functions).
-				leaf at: #has_doc put: (e second attributeAt: #has_doc).
-				leaf at: #children put: #().
-				leaf ] ]
-			ifFalse: [ #() ]) ,
-		(branchGroups keys sorted collect: [ :k |
-			self buildNamespaceNode: k from: (branchGroups at: k) depth: depth + 1 ])) asArray).
-	^ node
 ]
 
 { #category : 'as yet unclassified' }
@@ -216,6 +126,40 @@ ElixirCoderBrowser >> buildFilterInput [
 		addChild: input;
 		yourself.
 	^ container
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> buildNamespaceNode: label from: entries depth: depth [
+	"I recursively group entries under this namespace level."
+	| leaves branches branchGroups node |
+	leaves := entries select: [ :e | e third size = depth ].
+	branches := entries reject: [ :e | e third size = depth ].
+	branchGroups := Dictionary new.
+	branches do: [ :e |
+		| key |
+		key := e third at: depth + 1.
+		(branchGroups at: key ifAbsentPut: [ OrderedCollection new ]) add: e ].
+	node := Dictionary new.
+	node at: #label put: label.
+	leaves size = 1 ifTrue: [
+		node at: #module put: leaves first first.
+		node at: #functions put: (leaves first second attributeAt: #functions).
+		node at: #has_doc put: (leaves first second attributeAt: #has_doc) ].
+	node at: #children put: (
+		((leaves size > 1 
+			ifTrue: [ leaves collect: [ :e |
+				| leaf |
+				leaf := Dictionary new.
+				leaf at: #label put: e third last.
+				leaf at: #module put: e first.
+				leaf at: #functions put: (e second attributeAt: #functions).
+				leaf at: #has_doc put: (e second attributeAt: #has_doc).
+				leaf at: #children put: #().
+				leaf ] ]
+			ifFalse: [ #() ]) ,
+		(branchGroups keys sorted collect: [ :k |
+			self buildNamespaceNode: k from: (branchGroups at: k) depth: depth + 1 ])) asArray).
+	^ node
 ]
 
 { #category : 'as yet unclassified' }
@@ -295,15 +239,43 @@ ElixirCoderBrowser >> buildUI [
 ]
 
 { #category : 'as yet unclassified' }
-ElixirCoderBrowser >> openModule: aDocObject [
-	"I render a BeamDocumentationObject inline in the content pane
-	 using the composite inspector tool with R|P toggle."
-	| element |
-	aDocObject ifNil: [ ^ self ].
-	element := aDocObject gtDefaultInspectorTool
-		asElementDo: [ :e | e matchParent ].
-	content removeChildren.
-	content addChild: element
+ElixirCoderBrowser >> filterNode: aNode [
+	"I return a filtered copy of aNode, or nil when neither the node
+	 nor any descendant matches filterText. Matches are substring,
+	 case-insensitive, against the node's label and module name."
+	| lowerFilter children filteredChildren labelMatches nameMatches selfMatches copy |
+	lowerFilter := filterText asLowercase.
+	labelMatches := ((aNode at: #label ifAbsent: [ '' ]) asString asLowercase
+		includesSubstring: lowerFilter).
+	nameMatches := (aNode at: #module ifAbsent: [ nil ])
+		ifNil: [ false ]
+		ifNotNil: [ :name | name asLowercase includesSubstring: lowerFilter ].
+	selfMatches := labelMatches or: [ nameMatches ].
+	children := (aNode at: #children ifAbsent: [ #() ]) asArray.
+	filteredChildren := selfMatches
+		ifTrue: [ children ]
+		ifFalse: [
+			(children collect: [ :c | self filterNode: c ])
+				select: [ :c | c notNil ] ].
+	(selfMatches or: [ filteredChildren notEmpty ]) ifFalse: [ ^ nil ].
+	copy := Dictionary new.
+	aNode associationsDo: [ :assoc |
+		copy at: assoc key put: assoc value ].
+	copy at: #children put: filteredChildren asArray.
+	^ copy
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> filterNodes: nodes [
+	"I return nodes filtered by filterText. A branch is kept if its
+	 label matches or any descendant matches. A leaf is kept if its
+	 label or its full #module name matches. Empty filterText means
+	 pass everything through unchanged."
+	(filterText isNil or: [ filterText isEmpty ])
+		ifTrue: [ ^ nodes ].
+	^ nodes
+		collect: [ :node | self filterNode: node ]
+		thenSelect: [ :node | node notNil ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -313,7 +285,7 @@ ElixirCoderBrowser >> groupModulesByNamespace: moduleInfo [
 	entries := moduleInfo collect: [ :each |
 		| name parts |
 		name := (each attributeAt: #name) asString.
-		parts := $. split: (name copyReplaceAll: 'Elixir.' with: '').
+		parts := $. split: (name withoutPrefix: 'Elixir.').
 		{ name. each. parts } ].
 	groups := Dictionary new.
 	entries do: [ :e |
@@ -346,6 +318,75 @@ ElixirCoderBrowser >> modulesForApplication: anAppName [
 		'GtBridge.Analysis.module_details(:', anAppName, ')') asList
 			collect: [ :m | (m attributeAt: #name) asString ] ]
 		on: Error do: [ #() ]
+]
+
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onAddedToSceneGraph [
+	"I subscribe to the wildcard `default` announcer (not a per-module
+	 one) because I display ALL loaded modules and need to invalidate
+	 my rawNodes cache on any recompile, not just one module's. The
+	 narrow per-module pattern is for coders attached to a specific
+	 module; my browsing surface inherently spans every module so the
+	 default singleton is the right channel.
+
+	 I subscribe only while in the scene graph — background or
+	 orphaned browser instances do not pay the per-event cost."
+	super onAddedToSceneGraph.
+	BeamEventAnnouncer default weak
+		when: BeamModuleRecompiled
+		send: #onBeamModuleRecompiled:
+		to: self
+]
+
+{ #category : 'announcements' }
+ElixirCoderBrowser >> onBeamModuleRecompiled: anAnnouncement [
+	"I just invalidate the cached node tree. I do NOT auto-refresh
+	 the sidebar — refreshSidebarTree fans out applicationNodes which
+	 (when unscoped) hits every loaded app via module_details, easily
+	 50+ BEAM round trips. Per save. Per live browser. That overloaded
+	 the bridge into request-fail cascades.
+
+	 Next time the user interacts with the filter input or otherwise
+	 triggers refreshSidebarTree, the lazy rawNodes will refetch
+	 from scratch. Trade auto-refresh UX for resource safety until
+	 a smaller-blast-radius refresh path is available."
+	rawNodes := nil
+]
+
+{ #category : 'lifecycle' }
+ElixirCoderBrowser >> onRemovedFromSceneGraph [
+	"I unsubscribe when removed so recompile events stop reaching me
+	 the moment my window closes."
+	super onRemovedFromSceneGraph.
+	BeamEventAnnouncer default unsubscribe: self
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> openModule: aDocObject [
+	"I render a BeamDocumentationObject inline in the content pane
+	 using the composite inspector tool with R|P toggle."
+	| element |
+	aDocObject ifNil: [ ^ self ].
+	element := aDocObject gtDefaultInspectorTool
+		asElementDo: [ :e | e matchParent ].
+	content removeChildren.
+	content addChild: element
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> rawNodes [
+	"I lazily fetch and cache the unfiltered top-level nodes. When
+	 scoped to a single application, I skip the app wrapper and
+	 return the module namespace groups directly. Otherwise I return
+	 one node per loaded application with modules nested underneath."
+	^ rawNodes ifNil: [ rawNodes := scopedApplicationName
+		ifNotNil: [
+			| modules |
+			modules := [ self moduleInfoForApplication: scopedApplicationName ]
+				on: Error do: [ #() ].
+			self groupModulesByNamespace: modules ]
+		ifNil: [
+			self applicationNames collect: [ :appName | self appNode: appName ] ] ]
 ]
 
 { #category : 'as yet unclassified' }

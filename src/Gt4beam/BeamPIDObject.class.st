@@ -29,10 +29,10 @@ BeamPIDObject >> applicationAnalysis [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'views - helpers' }
-BeamPIDObject >> childrenTree [
-	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.build_supervision()'
+{ #category : 'accessing' }
+BeamPIDObject >> elixirClass [
+	"I return nil — PIDs are not modules and cannot be imported."
+	^ nil
 ]
 
 { #category : 'gt-extensions' }
@@ -45,9 +45,20 @@ BeamPIDObject >> gtDefaultInspectorTool [
 	^ BeamProxyToggleCompositeTool fromModes: modes
 ]
 
-{ #category : 'gt-extensions' }
-BeamPIDObject >> inspectorModeName [
-	^ 'Pid'
+{ #category : 'as yet unclassified' }
+BeamPIDObject >> gtInformationFor: aView [
+	<gtView>
+	<gtBeamView>
+	^ aView columnedList
+		title: 'Information';
+		priority: 10;
+		items: [ self information associations ];
+		column: 'Name'
+			text: #key
+			width: 150;
+		column: 'Value'
+			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
+		send: #value
 ]
 
 { #category : 'inspector-modes' }
@@ -67,22 +78,6 @@ BeamPIDObject >> gtStateMode: aMode [
 ]
 
 { #category : 'as yet unclassified' }
-BeamPIDObject >> gtInformationFor: aView [
-	<gtView>
-	<gtBeamView>
-	^ aView columnedList
-		title: 'Information';
-		priority: 10;
-		items: [ self information associations ];
-		column: 'Name'
-			text: #key
-			width: 150;
-		column: 'Value'
-			text: [ :anItem | anItem value isArray ifTrue: [ anItem value second ] ifFalse: [ anItem value ] ];
-		send: #value
-]
-
-{ #category : 'as yet unclassified' }
 BeamPIDObject >> gtSupervisionView: aView [
 	<gtView>
 	<gtBeamView>
@@ -97,7 +92,7 @@ BeamPIDObject >> gtSupervisionView: aView [
 				painting: [ :aMondrian |
 					| tree |
 					tree := self evaluateAndWait:
-						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+						'GtBridge.Supervision.tree(', self resolve, ')'.
 					BeamMondrianHelpers
 						supervisionTreeOn: aMondrian from: tree poolThreshold: 12 application: self application ]).
 			(aView mondrian
@@ -106,7 +101,7 @@ BeamPIDObject >> gtSupervisionView: aView [
 				painting: [ :aMondrian |
 					| tree |
 					tree := self evaluateAndWait:
-						'GtBridge.Analysis.supervision_tree(', self resolve, ')'.
+						'GtBridge.Supervision.tree(', self resolve, ')'.
 					BeamMondrianHelpers
 						supervisionTreeOn: aMondrian from: tree poolThreshold: 999999 application: self application ]) }
 ]
@@ -119,6 +114,11 @@ BeamPIDObject >> information [
 		| pair |
 		pair := aTuple asList.
 		pair first -> pair second ]) asDictionary
+]
+
+{ #category : 'gt-extensions' }
+BeamPIDObject >> inspectorModeName [
+	^ 'Pid'
 ]
 
 { #category : 'as yet unclassified' }
@@ -144,4 +144,3 @@ BeamPIDObject >> printOn: str [
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
-

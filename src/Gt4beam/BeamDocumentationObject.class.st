@@ -35,6 +35,23 @@ BeamDocumentationObject >> functionLines [
 	^ { result itemAt: 0. result itemAt: 1 }
 ]
 
+{ #category : 'accessing' }
+BeamDocumentationObject >> functionTarget [
+	"I return an ElixirFunctionScrollTarget for a function-scoped
+	 Documentation, or nil for module-only docs.  Match by name+arity
+	 so macro-generated entries (start: 0) land on the right row."
+	| result |
+	result := self evaluateAndWait:
+		'case ', self resolve, '.query do
+		   {:function, _, name, arity} -> {Atom.to_string(name), arity}
+		   _ -> nil
+		 end'.
+	result ifNil: [ ^ nil ].
+	^ ElixirFunctionScrollTarget new
+		functionName: (result itemAt: 0) asString
+		arity: (result itemAt: 1) asInteger
+]
+
 { #category : 'gt-actions' }
 BeamDocumentationObject >> gtActionApplicationFor: anAction [
 	<gtAction>
@@ -77,16 +94,20 @@ BeamDocumentationObject >> gtCoderFor: aView [
 			ifTrue: [ f ] ifFalse: [ nil ] ]
 		on: Error do: [ nil ].
 	^ aView explicit
-		title: 'Meta';
+		title: 'Coder';
 		priority: 5;
 		stencil: [
-			| coder lineRange |
+			| coder target lineRange |
 			coder := ElixirModuleCoder new
 				moduleName: modName;
 				application: self application.
 			file ifNotNil: [ coder sourcePath: file ].
-			lineRange := [ self functionLines ] on: Error do: [ nil ].
-			lineRange ifNotNil: [ coder focusLine: lineRange ].
+			target := [ self functionTarget ] on: Error do: [ nil ].
+			target
+				ifNotNil: [ coder focusFunctionTarget: target ]
+				ifNil: [
+					lineRange := [ self functionLines ] on: Error do: [ nil ].
+					lineRange ifNotNil: [ coder focusLine: lineRange ] ].
 			coder asCoderViewModel asElement ]
 ]
 
@@ -109,7 +130,7 @@ BeamDocumentationObject >> gtDependenciesFor: aView [
 		priority: 30;
 		painting: [ :aMondrian |
 			| callees callers allNodes edges short |
-			short := [ :n | n copyReplaceAll: 'Elixir.' with: '' ].
+			short := [ :n | n withoutPrefix: 'Elixir.' ].
 			callees := (self evaluateAndWait:
 				'GtBridge.Analysis.callees(', modName, ', :', appName, ')
 				|> Enum.map(&inspect/1) |> Enum.sort()') asList collect: [ :m | m asString ].
@@ -185,22 +206,6 @@ BeamDocumentationObject >> gtExecutableFunctionsFor: aView [
 					mod, ', :', fn, ', ', arity asString, ')' ] ]
 ]
 
-{ #category : 'gt-views' }
-BeamDocumentationObject >> gtSourceFor: aView [
-	"I override to hide the Source tab — the Coder tab already
-	 has Source as an internal tab."
-	^ aView empty
-]
-
-{ #category : 'gt-extensions' }
-BeamDocumentationObject >> remoteViewsInContext: aContext [
-	"I return empty — remote view declarations (Module Doc,
-	 Functions, Types) are redundant as top-level tabs since the
-	 Coder's Help tab already shows them. They're still accessible
-	 via gtRemoteViewsFor: inside the Help tab."
-	^ #()
-]
-
 { #category : 'gt-search' }
 BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 	<gtSearch>
@@ -223,4 +228,20 @@ BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 		send: [ :each |
 			self evaluateAndWait:
 				'GtBridge.Documentation.for_function(', each first, ', :', each second, ', ', each third asString, ')' ]
+]
+
+{ #category : 'gt-views' }
+BeamDocumentationObject >> gtSourceFor: aView [
+	"I override to hide the Source tab — the Coder tab already
+	 has Source as an internal tab."
+	^ aView empty
+]
+
+{ #category : 'gt-extensions' }
+BeamDocumentationObject >> remoteViewsInContext: aContext [
+	"I return empty — remote view declarations (Module Doc,
+	 Functions, Types) are redundant as top-level tabs since the
+	 Coder's Help tab already shows them. They're still accessible
+	 via gtRemoteViewsFor: inside the Help tab."
+	^ #()
 ]
