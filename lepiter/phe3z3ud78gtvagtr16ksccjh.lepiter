@@ -1,0 +1,262 @@
+{
+	"__schema" : "4.1",
+	"__type" : "page",
+	"children" : {
+		"__type" : "snippets",
+		"items" : [
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "o3rrVBrJQHMdlY1sCV7LyA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "When a save fails to compile, GT pops a notification card naming the offending module, the function the cursor was in, the line, and the first line of the error.  Click **Open** and a fresh module coder spawns, focused on the function that broke."
+			},
+			{
+				"__type" : "elementSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "S+IXjPPDS6YWXN8hk50Pig=="
+				},
+				"code" : "| n |\nn := BeamCompileFailureNotification new\n\tmoduleName: 'LocalUpload.EventStore.Event';\n\tsourcePath: 'lib/local_upload/event_store/event.ex';\n\tline: 105;\n\terrorMessage: 'unexpected reserved word: end';\n\tfunctionName: 'event_view';\n\tarity: 2;\n\tyourself.\nBeamCompileFailureNotificationElement new\n\tnotification: n;\n\tyourself",
+				"elementHeight" : 180,
+				"codeHeight" : 220,
+				"codeVisible" : true
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "E0T6/iFXWfXiX9T8pTdp9g=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "Three pieces of information drive the focus on Open:\n\n1. **Module name** — the file the parser actually rejected, not necessarily the file you were saving.  When a save in `Foo` triggers a recompile that fails on a sibling `Bar`, the notification names `Bar`.\n2. **Function + arity** — the enclosing `def`, found by looking up the error line in the cached function entries from the most recent successful compile.\n3. **Line** — used as a Source-tab scroll target when the function-tab focus doesn't apply."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "2XnmiU0ndRdZ5z4HeWjF2g=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "Module-level errors (`use Some.Unloaded`, `nofile:1`) carry no usable line, so the bridge can't bracket against an enclosing function.  In that case the function falls back to whatever you were just editing in the function coder — saves from a function pane always focus on that function."
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "oWa4M20bUaACGNC5ygL3gQ=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "The function lookup is **three-tier**.  The bridge's own `#function`/`#arity` field on the error wins when set; otherwise we look up the error line against the cached function entries (handles parse failures where the AST returned empty); otherwise we fall back to a caller-supplied hint."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [ ]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "wsA52XhEbenKS6lDOMTXSw=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "A failed Mix recompile would normally purge the module being compiled, breaking unrelated files that referenced it.  Each save snapshots loaded project bytecode via `:code.get_object_code/1` and reloads any module Mix purged via `:code.load_binary/3` after the recompile finishes — so an error in one file doesn't cascade across the rest of the project.  See [[Hot-Reload Internals]] for the mechanics."
+			}
+		]
+	},
+	"createEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"createTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+		}
+	},
+	"editEmail" : {
+		"__type" : "email",
+		"emailString" : "<unknown>"
+	},
+	"editTime" : {
+		"__type" : "time",
+		"time" : {
+			"__type" : "dateAndTime",
+			"dateAndTimeString" : "2026-05-06T20:00:00+08:00"
+		}
+	},
+	"pageType" : {
+		"__type" : "namedPage",
+		"title" : "Compile-Failure Notifications"
+	},
+	"uid" : {
+		"__type" : "uuid",
+		"uuid" : "0dc9172f-3194-4a69-8e50-2da2347f31d9"
+	}
+}
