@@ -20,7 +20,8 @@ defmodule GtBridge do
 
   def start(_type, args) do
     result = GtBridge.Supervisor.start_link(args)
-    GtBridge.View.register_all()
+    # Blocks startup; defer it.
+    Task.start(&GtBridge.View.register_all/0)
     result
   end
 
