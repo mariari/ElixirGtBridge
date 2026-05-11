@@ -49,9 +49,24 @@ BeamLinkApplication >> initializeHandlers [
 	executionHandler := ElixirExecutionHandler application: self
 ]
 
+{ #category : 'initialization' }
+BeamLinkApplication >> postInitialization [
+	"Start the SSE reader so BEAM-side broadcasts feed
+	 `BeamEventAnnouncer` and the per-module caches.  Without this
+	 the entire event-driven UI flow (cache → SourceChanged → coder
+	 refresh) is dead on first boot."
+	(BeamEventStreamReader for: self) start
+]
+
 { #category : 'accessing' }
 BeamLinkApplication >> remShInfo [
 	^ self processHandler processCommandLineString
+]
+
+{ #category : 'start - stop' }
+BeamLinkApplication >> stop [
+	(BeamEventStreamReader for: self) stop.
+	super stop
 ]
 
 { #category : 'directory' }

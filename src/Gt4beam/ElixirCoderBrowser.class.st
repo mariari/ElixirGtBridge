@@ -418,6 +418,34 @@ ElixirCoderBrowser >> rawNodes [
 ]
 
 { #category : 'as yet unclassified' }
+ElixirCoderBrowser >> openModule: aDocObject [
+	"I render a BeamDocumentationObject inline in the content pane
+	 using the composite inspector tool with R|P toggle."
+	| element |
+	aDocObject ifNil: [ ^ self ].
+	element := aDocObject gtDefaultInspectorTool
+		asElementDo: [ :e | e matchParent ].
+	content removeChildren.
+	content addChild: element
+]
+
+{ #category : 'as yet unclassified' }
+ElixirCoderBrowser >> rawNodes [
+	"I lazily fetch and cache the unfiltered top-level nodes. When
+	 scoped to a single application, I skip the app wrapper and
+	 return the module namespace groups directly. Otherwise I return
+	 one node per loaded application with modules nested underneath."
+	^ rawNodes ifNil: [ rawNodes := scopedApplicationName
+		ifNotNil: [
+			| modules |
+			modules := [ self moduleInfoForApplication: scopedApplicationName ]
+				on: Error do: [ #() ].
+			self groupModulesByNamespace: modules ]
+		ifNil: [
+			self applicationNames collect: [ :appName | self appNode: appName ] ] ]
+]
+
+{ #category : 'as yet unclassified' }
 ElixirCoderBrowser >> refreshSidebarTree [
 	"I replace the sidebar's tree child with a fresh one built from
 	 the current filterText. Called by the filter input on every
