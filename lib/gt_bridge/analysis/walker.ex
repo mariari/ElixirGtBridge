@@ -9,11 +9,11 @@ defmodule GtBridge.Analysis.Walker do
 
   ### Public API
 
-  - `collect_calls/2` — walk an AST and return raw call entries
-  - `extract_alias_map/1` — parse `alias` directives from source
-  - `extract_import_map/1` — parse `import` directives from source
-  - `resolve_call_aliases/2` — rewrite call entries through an alias map
-  - `resolve_import_targets/2` — rewrite local entries through an import map
+  - `collect_calls/2`: walk an AST and return raw call entries
+  - `extract_alias_map/1`: parse `alias` directives from source
+  - `extract_import_map/1`: parse `import` directives from source
+  - `resolve_call_aliases/2`: rewrite call entries through an alias map
+  - `resolve_import_targets/2`: rewrite local entries through an import map
   """
 
   @type call_entry :: %{
@@ -34,7 +34,7 @@ defmodule GtBridge.Analysis.Walker do
   """
   @spec collect_calls(Macro.t(), module() | nil) :: [call_entry()]
   def collect_calls(ast, context_module \\ nil) do
-    ctx_str = if context_module, do: inspect(context_module)
+    ctx_str = if context_module, do: inspect(context_module), else: ""
     walk_calls(ast, [], ctx_str)
   end
 
@@ -82,11 +82,6 @@ defmodule GtBridge.Analysis.Walker do
     import Foo                          all exported funs from Foo
     import Foo, only: [bar: 1, baz: 2]  whitelist
     import Foo.{A, B}                   all funs from each
-
-  Imports nested inside `def`/`defp` are scoped to that function and
-  intentionally NOT collected here — module-level imports cover the
-  common case.  `import Foo, except: [...]` and `:functions`/`:macros`
-  shorthands are treated as full imports of the module's exports.
   """
   @spec extract_import_map(String.t()) :: %{{String.t(), non_neg_integer()} => String.t()}
   def extract_import_map(source) do
@@ -102,8 +97,9 @@ defmodule GtBridge.Analysis.Walker do
   the imported module and clearing `:local`.  Remote entries pass
   through unchanged.
   """
-  @spec resolve_import_targets([call_entry()], %{{String.t(), non_neg_integer()} => String.t()}) ::
-          [call_entry()]
+  @spec resolve_import_targets([call_entry()], %{
+          {String.t(), non_neg_integer()} => String.t()
+        }) :: [call_entry()]
   def resolve_import_targets(calls, imports) do
     Enum.map(calls, fn call ->
       if Map.get(call, :local, false) do
