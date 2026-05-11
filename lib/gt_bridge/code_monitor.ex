@@ -65,19 +65,8 @@ defmodule GtBridge.CodeMonitor do
   end
 
   defp project_apps do
-    main = Mix.Project.config()[:app]
-
-    paths =
-      for dep <- Mix.Project.config()[:deps] || [],
-          {a, opts} = normalize_dep(dep),
-          Keyword.has_key?(opts, :path),
-          do: a
-
-    [main | paths] |> Enum.reject(&is_nil/1) |> Enum.uniq()
+    [Mix.Project.config()[:app] | GtBridge.Mix.path_dep_apps()]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
   end
-
-  defp normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _, opts}) when is_list(opts), do: {app, opts}
-  defp normalize_dep({app, _}), do: {app, []}
-  defp normalize_dep(app) when is_atom(app), do: {app, []}
 end
