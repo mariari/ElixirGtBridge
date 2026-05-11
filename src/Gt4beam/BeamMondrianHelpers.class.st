@@ -31,6 +31,27 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> colorFor: aNode [
+	"I return the role-based background color for `aNode`:
+	 - dispatcher / cache root classes  -> pink   (#fce8e6)
+	 - Announcement event classes       -> yellow (#fff8d6)
+	 - BeamModuleSourceCache instances  -> green  (#d4f1d4) -- cache writer
+	 - Announcer instances              -> blue   (#e8f0fe)
+	 - everything else                  -> gray   (consumer classes / groups)"
+	aNode isClass ifTrue: [
+		(aNode == BeamEventAnnouncer or: [ aNode == BeamModuleSourceCache ])
+			ifTrue: [ ^ Color fromHexString: '#fce8e6' ].
+		(aNode inheritsFrom: Announcement)
+			ifTrue: [ ^ Color fromHexString: '#fff8d6' ].
+		^ Color gray alpha: 0.15 ].
+	(aNode isKindOf: BeamModuleSourceCache)
+		ifTrue: [ ^ Color fromHexString: '#d4f1d4' ].
+	(aNode isKindOf: Announcer)
+		ifTrue: [ ^ Color fromHexString: '#e8f0fe' ].
+	^ Color gray alpha: 0.15
+]
+
 { #category : 'compile deps' }
 BeamMondrianHelpers class >> compileDepsOn: aMondrian edges: edges highlightModules: highlightSet application: anApp [
 	"I render a compile dependency graph. Modules in highlightSet
@@ -44,7 +65,7 @@ BeamMondrianHelpers class >> compileDepsOn: aMondrian edges: edges highlightModu
 	aMondrian nodes
 		shape: [ :n |
 			| short color el |
-			short := n copyReplaceAll: 'Elixir.' with: ''.
+			short := n withoutPrefix: 'Elixir.'.
 			color := (highlightSet includes: n)
 				ifTrue: [ Color fromHexString: '#d4e6f1' ]
 				ifFalse: [ Color fromHexString: '#f0f0f0' ].
@@ -105,7 +126,7 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 	entry := {
 		#id -> id.
 		#pid -> id.
-		#label -> ((node attributeAt: #name) copyReplaceAll: 'Elixir.' with: '').
+		#label -> ((node attributeAt: #name) withoutPrefix: 'Elixir.').
 		#supervisor -> (node attributeAt: #supervisor)
 	} asDictionary.
 	nodes add: entry.
@@ -145,6 +166,39 @@ BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock 
 		constraintsDo: [ :c |
 			c horizontal fitContent.
 			c vertical fitContent ]
+]
+
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> paintLabeledGraphOn: aMondrian nodes: nodes edges: edges labels: labels layout: aLayoutBlock [
+	"I render the boilerplate shared by every gt-view that paints the
+	 BEAM event-architecture node graphs.  Node colors come from
+	 `colorFor:` (role-based by node kind), so callers only supply
+	 nodes, edges and labels.  `aLayoutBlock` receives `aMondrian
+	 layout` so the caller can pick `tree` vs `horizontalTree` plus
+	 distances."
+	aMondrian nodes
+		shape: [ :n |
+			BrLabel new
+				aptitude: BrGlamorousLabelAptitude new;
+				text: (labels at: n);
+				padding: (BlInsets all: 6);
+				background: (self colorFor: n);
+				geometry: (BlRoundedRectangleGeometry cornerRadius: 6) ];
+		with: nodes asArray.
+	aMondrian edges
+		connect: edges asArray from: #key to: #value.
+	aLayoutBlock value: aMondrian layout
+]
+
+{ #category : 'labeled-graph' }
+BeamMondrianHelpers class >> subscribersOf: anAnnouncer [
+	"I return the receiver objects subscribed to `anAnnouncer`,
+	 swallowing missing-API errors with an empty array.  Used by
+	 the FRP-shape gt-views that introspect Announcer state."
+	^ [ anAnnouncer subscriptions subscriptions
+		ifNil: [ #() ]
+		ifNotNil: [ :subs | subs collect: [ :s | s subscriber ] ] ]
+		on: Error do: [ #() ]
 ]
 
 { #category : 'supervision' }

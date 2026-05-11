@@ -29,7 +29,7 @@
 					"__type" : "time",
 					"time" : {
 						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:09:21.808162-05:00"
+						"dateAndTimeString" : "2025-10-16T17:09:23.593623-05:00"
 					}
 				},
 				"uid" : {
@@ -39,7 +39,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "`gt4beam` doesn’t only ship with an integration for programming. It also leverages GT’s code analysis tools to facilitate auditing its own "
+				"string" : "`gt4beam` doesn’t only ship with an integration for programming. It also leverages GT’s code analysis tools to facilitate auditing its own codebase."
 			},
 			{
 				"__type" : "textSnippet",
