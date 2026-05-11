@@ -26,6 +26,11 @@ BeamCompileFailureNotification >> application [
 ]
 
 { #category : 'accessing' }
+BeamCompileFailureNotification >> application: anApp [
+	application := anApp
+]
+
+{ #category : 'accessing' }
 BeamCompileFailureNotification >> arity [
 	^ arity
 ]
@@ -35,33 +40,9 @@ BeamCompileFailureNotification >> arity: anIntegerOrNil [
 	arity := anIntegerOrNil
 ]
 
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> functionName [
-	^ functionName
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> functionName: aStringOrNil [
-	functionName := aStringOrNil
-]
-
 { #category : 'testing' }
-BeamCompileFailureNotification >> hasFunction [
-	^ functionName isNotNil and: [ arity isNotNil ]
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> functionTarget [
-	^ self hasFunction
-		ifTrue: [ ElixirFunctionScrollTarget new
-			functionName: functionName
-			arity: arity ]
-		ifFalse: [ nil ]
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> application: anApp [
-	application := anApp
+BeamCompileFailureNotification >> canOpen [
+	^ moduleName isNotNil
 ]
 
 { #category : 'accessing' }
@@ -77,6 +58,55 @@ BeamCompileFailureNotification >> errorMessage [
 { #category : 'accessing' }
 BeamCompileFailureNotification >> errorMessage: aString [
 	errorMessage := aString
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionLineLabel [
+	"Second-line content: function/arity (line N), or just (line N),
+	 or empty when neither is known."
+	| parts |
+	parts := OrderedCollection new.
+	self hasFunction ifTrue: [ parts add: functionName , '/' , arity asString ].
+	self hasLine ifTrue: [ parts add: '(line ' , line asString , ')' ].
+	^ ' ' join: parts
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionName [
+	^ functionName
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionName: aStringOrNil [
+	functionName := aStringOrNil
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> functionTarget [
+	^ self hasFunction
+		ifTrue: [ ElixirFunctionScrollTarget new
+			functionName: functionName
+			arity: arity ]
+		ifFalse: [ nil ]
+]
+
+{ #category : 'testing' }
+BeamCompileFailureNotification >> hasFunction [
+	^ functionName isNotNil and: [ arity isNotNil ]
+]
+
+{ #category : 'testing' }
+BeamCompileFailureNotification >> hasLine [
+	^ line isNotNil and: [ line > 0 ]
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> header [
+	| base |
+	base := 'Compile failed for ', moduleName asString.
+	^ self hasLine
+		ifTrue: [ base , ' (line ' , line asString , ')' ]
+		ifFalse: [ base ]
 ]
 
 { #category : 'accessing' }
@@ -100,58 +130,8 @@ BeamCompileFailureNotification >> moduleName: aString [
 ]
 
 { #category : 'accessing' }
-BeamCompileFailureNotification >> sourcePath [
-	^ sourcePath
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> sourcePath: aStringOrNil [
-	sourcePath := aStringOrNil
-]
-
-{ #category : 'testing' }
-BeamCompileFailureNotification >> canOpen [
-	^ moduleName isNotNil
-]
-
-{ #category : 'accessing' }
 BeamCompileFailureNotification >> resolveApplication [
 	^ application ifNil: [ BeamLinkApplication uniqueInstance ]
-]
-
-{ #category : 'testing' }
-BeamCompileFailureNotification >> hasLine [
-	^ line isNotNil and: [ line > 0 ]
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> header [
-	| base |
-	base := 'Compile failed for ', moduleName asString.
-	^ self hasLine
-		ifTrue: [ base , ' (line ' , line asString , ')' ]
-		ifFalse: [ base ]
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> summary [
-	^ self header , ': ' , (errorMessage ifNil: [ '(no message)' ])
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> title [
-	^ 'Compile failed for ' , moduleName asString
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> functionLineLabel [
-	"Second-line content: function/arity (line N), or just (line N),
-	 or empty when neither is known."
-	| parts |
-	parts := OrderedCollection new.
-	self hasFunction ifTrue: [ parts add: functionName , '/' , arity asString ].
-	self hasLine ifTrue: [ parts add: '(line ' , line asString , ')' ].
-	^ ' ' join: parts
 ]
 
 { #category : 'accessing' }
@@ -163,4 +143,24 @@ BeamCompileFailureNotification >> shortMessage [
 	^ firstLine size > 100
 		ifTrue: [ (firstLine first: 100) , '…' ]
 		ifFalse: [ firstLine ]
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> sourcePath [
+	^ sourcePath
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> sourcePath: aStringOrNil [
+	sourcePath := aStringOrNil
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> summary [
+	^ self header , ': ' , (errorMessage ifNil: [ '(no message)' ])
+]
+
+{ #category : 'accessing' }
+BeamCompileFailureNotification >> title [
+	^ 'Compile failed for ' , moduleName asString
 ]

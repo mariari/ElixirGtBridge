@@ -99,8 +99,7 @@ defmodule Examples.EXref do
   end
 
   defp trigger_recompile(path, content) do
-    %{recompiled: _} = GtBridge.HotReload.reload(path, content)
-    :ok
+    :ok = GtBridge.HotReload.reload(path, content)
   end
 
   def rerun?(_), do: true

@@ -125,17 +125,6 @@ BeamEventAnnouncer class >> announceSourceWrittenFor: aModuleName fromPayload: a
 		on: aModuleName
 ]
 
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> dispatch: anAnnouncement on: aModuleName [
-	"Fire `anAnnouncement` on the per-module announcer (if any subscribers
-	 are listening narrowly) AND on the default singleton (so wildcard
-	 subscribers continue to hear everything)."
-	| perModule |
-	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
-	perModule ifNotNil: [ perModule announce: anAnnouncement ].
-	self default announce: anAnnouncement
-]
-
 { #category : 'accessing' }
 BeamEventAnnouncer class >> announcers [
 	"Lazy per-module announcer registry. Keyed by bare module name."
@@ -175,6 +164,17 @@ BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement applic
 { #category : 'accessing' }
 BeamEventAnnouncer class >> default [
 	^ default ifNil: [ default := self new ]
+]
+
+{ #category : 'announcing' }
+BeamEventAnnouncer class >> dispatch: anAnnouncement on: aModuleName [
+	"Fire `anAnnouncement` on the per-module announcer (if any subscribers
+	 are listening narrowly) AND on the default singleton (so wildcard
+	 subscribers continue to hear everything)."
+	| perModule |
+	perModule := self announcers at: aModuleName ifAbsent: [ nil ].
+	perModule ifNotNil: [ perModule announce: anAnnouncement ].
+	self default announce: anAnnouncement
 ]
 
 { #category : 'accessing' }

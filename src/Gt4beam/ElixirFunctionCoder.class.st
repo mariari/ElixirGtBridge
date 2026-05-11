@@ -244,24 +244,6 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 		to: self
 ]
 
-{ #category : 'subscriptions' }
-ElixirFunctionCoder >> onModuleEntriesUpdated: anAnnouncement [
-	"The cache fans out `:recompiled` and `:source_written` into one
-	 event; I rebaseline from whatever entries arrived."
-	self refreshFromEntries: anAnnouncement entries
-]
-
-{ #category : 'subscriptions' }
-ElixirFunctionCoder >> refreshFromEntries: entries [
-	| match |
-	entries ifNil: [ ^ self ].
-	match := entries
-		detect: [ :e | (e attributeAt: #name) asString = functionName asString
-			and: [ (e attributeAt: #arity) = arity ] ]
-		ifNone: [ ^ self ].
-	self refreshFromEntry: match
-]
-
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> initializeShortcuts: addOns [
 	super initializeShortcuts: addOns.
@@ -329,6 +311,13 @@ ElixirFunctionCoder >> moveUp [
 	self moveBy: -1
 ]
 
+{ #category : 'subscriptions' }
+ElixirFunctionCoder >> onModuleEntriesUpdated: anAnnouncement [
+	"The cache fans out `:recompiled` and `:source_written` into one
+	 event; I rebaseline from whatever entries arrived."
+	self refreshFromEntries: anAnnouncement entries
+]
+
 { #category : 'evaluation' }
 ElixirFunctionCoder >> primitiveDebug: aSourceString inContext: aContext onFailDo: anEvaluationFailBlock [
 	^ self primitiveEvaluate: aSourceString inContext: aContext onFailDo: anEvaluationFailBlock
@@ -354,6 +343,17 @@ ElixirFunctionCoder >> primitiveEvaluate: aSourceString inContext: aContext onFa
 { #category : 'printing' }
 ElixirFunctionCoder >> printOn: aStream [
 	aStream nextPutAll: 'ElixirFunctionCoder('; nextPutAll: self signature; nextPut: $)
+]
+
+{ #category : 'subscriptions' }
+ElixirFunctionCoder >> refreshFromEntries: entries [
+	| match |
+	entries ifNil: [ ^ self ].
+	match := entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName asString
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ ^ self ].
+	self refreshFromEntry: match
 ]
 
 { #category : 'initialization' }

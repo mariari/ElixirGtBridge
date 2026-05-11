@@ -58,10 +58,11 @@ BeamProxyObject >> applicationAnalysis [
 	 something other than their elixirClass (e.g. BeamDocumentationObject
 	 wraps a Documentation struct whose documented module differs from
 	 GtBridge.Documentation) override this."
+
 	| appAtom sys |
 	elixirClass ifNil: [ ^ nil ].
-	appAtom := self evaluateAndWait:
-		'Application.get_application(', elixirClass, ')'.
+	appAtom := self
+			evaluateAndWait: 'Application.get_application(' , elixirClass , ')'.
 	appAtom ifNil: [ ^ nil ].
 	sys := ElixirSystemAnalysis onApplication: self application.
 	^ sys applications
