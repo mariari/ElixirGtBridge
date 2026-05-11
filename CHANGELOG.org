@@ -1,5 +1,95 @@
 * Changelog
 
+** v0.17.0
+
+*** Features
+
+- Event-sourced module bus :: All BEAM module lifecycle
+  (~:recompiled~, ~:source_written~, ~:source_removed~,
+  ~:compile_failed~) flows through a single ~EventBroker~ publisher
+  → ~/EVENTS~ SSE stream → GT-side ~BeamEventAnnouncer~ with
+  per-module + default fan-out.  Subscribers re-render from the
+  announcement payload without round-tripping the bridge.
+
+- Hot reload survives self-modification :: ~/EVENTS~ moved to a
+  ~cowboy_loop~ handler so the bridge's own recompile doesn't kill
+  the connection (previously died every-other save via BEAM's
+  two-version code purge).  ~CodeMonitor~ + ~HotReload~ siblings
+  excluded from self-save cascade.
+
+- Wrench-driven module creation :: Unresolved Elixir module names
+  show a "Create" wrench affordance.  The create-module form
+  autocompletes from path-dep applications and writes a starter
+  source file routed through ~HotReload~.
+
+- Module coder trash button :: Delete the source file + purge the
+  BEAM module from the module coder header.  Broadcasts
+  ~:source_removed~ so ~BeamModuleSourceCache~ +
+  ~BeamModuleResolution~ drop derived state.
+
+- Compile-failure notifications :: Bordered notification with
+  module / function-arity / line / message.  ~Open~ button jumps
+  to the failing function in its coder.  Failure recovery splices
+  edits into last-known-good source from ~BeamModuleSourceCache~
+  so subsequent saves don't corrupt the file.
+
+- Function coder action bar :: ~✓ Save~ (leftmost) + ~✗ Discard~
+  (visible only when modified).  Play button saves first if
+  modified.  ~Ctrl-Shift-F~ format shortcut.  Play+Inspect is the
+  default runner action.
+
+- ~C-m~ / ~C-n~ code navigation :: Jump to the next/previous
+  function definition.  Inline ~|>~ expander resolves the target
+  function and inlines its source.  Local call-site detection in
+  the function expander styler.
+
+- Streaming filter infrastructure :: Function-coder lists filter
+  through a streaming model that re-renders incrementally as the
+  filter text changes.  Source-tab focus-line scrolling with
+  bounds-checking.
+
+- Analysis extracted into focused subsystems :: ~GtBridge.HotReload~,
+  ~GtBridge.DepGraph~, ~GtBridge.Mnesia~, ~GtBridge.Supervision~,
+  ~GtBridge.Eval.Preamble~, ~GtBridge.Mix~.  Stateless eval pool
+  for sessionId-less ~/ENQUEUE~.  Long-lived ~GtBridge.Xref~
+  service with non-blocking startup.
+
+- Lepiter documentation :: Pages for Wrench, Hot-Reload Internals,
+  Changing Source Code, Creating New Modules, Compile-Failure
+  Notifications.  Lepiter snippets get full import + alias
+  resolution.
+
+- Elixir ~@attribute~ syntax highlighting :: First-class styling
+  rule for module-level attributes.
+
+*** Bug Fixes
+
+- ~Analysis.extract_functions/1~ handles single-expression module
+  bodies (previously returned ~[]~ for them)
+- ~ModuleEvent~ ~:kind~ typespec includes all four kinds
+- ~SseStream.encode/1~ derives fields from the struct so future
+  ~ModuleEvent~ additions propagate automatically
+- ~BeamEventStreamReaderExamples~ uses ~self assert: a ~~ b~
+  (extends ~Object~, not ~TestCase~)
+- ~HotReload~ converts ~Kernel.ParallelCompiler~'s ~{:error,
+  errors, _}~ verifier returns into ~CompileError~ raises so the
+  failure-path notification fires
+- ~ElixirFunctionStreamingModel~ drops stale cache entries on
+  refresh (previously a nil-printing proxy survived every refresh)
+- Self-save cascade no longer kills the SSE plug or
+  ~CodeMonitor~ tracer during sibling ~ParallelCompiler~ recompile
+
+*** Internal
+
+- Dedup ST event machinery (~ensureSubscribed:~, ~fanout:~,
+  ~payloadValue:from:~) across announcer + cache classes
+- Hoist mix-project introspection (~normalize_dep/1~,
+  ~path_deps/0~, ~path_dep_apps/0~, ~path_dep_opts/1~) to
+  ~GtBridge.Mix~
+- ~withoutPrefix: 'Elixir.'~ idiom across 13 call sites
+- Drop dead HTTP response payload from ~reload/2~ (event-driven
+  flow makes the response unused)
+
 ** v0.16.0
 
 *** Features
