@@ -257,7 +257,7 @@ ElixirSystemAnalysis >> gtProblemsFor: aView [
 			moduleInfo := [ app moduleInfo asList ] on: Error do: [ #() ].
 			moduleInfo flatCollect: [ :m | self problemsFor: m in: app ] ] ];
 		column: 'Module' text: [ :each |
-			each first copyReplaceAll: 'Elixir.' with: '' ] weight: 2;
+			each first withoutPrefix: 'Elixir.' ] weight: 2;
 		column: 'Application' text: [ :each | each second ];
 		column: 'Issue' text: [ :each | each third ];
 		send: [ :each |
@@ -296,7 +296,7 @@ ElixirSystemAnalysis >> gtSearchModulesFor: aSearch [
 			(self application evaluateAndWait:
 				'GtBridge.Analysis.search_modules("', (query copyReplaceAll: '"' with: '\"'), '")') asList
 					collect: [ :m | m asString ] ];
-		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		itemName: [ :modName | modName withoutPrefix: 'Elixir.' ];
 		send: [ :modName |
 			self application evaluateAndWait:
 				'GtBridge.Documentation.for_module(', modName, ')' ]

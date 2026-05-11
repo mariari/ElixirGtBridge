@@ -23,7 +23,7 @@ GtSpotterStart >> gtSearchBeamModulesFor: aSearch [
 		send: [ :modName :app |
 			app evaluateAndWait:
 				'GtBridge.Documentation.for_module(', modName, ')' ])
-		itemName: [ :modName | modName copyReplaceAll: 'Elixir.' with: '' ];
+		itemName: [ :modName | modName withoutPrefix: 'Elixir.' ];
 		title: 'BEAM modules';
 		priority: 80
 ]
