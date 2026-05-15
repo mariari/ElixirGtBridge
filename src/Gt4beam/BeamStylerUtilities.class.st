@@ -72,6 +72,7 @@ BeamStylerUtilities class >> keywords [
 		'defexample'.
 		'use'.
 		'alias'.
+		'import'.
 		'typedstruct'.
 		'do'.
 		'end'}
