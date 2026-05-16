@@ -7,7 +7,8 @@ Class {
 		'application',
 		'elixirLinkApplicationStrategy',
 		'preambleLines',
-		'contextModuleName'
+		'contextModuleName',
+		'pageAliasSource'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -194,6 +195,21 @@ GtElixirCoderModel >> initializeShortcuts: addOns [
 { #category : 'accessing' }
 GtElixirCoderModel >> newCompletionStrategy [
 	^ GtCompletionStrategy new
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> pageAliasSource [
+	"I am extra Elixir source text whose `alias`/`import` lines should
+	 also resolve module references in this coder.  Lepiter snippet
+	 elements set me to the concatenated alias lines of sibling
+	 snippets on the same page so a `defines once, use anywhere`
+	 alias works across snippets."
+	^ pageAliasSource
+]
+
+{ #category : 'accessing' }
+GtElixirCoderModel >> pageAliasSource: aString [
+	pageAliasSource := aString
 ]
 
 { #category : 'accessing' }

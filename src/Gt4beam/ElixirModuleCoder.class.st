@@ -300,9 +300,8 @@ ElixirModuleCoder >> contextModuleName [
 
 { #category : 'accessing' }
 ElixirModuleCoder >> pageAliasSource [
-	"I am a single-module editor, no Lepiter page context to pull
-	 sibling aliases from.  Part of the common Elixir-coder interface
-	 (see #contextModuleName)."
+	"Common interface with GtElixirCoderModel and ElixirFunctionCoder.
+	 Module editors have no Lepiter page context."
 	^ nil
 ]
 
