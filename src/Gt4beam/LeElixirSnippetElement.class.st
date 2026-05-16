@@ -26,6 +26,15 @@ LeElixirSnippetElement class >> sessionMap [
 	^ SessionMap ifNil: [ SessionMap := WeakIdentityKeyDictionary new ]
 ]
 
+{ #category : 'private' }
+LeElixirSnippetElement >> collectSiblingSourcesIn: snippets excluding: mySelf into: stream [
+	snippets do: [ :snippet |
+		(snippet ~~ mySelf and: [ snippet isKindOf: LeElixirSnippet ]) ifTrue: [
+			snippet string ifNotNil: [ :src |
+				stream nextPutAll: src; nextPut: Character lf ] ].
+		self collectSiblingSourcesIn: snippet children excluding: mySelf into: stream ]
+]
+
 { #category : 'accessing' }
 LeElixirSnippetElement >> onSnippetViewModelChanged [
 	| pageSrc contextMod |
@@ -86,15 +95,6 @@ LeElixirSnippetElement >> siblingAliasSource [
 	stream := WriteStream on: String new.
 	self collectSiblingSourcesIn: page children excluding: myself into: stream.
 	^ stream contents
-]
-
-{ #category : 'private' }
-LeElixirSnippetElement >> collectSiblingSourcesIn: snippets excluding: mySelf into: stream [
-	snippets do: [ :snippet |
-		(snippet ~~ mySelf and: [ snippet isKindOf: LeElixirSnippet ]) ifTrue: [
-			snippet string ifNotNil: [ :src |
-				stream nextPutAll: src; nextPut: Character lf ] ].
-		self collectSiblingSourcesIn: snippet children excluding: mySelf into: stream ]
 ]
 
 { #category : 'accessing' }

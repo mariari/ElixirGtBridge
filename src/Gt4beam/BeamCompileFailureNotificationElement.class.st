@@ -76,9 +76,9 @@ BeamCompileFailureNotificationElement >> openCoderFrom: anElement [
 	n ifNil: [ ^ self ].
 	app := n resolveApplication.
 	app ifNil: [ ^ self ].
-	coder := ElixirModuleCoder
+	coder := (ElixirModuleCoder
 		forModule: n moduleName
-		application: app
+		application: app)
 		sourcePath: n sourcePath.
 	n hasFunction ifTrue: [ coder focusFunctionTarget: n functionTarget ].
 	n hasLine ifTrue: [ coder focusLine: n line ].

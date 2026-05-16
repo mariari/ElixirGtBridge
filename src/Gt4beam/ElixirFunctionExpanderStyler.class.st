@@ -102,14 +102,6 @@ ElixirFunctionExpanderStyler >> contextModuleName [
 	^ self attachedCoder ifNotNil: [ :coder | coder contextModuleName ]
 ]
 
-{ #category : 'accessing' }
-ElixirFunctionExpanderStyler >> pageAliasSource [
-	"Extra Elixir source whose `alias`/`import` lines should also
-	 resolve here — Lepiter snippet elements populate it with their
-	 sibling snippets' aliases.  Non-Lepiter coders return nil."
-	^ self attachedCoder ifNotNil: [ :coder | coder pageAliasSource ]
-]
-
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> defmoduleHeadsIn: ast source: source [
 	"I return DotAliasNodes that are the head of a `defmodule` /
@@ -262,6 +254,14 @@ ElixirFunctionExpanderStyler >> outermostAliasesIn: aCollection [
 			outermost add: node.
 			outerStop := node stopPosition ] ].
 	^ outermost
+]
+
+{ #category : 'accessing' }
+ElixirFunctionExpanderStyler >> pageAliasSource [
+	"Extra Elixir source whose `alias`/`import` lines should also
+	 resolve here — Lepiter snippet elements populate it with their
+	 sibling snippets' aliases.  Non-Lepiter coders return nil."
+	^ self attachedCoder ifNotNil: [ :coder | coder pageAliasSource ]
 ]
 
 { #category : 'private' }

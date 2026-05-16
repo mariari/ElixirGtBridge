@@ -161,13 +161,6 @@ ElixirFunctionCoder >> contextModuleName [
 	^ moduleCoder moduleName
 ]
 
-{ #category : 'accessing' }
-ElixirFunctionCoder >> pageAliasSource [
-	"Common interface with GtElixirCoderModel and ElixirModuleCoder.
-	 Function editors have no Lepiter page context."
-	^ nil
-]
-
 { #category : 'private' }
 ElixirFunctionCoder >> dedentSource: aString [
 	"I record the common leading-space indent of aString on `indent`
@@ -323,6 +316,13 @@ ElixirFunctionCoder >> onModuleEntriesUpdated: anAnnouncement [
 	"The cache fans out `:recompiled` and `:source_written` into one
 	 event; I rebaseline from whatever entries arrived."
 	self refreshFromEntries: anAnnouncement entries
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> pageAliasSource [
+	"Common interface with GtElixirCoderModel and ElixirModuleCoder.
+	 Function editors have no Lepiter page context."
+	^ nil
 ]
 
 { #category : 'evaluation' }
