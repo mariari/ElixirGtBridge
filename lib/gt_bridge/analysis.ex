@@ -143,18 +143,6 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I return all function definitions with complete line ranges.
-
-  Each entry includes `:start` (extended back to include @doc/@spec),
-  `:end_line`, `:name`, `:arity`, `:kind`, `:sig`, and `:source`
-  (the source text for that function including annotations).
-
-  AST entries are merged with runtime exports from `__info__(:functions)`
-  so macro-generated functions (e.g. `defview`, `defstruct` field
-  accessors, etc.) are visible. Runtime-only entries get default
-  `start: 0`, `end_line: 0`, `kind: :def`, and a placeholder source.
-  """
-  @doc """
   I extract the top-level `defmodule X.Y` name from `source`. Returns
   the dotted module string, or nil when the source doesn't define one
   or doesn't parse.
@@ -315,6 +303,18 @@ defmodule GtBridge.Analysis do
     end
   end
 
+  @doc """
+  I return all function definitions with complete line ranges.
+
+  Each entry includes `:start` (extended back to include @doc/@spec),
+  `:end_line`, `:name`, `:arity`, `:kind`, `:sig`, and `:source`
+  (the source text for that function including annotations).
+
+  AST entries are merged with runtime exports from `__info__(:functions)`
+  so macro-generated functions (e.g. `defview`, `defstruct` field
+  accessors, etc.) are visible. Runtime-only entries get default
+  `start: 0`, `end_line: 0`, `kind: :def`, and a placeholder source.
+  """
   @spec all_functions(module()) :: [map()]
   def all_functions(mod) do
     # safe_exported_functions / fetch_specs / fetch_types all return
