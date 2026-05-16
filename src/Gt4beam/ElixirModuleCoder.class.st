@@ -299,6 +299,13 @@ ElixirModuleCoder >> contextModuleName [
 ]
 
 { #category : 'accessing' }
+ElixirModuleCoder >> pageAliasSource [
+	"Common interface with GtElixirCoderModel and ElixirFunctionCoder.
+	 Module editors have no Lepiter page context."
+	^ nil
+]
+
+{ #category : 'accessing' }
 ElixirModuleCoder >> editorSessionId [
 	"I return a unique session ID for this coder instance, with the
 	 module's imports/aliases/requires loaded. The session is finalized

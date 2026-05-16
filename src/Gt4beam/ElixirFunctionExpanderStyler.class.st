@@ -30,11 +30,16 @@ ElixirFunctionExpanderStyler >> absolutePositionForLine: line column: col in: so
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> aliasMapFor: source [
-	"Source-level `alias` directives merged with the surrounding
-	 module's aliases (when a context module is known).  Source wins
-	 on conflict so a local `alias` line takes precedence."
+	"Source-level `alias` directives, the surrounding page's sibling
+	 aliases (when running inside a Lepiter snippet), and the
+	 surrounding module's aliases (when a context module is known).
+	 Precedence: source > page > module — the closer-to-the-cursor
+	 declaration wins."
 	| aliasMap |
 	aliasMap := self extractAliasesFrom: source.
+	self pageAliasSource ifNotNil: [ :pageSrc |
+		(self extractAliasesFrom: pageSrc) keysAndValuesDo: [ :k :v |
+			aliasMap at: k ifAbsentPut: [ v ] ] ].
 	self contextModuleName ifNotNil: [ :mod |
 		(self moduleAliasesFor: mod) do: [ :pair |
 			aliasMap at: pair first ifAbsentPut: [ pair second ] ] ].
@@ -82,13 +87,27 @@ ElixirFunctionExpanderStyler >> attachWrenchEntry: entry in: aText resolution: r
 	self attribute: attr from: endPos to: endPos
 ]
 
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> attachedCoder [
+	"I return the coderModel my view model wraps, or nil if I'm not
+	 yet attached."
+	^ self coderViewModel ifNotNil: [ :vm | vm coderModel ]
+]
+
 { #category : 'accessing' }
 ElixirFunctionExpanderStyler >> contextModuleName [
-	"I return the module name from the coder. Every Elixir coder that
-	 attaches me — GtElixirCoderModel, ElixirModuleCoder,
-	 ElixirFunctionCoder — implements #contextModuleName."
-	^ self coderViewModel ifNotNil: [ :vm |
-		vm coderModel ifNotNil: [ :coder | coder contextModuleName ] ]
+	"Every Elixir coder I attach to — GtElixirCoderModel,
+	 ElixirModuleCoder, ElixirFunctionCoder — implements
+	 #contextModuleName."
+	^ self attachedCoder ifNotNil: [ :coder | coder contextModuleName ]
+]
+
+{ #category : 'accessing' }
+ElixirFunctionExpanderStyler >> pageAliasSource [
+	"Extra Elixir source whose `alias`/`import` lines should also
+	 resolve here — Lepiter snippet elements populate it with their
+	 sibling snippets' aliases.  Non-Lepiter coders return nil."
+	^ self attachedCoder ifNotNil: [ :coder | coder pageAliasSource ]
 ]
 
 { #category : 'private' }
@@ -346,16 +365,25 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	 state persists across re-styles.  cachedHash/cachedSites
 	 short-circuits the BEAM round-trip for back-to-back styles of
 	 the same source."
-	| source hash sites b64 query |
+	| source effectiveSource pageSrc hash sites b64 query |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
 	source size < 10 ifTrue: [ ^ self ].
-	hash := { source hash. self contextModuleName }.
+	pageSrc := self pageAliasSource ifNil: [ '' ].
+	"Append page-level aliases after the original source so BEAM's
+	 extract_alias_map picks them up.  The parser scans the whole
+	 string for `alias` lines regardless of position, and call-site
+	 line/col come from the real-code section, so appending doesn't
+	 shift any in-editor positions."
+	effectiveSource := pageSrc isEmpty
+		ifTrue: [ source ]
+		ifFalse: [ source , String lf , pageSrc ].
+	hash := { source hash. self contextModuleName. pageSrc hash }.
 	hash = cachedHash
 		ifTrue: [ sites := cachedSites ]
 		ifFalse: [
-			b64 := ZnBase64Encoder new encode: source utf8Encoded.
+			b64 := ZnBase64Encoder new encode: effectiveSource utf8Encoded.
 			query := 'GtBridge.Analysis.call_sites(Base.decode64!("', b64, '")'.
 			self contextModuleName ifNotNil: [ :mod |
 				query := query, ', ', mod ].

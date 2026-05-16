@@ -161,6 +161,13 @@ ElixirFunctionCoder >> contextModuleName [
 	^ moduleCoder moduleName
 ]
 
+{ #category : 'accessing' }
+ElixirFunctionCoder >> pageAliasSource [
+	"Common interface with GtElixirCoderModel and ElixirModuleCoder.
+	 Function editors have no Lepiter page context."
+	^ nil
+]
+
 { #category : 'private' }
 ElixirFunctionCoder >> dedentSource: aString [
 	"I record the common leading-space indent of aString on `indent`
