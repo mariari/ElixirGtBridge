@@ -94,7 +94,6 @@ defmodule GtBridge.HotReload do
     end
   end
 
-
   # I do the compile + sibling propagation half. Pulled out of `reload/2`
   # so the disk-write half can run unconditionally and the compile half
   # can be wrapped in a try.
@@ -350,12 +349,6 @@ defmodule GtBridge.HotReload do
     end
   end
 
-  @doc """
-  I return the compile dependency graph as {from, to, label} edges.
-
-  Edges represent: changing `to` forces recompilation of `from`.
-  Label is :compile, :export, or :runtime.
-  """
   @stdlib_modules MapSet.new([
                     Kernel,
                     Kernel.Typespec,
@@ -400,7 +393,12 @@ defmodule GtBridge.HotReload do
     :ok
   end
 
+  @doc """
+  I return the compile dependency graph as {from, to, label} edges.
 
+  Edges represent: changing `to` forces recompilation of `from`.
+  Label is :compile, :export, or :runtime.
+  """
   @spec compile_dep_edges(keyword()) :: [map()]
   def compile_dep_edges(opts \\ []) do
     manifest_path = Path.join(Mix.Project.manifest_path(), "compile.elixir")
