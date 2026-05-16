@@ -52,7 +52,7 @@ defmodule GtBridge.MixProject do
       {:jexon, "~> 0.9.5"},
       {:req, "~> 0.5.0"},
       {:ex_example, "~> 0.1.1"},
-      {:hot_reload_test, path: "fixtures/hot_reload_test"}
+      {:hot_reload_test, path: "fixtures/hot_reload_test", only: [:dev, :test]}
     ]
   end
 end
