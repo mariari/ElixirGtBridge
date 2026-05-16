@@ -1,8 +1,14 @@
 * Changelog
+** v0.17.2
+*** Bug Fixes
+- Atoms like :narwhal234foo.Blocks does not cause error views
+- Wrenches now don't appear if there are aliases on the page, and
+  the see more code graphic shows
 ** v0.17.1
 *** Bug Fixes
 - ~import~ was not properly highlighted
 - the =|>= page did not proper load due to snippit corruption
+
 ** v0.17.0
 
 *** Features
@@ -313,3 +319,4 @@
 - Drop redundant self binding from eval (renamed to =pid:=)
 - Extract ~register_value/1~ to deduplicate object serialization
   in Eval
+
