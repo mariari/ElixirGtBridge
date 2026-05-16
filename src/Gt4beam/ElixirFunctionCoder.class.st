@@ -161,6 +161,14 @@ ElixirFunctionCoder >> contextModuleName [
 	^ moduleCoder moduleName
 ]
 
+{ #category : 'accessing' }
+ElixirFunctionCoder >> pageAliasSource [
+	"I edit a single function within a module, no Lepiter page context
+	 to pull sibling aliases from.  Part of the common Elixir-coder
+	 interface (see #contextModuleName)."
+	^ nil
+]
+
 { #category : 'private' }
 ElixirFunctionCoder >> dedentSource: aString [
 	"I record the common leading-space indent of aString on `indent`

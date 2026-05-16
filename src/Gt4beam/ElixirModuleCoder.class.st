@@ -299,6 +299,14 @@ ElixirModuleCoder >> contextModuleName [
 ]
 
 { #category : 'accessing' }
+ElixirModuleCoder >> pageAliasSource [
+	"I am a single-module editor, no Lepiter page context to pull
+	 sibling aliases from.  Part of the common Elixir-coder interface
+	 (see #contextModuleName)."
+	^ nil
+]
+
+{ #category : 'accessing' }
 ElixirModuleCoder >> editorSessionId [
 	"I return a unique session ID for this coder instance, with the
 	 module's imports/aliases/requires loaded. The session is finalized
