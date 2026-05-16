@@ -1,5 +1,8 @@
 * Changelog
-
+** v0.17.1
+*** Bug Fixes
+- ~import~ was not properly highlighted
+- the =|>= page did not proper load due to snippit corruption
 ** v0.17.0
 
 *** Features

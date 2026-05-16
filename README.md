@@ -24,7 +24,7 @@ Add `gt_bridge` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:gt_bridge, "~> 0.16.0"}
+    {:gt_bridge, "~> 0.17.1"}
   ]
 end
 ```
