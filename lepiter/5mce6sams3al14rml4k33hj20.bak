@@ -39,7 +39,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "GT renders inline method expanders (small triangle ▶ after a method send) using the {{gtClass:name=BrGlamorousTriangleExpanderTextAttribute}} framework. We reuse this for |> after each resolvable Elixir function call."
+				"string" : "Triangle expanders (▶) after each resolvable Elixir function call. Built on {{gtClass:name=BrGlamorousTriangleExpanderTextAttribute}}."
 			},
 			{
 				"__type" : "textSnippet",
@@ -76,7 +76,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## GT's reference implementation\n\n{{gtClass:name=GtPharoMethodExpanderStyler}} (a {{gtClass:name=GtCoderAstStyler}}) walks the AST in {{gtMethod:name=GtPharoMethodExpanderStyler>>visitMessage:}}, creates {{gtClass:name=GtPharoMethodExpanderAttribute}} instances at each message send, gives each a unique ID, and attaches them via `text attribute:from:to:`. Each attribute lazily builds its expanded element via a stencil block (see {{gtMethod:name=GtPharoMethodExpanderAttribute>>initialize}}). We mirror this exactly."
+				"string" : "## GT's reference\n\n{{gtClass:name=GtPharoMethodExpanderStyler}} + {{gtClass:name=GtPharoMethodExpanderAttribute}}. Styler walks the AST in {{gtMethod:name=GtPharoMethodExpanderStyler>>visitMessage:}} and attaches an attribute per message send. We mirror this."
 			},
 			{
 				"__type" : "textSnippet",
@@ -89,32 +89,36 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:55:05.404662+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:55:05.404662+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "L6r04IdDQXGXCdD0NFlWEw=="
+							},
 							"paragraphStyle" : {
 								"__type" : "textStyle"
 							},
-							"string" : "{{gtClass:name=ElixirFunctionExpanderStyler}} extends {{gtClass:name=GtCoderAstStyler}}. {{gtMethod:name=ElixirFunctionExpanderStyler>>style:ast:}} queries BEAM for call sites and attaches expander attributes inline."
-						},
-						{
-							"__type" : "textSnippet",
-							"children" : {
-								"__type" : "snippets",
-								"items" : [ ]
-							},
-							"paragraphStyle" : {
-								"__type" : "textStyle"
-							},
-							"string" : "{{gtClass:name=ElixirFunctionExpanderAttribute}} extends {{gtClass:name=BrGlamorousTriangleExpanderTextAttribute}}. {{gtMethod:name=ElixirFunctionExpanderAttribute>>buildExpandedElement}} fetches function source from BEAM and renders it with a header showing `Module > function/arity`."
-						},
-						{
-							"__type" : "elementSnippet",
-							"children" : {
-								"__type" : "snippets",
-								"items" : [ ]
-							},
-							"code" : "BrGlamorousTriangleExpanderTextAttribute gtSubclassesFor: GtPhlowView new",
-							"elementHeight" : 100,
-							"codeHeight" : 50,
-							"codeVisible" : true
+							"string" : "{{gtMethod:name=ElixirFunctionExpanderStyler>>style:ast:}} queries BEAM for call sites, attaches attributes inline."
 						}
 					]
 				},
@@ -147,7 +151,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## Our chain\n\nMirrors GT's reference: a styler walks the AST and attaches expander attributes; each attribute knows how to fetch and render its expanded element."
+				"string" : "## Our chain"
 			},
 			{
 				"__type" : "textSnippet",
@@ -184,7 +188,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## Registration\n\nAdd to the coder via `addOns addStyler: ElixirFunctionExpanderStyler new` in {{gtMethod:name=GtElixirCoderModel>>initializeAddOns:}}. The composite styler runs it automatically on text changes — no manual call needed."
+				"string" : "## Registration\n\n`addOns addStyler: ElixirFunctionExpanderStyler new` in {{gtMethod:name=GtElixirCoderModel>>initializeAddOns:}}. Composite styler runs it on text changes."
 			},
 			{
 				"__type" : "textSnippet",
@@ -221,7 +225,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## BEAM-side\n\n`GtBridge.Analysis.call_sites(source, contextModule)` parses the source AST, walks remote calls, resolves aliases (using context module's preamble if not in source), and filters out unresolvable, unsourced, or non-existent functions. Returns `[%{target_module, function, arity, line, column}]`.\n\nThe styler caches sites by source hash to avoid round-tripping the BEAM on every restyle (cursor moves, etc.). Cleared whenever source actually changes."
+				"string" : "## BEAM-side\n\n`GtBridge.Analysis.call_sites(source, contextModule)` parses the AST, resolves aliases (using the context module's preamble when missing from source), filters unresolvable / unsourced / non-existent calls. Returns `[%{target_module, function, arity, line, column}]`. Styler caches by source hash."
 			}
 		]
 	},

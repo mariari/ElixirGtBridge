@@ -89,21 +89,36 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:55:05.404662+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:55:05.404662+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "L6r04IdDQXGXCdD0NFlWEw=="
+							},
 							"paragraphStyle" : {
 								"__type" : "textStyle"
 							},
 							"string" : "{{gtMethod:name=ElixirFunctionExpanderStyler>>style:ast:}} queries BEAM for call sites, attaches attributes inline."
-						},
-						{
-							"__type" : "textSnippet",
-							"children" : {
-								"__type" : "snippets",
-								"items" : [ ]
-							},
-							"paragraphStyle" : {
-								"__type" : "textStyle"
-							},
-							"string" : "{{gtMethod:name=ElixirFunctionExpanderAttribute>>buildExpandedElement}} fetches the source and renders it with a `Module > function/arity` header."
 						},
 						{
 							"__type" : "elementSnippet",
@@ -111,8 +126,34 @@
 								"__type" : "snippets",
 								"items" : [ ]
 							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:58:09.172711+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-05-16T20:58:24.179441+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "MNzc9egdSbCwVlEqa09+BA=="
+							},
 							"code" : "BrGlamorousTriangleExpanderTextAttribute gtSubclassesFor: GtPhlowView new",
-							"elementHeight" : 192,
+							"elementHeight" : 206,
 							"codeHeight" : 50,
 							"codeVisible" : false
 						}
