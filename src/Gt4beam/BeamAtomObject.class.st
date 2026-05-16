@@ -259,11 +259,12 @@ BeamAtomObject >> isModuleAtom [
 	 modules (lowercase, checked via Code.ensure_loaded? on the
 	 BEAM). Erlang modules like :mnesia, :ets, :gen_server are
 	 valid modules even though they start lowercase."
+
 	symbol isEmpty ifTrue: [ ^ false ].
 	symbol first isUppercase ifTrue: [ ^ true ].
-	^ [ self evaluateAndWait:
-		'Code.ensure_loaded?(:', symbol, ')' ]
-		on: Error do: [ false ]
+	^ [ self evaluateAndWait: 'Code.ensure_loaded?(' , self resolve , ')' ]
+		on: Error
+		do: [ false ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -282,9 +283,12 @@ BeamAtomObject >> resolve [
 	"I return the Elixir literal for this atom. Module atoms
 	 (uppercase letter) are bare names; all others (including
 	 underscore-prefixed like __meta__) get the : prefix."
+
 	^ symbol first isUppercase
 		ifTrue: [ symbol ]
-		ifFalse: [ ':' , symbol ]
+		ifFalse: [ (symbol matchesRegex: '^[a-z_][a-zA-Z0-9_]*[?!]?$')
+				ifTrue: [ ':' , symbol ]
+				ifFalse: [ ':"' , symbol , '"' ] ]
 ]
 
 { #category : 'accessing' }
