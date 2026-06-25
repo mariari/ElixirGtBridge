@@ -42,7 +42,7 @@ defmodule GtBridge.Completion do
         complete_local_or_var(List.to_string(hint), bindings)
 
       {:struct, hint} ->
-        complete_struct(List.to_string(hint))
+        complete_struct(struct_prefix(hint))
 
       :expr ->
         complete_local_or_var("", bindings)
@@ -143,16 +143,45 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_struct(hint) do
-    for {module, _} <- :code.all_loaded(),
-        name = Atom.to_string(module),
-        String.starts_with?(name, "Elixir."),
-        short = String.replace_prefix(name, "Elixir.", ""),
-        String.starts_with?(short, hint),
-        function_exported?(module, :__struct__, 1) do
-      short
-    end
-    |> Enum.sort()
+  # 0-arity Kernel special forms (__MODULE__, __ENV__, ...) can stand where a
+  # struct name goes, e.g. %__MODULE__{}. Offer them from the language itself
+  # rather than naming any one.
+  @special_forms for {name, 0} <- Kernel.SpecialForms.__info__(:macros),
+                     do: Atom.to_string(name)
+
+  # cursor_context wraps the struct name in the same context tuples it uses
+  # elsewhere: a charlist alias (%MapS), a dotted alias (%File.), or a
+  # local_or_var for a special form like %__MODULE__. Flatten each to the
+  # prefix string complete_struct/1 matches on; anything else has no struct
+  # name to complete.
+  @spec struct_prefix(charlist() | tuple()) :: String.t() | nil
+  defp struct_prefix(hint) when is_list(hint), do: List.to_string(hint)
+
+  defp struct_prefix({:dot, {:alias, mod}, hint}),
+    do: List.to_string(mod) <> "." <> List.to_string(hint)
+
+  defp struct_prefix({:local_or_var, hint}), do: List.to_string(hint)
+  defp struct_prefix(_), do: nil
+
+  defp complete_struct(nil), do: []
+
+  defp complete_struct(prefix) do
+    specials =
+      if prefix == "",
+        do: [],
+        else: for(form <- @special_forms, String.starts_with?(form, prefix), do: "%" <> form)
+
+    modules =
+      for {module, _} <- :code.all_loaded(),
+          name = Atom.to_string(module),
+          String.starts_with?(name, "Elixir."),
+          short = String.replace_prefix(name, "Elixir.", ""),
+          String.starts_with?(short, prefix),
+          function_exported?(module, :__struct__, 1) do
+        "%" <> short
+      end
+
+    (specials ++ modules) |> Enum.sort()
   end
 
   defp resolve_alias(charlist) do
