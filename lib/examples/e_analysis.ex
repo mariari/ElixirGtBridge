@@ -287,4 +287,79 @@ defmodule Examples.EAnalysis do
     assert Enum.any?(sites, &(&1.target_module == "GtBridge.Analysis"))
     sites
   end
+
+  ############################################################
+  #                  Source Edit Examples                     #
+  ############################################################
+
+  @spec swap_functions_keeps_bodies_intact() :: String.t()
+  example swap_functions_keeps_bodies_intact do
+    # Both wrap :mnesia.transaction(fn -> ... end); drifted line numbers
+    # fuse them and leave a dangling `end`. Source-derived ranges can't.
+    source = ~s'''
+    defmodule AL.Branch do
+      @spec stored_head() :: t()
+      defp stored_head() do
+        {:atomic, branch} =
+          :mnesia.transaction(fn ->
+            case :mnesia.read(:meta, :head) do
+              [{:meta, :head, branch}] -> branch
+              [] -> :main
+            end
+          end)
+
+        %__MODULE__{id: branch}
+      end
+
+      @spec main() :: t()
+      def main() do
+        %__MODULE__{id: :main}
+      end
+    end
+    '''
+
+    swapped = Analysis.swap_functions(source, "stored_head", 0, "main", 0)
+
+    # Re-parses cleanly with the two functions reordered and each body whole.
+    {:ok, _} = Code.string_to_quoted(swapped)
+    entries = Analysis.functions_in_source(swapped)
+    assert Enum.map(entries, & &1.name) == ["main", "stored_head"]
+
+    by_name = Map.new(entries, &{&1.name, &1.source})
+    assert by_name["main"] =~ "%__MODULE__{id: :main}"
+    assert by_name["stored_head"] =~ "%__MODULE__{id: branch}"
+    assert by_name["stored_head"] =~ "case :mnesia.read(:meta, :head) do"
+
+    swapped
+  end
+
+  @spec replace_function_save_and_delete() :: String.t()
+  example replace_function_save_and_delete do
+    source = ~s'''
+    defmodule M do
+      @spec a() :: :ok
+      def a do
+        if true do
+          :ok
+        end
+      end
+
+      @spec b() :: :ok
+      def b, do: :ok
+    end
+    '''
+
+    edited = Analysis.replace_function(source, "a", 0, "  def a, do: :rewritten")
+    {:ok, _} = Code.string_to_quoted(edited)
+    assert edited =~ "def a, do: :rewritten"
+    refute edited =~ "if true do"
+    assert edited =~ "def b, do: :ok"
+
+    # Empty new_text removes the function (the delete path).
+    removed = Analysis.replace_function(source, "a", 0, "")
+    {:ok, _} = Code.string_to_quoted(removed)
+    assert Analysis.functions_in_source(removed) |> Enum.map(& &1.name) == ["b"]
+
+    edited
+  end
 end

@@ -184,7 +184,7 @@ defmodule GtBridge.Analysis do
         |> merge_clauses()
         |> Enum.map(fn f ->
           start = walk_back_annotations(lines, f.start)
-          source_text = Enum.slice(lines, (start - 1)..(f.end_line - 1)) |> Enum.join("\n")
+          source_text = slice_lines(lines, start, f.end_line)
           %{f | start: start} |> Map.put(:source, source_text)
         end)
 
@@ -192,6 +192,63 @@ defmodule GtBridge.Analysis do
         lenient_function_entries(source)
     end
   end
+
+  @doc """
+  I swap two functions (by `{name, arity}`) in `source`, taking ranges from
+  `source` itself so the splice can't drift. Unknown name/arity returns
+  `source` unchanged.
+  """
+  @spec swap_functions(String.t(), String.t(), arity(), String.t(), arity()) :: String.t()
+  def swap_functions(source, name_a, arity_a, name_b, arity_b) do
+    entries = functions_in_source(source)
+
+    with a when not is_nil(a) <- find_function(entries, name_a, arity_a),
+         b when not is_nil(b) <- find_function(entries, name_b, arity_b) do
+      rewrite(source, [{a, text_lines(b.source)}, {b, text_lines(a.source)}])
+    else
+      _ -> source
+    end
+  end
+
+  @doc """
+  I replace the `{name, arity}` function in `source` with `new_text` (or
+  remove it when `new_text` is empty), taking the range from `source` itself
+  so the splice can't drift. Unknown name/arity returns `source` unchanged.
+  """
+  @spec replace_function(String.t(), String.t(), arity(), String.t()) :: String.t()
+  def replace_function(source, name, arity, new_text) do
+    case find_function(functions_in_source(source), name, arity) do
+      nil -> source
+      f -> rewrite(source, [{f, text_lines(new_text)}])
+    end
+  end
+
+  # Replace disjoint function ranges: each {entry, lines} swaps
+  # entry.start..entry.end_line for lines. Spliced in source order so the
+  # untouched line numbers stay valid as we go.
+  defp rewrite(source, edits) do
+    lines = String.split(source, "\n")
+
+    {out, last} =
+      edits
+      |> Enum.sort_by(fn {e, _} -> e.start end)
+      |> Enum.flat_map_reduce(0, fn {e, repl}, cursor ->
+        {take_lines(lines, cursor + 1, e.start - 1) ++ repl, e.end_line}
+      end)
+
+    (out ++ take_lines(lines, last + 1, length(lines))) |> Enum.join("\n")
+  end
+
+  defp text_lines(""), do: []
+  defp text_lines(text), do: String.split(text, "\n")
+
+  defp find_function(entries, name, arity),
+    do: Enum.find(entries, &(&1.name == name and &1.arity == arity))
+
+  # 1-indexed inclusive slice; the from > to guard matters because
+  # (from - 1)..(to - 1) wraps to the whole list when to is 0.
+  defp take_lines(_lines, from, to) when from > to, do: []
+  defp take_lines(lines, from, to), do: Enum.slice(lines, (from - 1)..(to - 1))
 
   # Per-fn fallback for files where whole-module AST parse fails (stray
   # `end`, mid-edit).  For each def header, find the smallest end_line
@@ -226,7 +283,7 @@ defmodule GtBridge.Analysis do
     max_end = min(start_line + @lenient_max_fn_lines - 1, total)
 
     Enum.reduce_while(start_line..max_end, :error, fn end_line, _acc ->
-      body = Enum.slice(lines, (start_line - 1)..(end_line - 1)) |> Enum.join("\n")
+      body = slice_lines(lines, start_line, end_line)
       wrapped = "defmodule __GtBridgeLenient__ do\n" <> body <> "\nend\n"
 
       case Code.string_to_quoted(wrapped) do
@@ -235,8 +292,7 @@ defmodule GtBridge.Analysis do
             {:ok, name, arity, kind_str} ->
               walked_start = walk_back_annotations(lines, start_line)
 
-              full_slice =
-                Enum.slice(lines, (walked_start - 1)..(end_line - 1)) |> Enum.join("\n")
+              full_slice = slice_lines(lines, walked_start, end_line)
 
               entry = %{
                 name: Atom.to_string(name),
@@ -485,8 +541,7 @@ defmodule GtBridge.Analysis do
     found
   end
 
-  defp slice_lines(lines, s, e),
-    do: Enum.slice(lines, (s - 1)..(e - 1)) |> Enum.join("\n")
+  defp slice_lines(lines, s, e), do: take_lines(lines, s, e) |> Enum.join("\n")
 
   defp merge_clauses(entries) do
     # Merge consecutive entries with the same name/arity/kind
