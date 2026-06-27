@@ -108,7 +108,9 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 			icon: BrGlamorousVectorIcons cancel;
 			beSmallSize;
 			label: 'Cancel';
-			action: [ :btn | draftPane removeFromParent ]);
+			action: [ :btn |
+				draftPane removeFromParent.
+				self announcer unsubscribe: draftPane ]);
 		yourself.
 	draftPane := BlElement new
 		layout: BlLinearLayout vertical;
@@ -122,7 +124,9 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 		yourself.
 	self announcer
 		when: GtCoderSourceCodeChanged
-		do: [ :ann | draftPane removeFromParent ]
+		do: [ :ann |
+			draftPane removeFromParent.
+			self announcer unsubscribe: draftPane ]
 		for: draftPane.
 	container addChild: draftPane at: 2
 ]
