@@ -400,4 +400,27 @@ defmodule Examples.EAnalysis do
 
     t
   end
+
+  @spec functions_in_source_includes_types() :: [map()]
+  example functions_in_source_includes_types do
+    # functions_in_source primes the source-written cache; it must carry types
+    # or a plain save strips them from the browser until a recompile re-primes.
+    source = """
+    defmodule M do
+      use TypedStruct
+      @type id :: atom()
+      typedstruct enforce: true do
+        field(:id, atom())
+      end
+      def go, do: :ok
+    end
+    """
+
+    by_kind = Analysis.functions_in_source(source) |> Enum.group_by(& &1.kind)
+
+    assert Enum.map(by_kind[:type], & &1.name) |> Enum.sort() == ["id", "t"]
+    assert "go" in Enum.map(by_kind["def"], & &1.name)
+
+    by_kind
+  end
 end
