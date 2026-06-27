@@ -12,7 +12,8 @@ Class {
 		'selfObject',
 		'showsModuleInHeader',
 		'kind',
-		'indent'
+		'indent',
+		'list'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -65,8 +66,10 @@ ElixirFunctionCoder >> addHelpAddOnsTo: anAddOns to: aViewModel from: aCoderMode
 ElixirFunctionCoder >> addMoveAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
 	"Skipped for macro-generated functions (no source line means
-	 there's no slot in the file to swap with a neighbor)."
+	 there's no slot in the file to swap with a neighbor), and when I'm
+	 not a member of a reorderable list (inline expander, filter results)."
 	self hasSource ifFalse: [ ^ self ].
+	list ifNil: [ ^ self ].
 	anAddOns
 		addMainAction: 'Move up' translated
 		icon: BrGlamorousVectorIcons up
@@ -262,6 +265,18 @@ ElixirFunctionCoder >> isType [
 { #category : 'accessing' }
 ElixirFunctionCoder >> kind [
 	^ kind
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> list [
+	"The reorderable coders list I belong to (an ElixirFunctionStreamingModel),
+	 or nil. Move only makes sense as a member of one."
+	^ list
+]
+
+{ #category : 'accessing' }
+ElixirFunctionCoder >> list: aCodersList [
+	list := aCodersList
 ]
 
 { #category : 'add-ons' }
