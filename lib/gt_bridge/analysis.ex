@@ -223,6 +223,22 @@ defmodule GtBridge.Analysis do
     end
   end
 
+  @doc """
+  I append `new_text` as a new function just before `source`'s module-closing
+  `end`, located from the parse (not a text scan, which trailing comments or
+  string `end`s defeat). Returns `source` unchanged if it doesn't parse.
+  """
+  @spec append_function(String.t(), String.t()) :: String.t()
+  def append_function(source, new_text) do
+    with {:ok, ast} <- Code.string_to_quoted(source, token_metadata: true),
+         line when is_integer(line) <- module_end_line(ast) do
+      # a zero-width edit at `line` inserts the blank + new function before it
+      rewrite(source, [{%{start: line, end_line: line - 1}, ["" | text_lines(new_text)]}])
+    else
+      _ -> source
+    end
+  end
+
   # Replace disjoint function ranges: each {entry, lines} swaps
   # entry.start..entry.end_line for lines. Spliced in source order so the
   # untouched line numbers stay valid as we go.
@@ -244,6 +260,17 @@ defmodule GtBridge.Analysis do
 
   defp find_function(entries, name, arity),
     do: Enum.find(entries, &(&1.name == name and &1.arity == arity))
+
+  # Line of the outermost module's closing `end`, from token metadata.
+  defp module_end_line(ast) do
+    {_, line} =
+      Macro.prewalk(ast, nil, fn
+        {:defmodule, meta, _} = node, nil -> {node, get_in(meta, [:end, :line])}
+        node, acc -> {node, acc}
+      end)
+
+    line
+  end
 
   # 1-indexed inclusive slice; the from > to guard matters because
   # (from - 1)..(to - 1) wraps to the whole list when to is 0.

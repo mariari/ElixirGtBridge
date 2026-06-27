@@ -362,4 +362,17 @@ defmodule Examples.EAnalysis do
 
     edited
   end
+
+  @spec append_function_finds_module_end() :: String.t()
+  example append_function_finds_module_end do
+    # `end # M` has no bare-`end` line, which defeats a findLast-"end" scan;
+    # parsing locates the module close, so the new function lands inside it.
+    source = "defmodule M do\n  def a, do: 1\nend # M\n"
+    appended = Analysis.append_function(source, "  def b, do: 2")
+
+    {:ok, _} = Code.string_to_quoted(appended)
+    assert Analysis.functions_in_source(appended) |> Enum.map(& &1.name) == ["a", "b"]
+
+    appended
+  end
 end

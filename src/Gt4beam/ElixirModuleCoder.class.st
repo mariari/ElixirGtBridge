@@ -45,20 +45,11 @@ ElixirModuleCoder class >> forModule: aModuleName application: anApp [
 
 { #category : 'actions' }
 ElixirModuleCoder >> addFunction: newText [
-	"I insert newText just before the module's closing `end`, so new
-	 functions land after any types, attributes, and existing defs.
-	 findLast: is critical — a backward loop without early termination
-	 would fall through every `end` and land on the earliest one (a
-	 nested def's close), splicing the new function inside that def."
-	| lines lastEnd newLines |
-	lines := self sourceCode lines asOrderedCollection.
-	lastEnd := lines findLast: [ :line | line trimBoth = 'end' ].
-	lastEnd = 0 ifTrue: [ lastEnd := lines size + 1 ].
-	newLines := (lines copyFrom: 1 to: lastEnd - 1) asOrderedCollection.
-	newLines add: ''.
-	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: lastEnd to: lines size).
-	^ self saveAndCompile: (String lf join: newLines)
+	"Append newText as a new function. The bridge locates the module's
+	 closing `end` from the parse, so it lands in the right place."
+	^ self applySourceEdit:
+		('GtBridge.Analysis.append_function(', (self base64Expr: self sourceCode),
+			', ', (self base64Expr: newText), ')')
 ]
 
 { #category : 'accessing' }
