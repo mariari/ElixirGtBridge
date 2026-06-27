@@ -536,16 +536,28 @@ defmodule GtBridge.Analysis do
   defp find_typedstruct_lines(ast) do
     {_, found} =
       Macro.prewalk(ast, nil, fn
-        {:typedstruct, meta, [[do: _]]} = node, nil ->
-          s = Keyword.get(meta, :line)
-          e = get_in(meta, [:end, :line]) || s
-          {node, {s, e}}
+        {:typedstruct, meta, args} = node, nil when is_list(args) ->
+          if typedstruct_do?(args) do
+            s = Keyword.get(meta, :line)
+            e = get_in(meta, [:end, :line]) || s
+            {node, {s, e}}
+          else
+            {node, nil}
+          end
 
         node, acc ->
           {node, acc}
       end)
 
     found
+  end
+
+  # typedstruct carries its block as the `:do` of the last arg, whether
+  # written `typedstruct do`, `typedstruct enforce: true do`, or
+  # `typedstruct(opts) do` — match on that, not a bare `[[do: _]]`.
+  defp typedstruct_do?(args) do
+    kw = List.last(args)
+    is_list(kw) and Keyword.keyword?(kw) and Keyword.has_key?(kw, :do)
   end
 
   defp find_type_decl_locations(ast, lines) do

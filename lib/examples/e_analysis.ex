@@ -1,3 +1,13 @@
+defmodule Examples.EAnalysis.EnforcedStruct do
+  @moduledoc false
+  use TypedStruct
+
+  # typedstruct WITH an option — the case that used to lose its `t` type.
+  typedstruct enforce: true do
+    field(:id, atom(), enforce: true)
+  end
+end
+
 defmodule Examples.EAnalysis do
   @moduledoc """
   I am examples for GtBridge.Analysis, the static analysis module.
@@ -374,5 +384,20 @@ defmodule Examples.EAnalysis do
     assert Analysis.functions_in_source(appended) |> Enum.map(& &1.name) == ["a", "b"]
 
     appended
+  end
+
+  @spec typedstruct_with_options_locates_t() :: map()
+  example typedstruct_with_options_locates_t do
+    # `typedstruct enforce: true do` keeps its block in the same arg list; the
+    # locator must still find it, or the `t` type drops to start: 0 and vanishes
+    # from the function browser.
+    t =
+      Analysis.all_functions(Examples.EAnalysis.EnforcedStruct)
+      |> Enum.find(&(&1.name == "t" and &1.kind == :type))
+
+    assert t != nil
+    assert t.start > 0
+
+    t
   end
 end
