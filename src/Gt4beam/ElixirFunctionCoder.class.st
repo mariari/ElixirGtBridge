@@ -25,6 +25,11 @@ ElixirFunctionCoder class >> forEntry: anEntry moduleCoder: anElixirModuleCoder 
 	^ self new initializeFromEntry: anEntry moduleCoder: anElixirModuleCoder
 ]
 
+{ #category : 'instance creation' }
+ElixirFunctionCoder class >> forNewFunctionIn: anElixirModuleCoder [
+	^ self new initializeNewFunctionIn: anElixirModuleCoder
+]
+
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
@@ -51,6 +56,7 @@ ElixirFunctionCoder >> addDeleteAddOnsTo: anAddOns to: aViewModel from: aCoderMo
 { #category : 'add-ons' }
 ElixirFunctionCoder >> addHelpAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
+	self isNewFunction ifTrue: [ ^ self ].
 	anAddOns
 		addMainAction: 'Help' translated
 		icon: BrGlamorousVectorIcons help
@@ -89,6 +95,7 @@ ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel
 
 	<gtCoderAction>
 	| canRun callExpr |
+	self isNewFunction ifTrue: [ ^ self ].
 	arity = 0
 		ifTrue: [ callExpr := moduleCoder moduleName , '.' , functionName , '()'.
 			canRun := true ].
@@ -113,8 +120,9 @@ ElixirFunctionCoder >> addRunAddOnsTo: anAddOns to: aViewModel from: aCoderModel
 ElixirFunctionCoder >> addSaveAddOnsTo: anAddOns to: aViewModel from: aCoderModel [
 	<gtCoderAction>
 	"Skipped for macro-generated functions — saving requires a
-	 source location to splice into."
-	self hasSource ifFalse: [ ^ self ].
+	 source location to splice into.  A new draft (no startLine) still
+	 shows Save: it appends instead of splicing."
+	(self hasSource or: [ self isNewFunction ]) ifFalse: [ ^ self ].
 	anAddOns
 		addMainAction: 'Save' translated
 		icon: BrGlamorousVectorIcons accept
@@ -247,12 +255,29 @@ ElixirFunctionCoder >> initializeFromEntry: anEntry moduleCoder: anElixirModuleC
 		to: self
 ]
 
+{ #category : 'initialization' }
+ElixirFunctionCoder >> initializeNewFunctionIn: anElixirModuleCoder [
+	"I am a draft for a function not yet in the file: startLine stays nil,
+	 so hasSource is false (Delete/Move/Run/Help off) and Save appends."
+	moduleCoder := anElixirModuleCoder.
+	functionName := 'new_function'.
+	arity := 0.
+	self sourceCode: (GtCoderExplicitStringSource new
+		source: 'def new_function do', String lf, '  :ok', String lf, 'end')
+]
+
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> initializeShortcuts: addOns [
 	super initializeShortcuts: addOns.
 	addOns addShortcut: GtSourceCoderSaveShortcut new.
 	addOns addShortcut: ElixirCoderFormatShortcut new.
 	self initializeNavigationShortcuts: addOns
+]
+
+{ #category : 'testing' }
+ElixirFunctionCoder >> isNewFunction [
+	"I have no source line yet — a draft to be appended, not spliced."
+	^ startLine isNil
 ]
 
 { #category : 'accessing' }
@@ -435,6 +460,8 @@ ElixirFunctionCoder >> saveFunction [
 	 which primes moduleCoder.functionEntries, so no second bridge
 	 round-trip is needed."
 	| match freshSource |
+	self isNewFunction
+		ifTrue: [ ^ moduleCoder addFunction: self currentSourceString ].
 	moduleCoder
 		spliceFunction: (self reindent: self currentSourceString)
 		forFunction: functionName
