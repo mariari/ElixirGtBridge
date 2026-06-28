@@ -60,13 +60,10 @@ ElixirFunctionStreamingModel >> newCoderFor: anEntry [
 
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newItemsStream [
-	"I return function entries as an async stream in the order
-	 GtBridge.Analysis.all_functions/1 emits them.  The BEAM-side
-	 already groups default-arg arity siblings (start: 0) above
-	 their AST counterpart and parks orphan macro-generated entries
-	 at the end, so re-sorting by start would just lump every
-	 start: 0 entry at the top."
-	^ moduleCoder functionEntries asAsyncStream
+	"additionalFilters (not compositeFilter): the null main filter isn't a
+	 predicate, and entries keep all_functions/1 order via select:."
+	^ (moduleCoder functionEntries select: [ :e |
+		self additionalFilters allSatisfy: [ :f | f matches: e ] ]) asAsyncStream
 ]
 
 { #category : 'announcements' }
