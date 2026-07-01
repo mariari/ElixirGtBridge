@@ -16,13 +16,11 @@ ElixirSubstringHighlightStyler class >> highlightAttribute [
 
 { #category : 'accessing' }
 ElixirSubstringHighlightStyler >> activeFilters [
-	"The filters currently applied to the function list, empty when unattached."
+	"Empty when the coder's functionStreamingModel is nil (no filter bar, e.g. ALClassCoder)."
 
-	| coder streaming |
-	coder := self attachedCoder.
-	coder isNil ifTrue: [ ^ #() ].
-	streaming := coder moduleCoder functionStreamingModel.
-	^ streaming isNil ifTrue: [ #() ] ifFalse: [ streaming additionalFilters ]
+	| streaming |
+	streaming := self attachedCoder ifNotNil: [ :c | c moduleCoder functionStreamingModel ].
+	^ streaming ifNil: [ #(  ) ] ifNotNil: [ :s | s additionalFilters ]
 ]
 
 { #category : 'accessing' }
