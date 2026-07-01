@@ -14,17 +14,17 @@ Class {
 
 { #category : 'building' }
 ElixirFunctionExpanderAttribute >> buildExpandedElement [
-	"I return a breadcrumb header + the function snippet for my target.
-	 ElixirFunctionCoder owns save (splice via spliceFunction:) and its own
-	 recompile refresh; no list is injected so it has no Move; and being a
-	 function coder it has no generic eval buttons and dedents its source."
+	"ElixirFunctionCoder owns save/refresh, has no Move (no list injected) and no
+	 generic eval buttons.  functionEntries bridge-evals all_functions when there is
+	 no readable local source, so stdlib / no-source functions still render their
+	 synth entry (@spec + no-source comment) instead of collapsing to a bare header."
 	| path mc entry |
 	path := application evaluateAndWait: 'GtBridge.Resolve.source_file(', targetModule, ')'.
-	(path isString and: [ path asFileReference exists ]) ifFalse: [ ^ self buildHeader ].
 	mc := ElixirModuleCoder new
 		moduleName: targetModule;
 		application: application;
-		sourcePath: path.
+		sourcePath: (((path isKindOf: String) and: [ path asFileReference exists ])
+			ifTrue: [ path ] ifFalse: [ nil ]).
 	entry := mc functionEntries
 		detect: [ :e | (e attributeAt: #name) asString = functionName asString
 			and: [ (e attributeAt: #arity) = arity ] ]
