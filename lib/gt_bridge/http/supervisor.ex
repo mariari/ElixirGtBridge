@@ -7,6 +7,9 @@ defmodule GtBridge.Http.Supervisor do
   end
 
   def start_listener(port_server, port_client) do
+    # Bridge is coming up: begin xref indexing now (deferred from VM boot).
+    GtBridge.Xref.start_indexing()
+
     DynamicSupervisor.start_child(
       __MODULE__,
       {Plug.Cowboy, listener_opts(port_server, port_client)}
