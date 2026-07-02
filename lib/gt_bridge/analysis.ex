@@ -414,7 +414,7 @@ defmodule GtBridge.Analysis do
 
     ast_entries =
       GtBridge.Resolve.with_source(mod, [], fn source ->
-        functions_in_source(source)
+        module_source_entries(source, mod)
       end)
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
@@ -537,6 +537,127 @@ defmodule GtBridge.Analysis do
     kw = List.last(args)
     is_list(kw) and Keyword.keyword?(kw) and Keyword.has_key?(kw, :do)
   end
+
+  # Like functions_in_source but scoped to `mod`'s own subtree, so a nested
+  # or sibling module in the same file doesn't leak the other module's
+  # functions and types.  Used only by all_functions/1.
+  defp module_source_entries(source, mod) do
+    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+      {:ok, ast} ->
+        lines = String.split(source, "\n")
+
+        case module_scope(ast, inspect(mod)) do
+          {:module_body, stmts} ->
+            functions_from_statements(stmts, lines) ++ types_from_statements(stmts, lines)
+
+          {:typedstruct_module, node} ->
+            typedstruct_type(node, lines)
+
+          nil ->
+            []
+        end
+
+      _ ->
+        lenient_function_entries(source)
+    end
+  end
+
+  # I locate `target`'s own scope, walking defmodule nesting to build full
+  # names.  A `defmodule` yields its body statements; a `typedstruct module: X`
+  # (which generates <enclosing>.X) yields the block itself.
+  defp module_scope(ast, target), do: module_scope(ast, "", target)
+
+  defp module_scope({:__block__, _, stmts}, prefix, target),
+    do: Enum.find_value(stmts, &module_scope(&1, prefix, target))
+
+  defp module_scope({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]}, prefix, target) do
+    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
+
+    cond do
+      full == target -> {:module_body, body_statements(body)}
+      String.starts_with?(target, full <> ".") -> module_scope(body, full, target)
+      true -> nil
+    end
+  end
+
+  defp module_scope({:typedstruct, _, _} = node, prefix, target) do
+    case typedstruct_submodule(node) do
+      nil -> nil
+      sub -> if qualify(prefix, sub) == target, do: {:typedstruct_module, node}
+    end
+  end
+
+  defp module_scope(_, _, _), do: nil
+
+  defp qualify("", suffix), do: suffix
+  defp qualify(prefix, suffix), do: prefix <> "." <> suffix
+
+  defp body_statements({:__block__, _, stmts}), do: stmts
+  defp body_statements(single), do: [single]
+
+  # A typedstruct's `module:` option as a dotted string, or nil when it has
+  # none (a plain typedstruct's `t` belongs to the enclosing module).  `module:`
+  # can sit in any leading keyword-list arg -- its position relative to the
+  # do-block varies with how many options are given -- so scan them all.
+  defp typedstruct_submodule({:typedstruct, _, args}) when is_list(args) do
+    module =
+      args
+      |> Enum.filter(&(is_list(&1) and Keyword.keyword?(&1)))
+      |> Enum.find_value(&Keyword.get(&1, :module))
+
+    case module do
+      {:__aliases__, _, parts} -> Enum.map_join(parts, ".", &Atom.to_string/1)
+      _ -> nil
+    end
+  end
+
+  defp typedstruct_submodule(_), do: nil
+
+  defp functions_from_statements(stmts, lines) do
+    stmts
+    |> Enum.flat_map(&function_entry/1)
+    |> merge_clauses()
+    |> Enum.map(fn f ->
+      start = walk_back_annotations(lines, f.start)
+      %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
+    end)
+  end
+
+  # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
+  # A `typedstruct module: X` is skipped -- its `t` is the child's, not ours.
+  defp types_from_statements(stmts, lines) do
+    typedstruct =
+      Enum.find_value(stmts, [], fn
+        {:typedstruct, _, _} = node ->
+          if typedstruct_submodule(node) == nil, do: typedstruct_type(node, lines)
+
+        _ ->
+          nil
+      end)
+
+    decls = Enum.flat_map(stmts, &type_decl(&1, lines))
+    (typedstruct ++ decls) |> Enum.uniq_by(&{&1.name, &1.arity})
+  end
+
+  defp typedstruct_type({:typedstruct, meta, args}, lines) do
+    if typedstruct_do?(args) do
+      s = Keyword.get(meta, :line)
+      e = get_in(meta, [:end, :line]) || s
+      [type_row("t", 0, :type, s, e, lines)]
+    else
+      []
+    end
+  end
+
+  defp type_decl({:@, meta, [{kind, _, [{:"::", _, [{name, _, args} | _]}]}]}, lines)
+       when kind in [:type, :opaque, :typep] and is_atom(name) do
+    arity = if is_list(args), do: length(args), else: 0
+    s = Keyword.get(meta, :line)
+    e = get_in(meta, [:end_of_expression, :line]) || s
+    [type_row(Atom.to_string(name), arity, kind, s, e, lines)]
+  end
+
+  defp type_decl(_, _), do: []
 
   defp slice_lines(lines, s, e), do: take_lines(lines, s, e) |> Enum.join("\n")
 
