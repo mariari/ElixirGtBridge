@@ -36,6 +36,7 @@ defmodule GtBridge.HotReload do
   """
   @spec reload(String.t(), String.t()) :: :ok
   def reload(path, content) do
+    previous = read_source(path)
     File.write!(path, content)
 
     {formatted, format_err} =
@@ -60,7 +61,7 @@ defmodule GtBridge.HotReload do
       broadcast_compile_failure(formatted, [compile_error_payload(format_err)])
     else
       try do
-        do_compile(path, formatted)
+        do_compile(path, formatted, previous)
       rescue
         e in [CompileError, SyntaxError, TokenMissingError] ->
           broadcast_compile_failure(formatted, [compile_error_payload(e)])
@@ -98,8 +99,9 @@ defmodule GtBridge.HotReload do
 
   # I do the compile + sibling propagation half. Pulled out of `reload/2`
   # so the disk-write half can run unconditionally and the compile half
-  # can be wrapped in a try.
-  defp do_compile(path, content) do
+  # can be wrapped in a try. `previous` is the file's pre-save source,
+  # used to detect modules this save removed.
+  defp do_compile(path, content, previous) do
     :ets.delete_all_objects(:elixir_modules)
     abs_path = Path.expand(path)
 
@@ -129,7 +131,26 @@ defmodule GtBridge.HotReload do
       end
 
     recompile_preserving_modules()
+    purge_removed_modules(compiled, previous)
     broadcast_recompiled(compiled, sibling_mods, content)
+  end
+
+  # The compile result is the file's complete module set, so a module
+  # the previous source defined but absent from it was removed by this
+  # save. Purge it instead of leaving a ghost in the module list.
+  @spec purge_removed_modules([{module(), binary()}], String.t() | nil) :: :ok
+  defp purge_removed_modules(_, nil), do: :ok
+
+  defp purge_removed_modules(compiled, previous) do
+    current = MapSet.new(compiled, fn {m, _} -> m end)
+
+    for name <- GtBridge.Analysis.modules_in_source(previous),
+        m = Module.concat([name]),
+        not MapSet.member?(current, m) do
+      purge_module(m)
+    end
+
+    :ok
   end
 
   # Mix's failed retry purges the module being compiled and may delete
@@ -385,6 +406,13 @@ defmodule GtBridge.HotReload do
   """
   @spec purge_module(module()) :: :ok
   def purge_module(mod) when is_atom(mod) do
+    # Delete the beam too, or Code.ensure_loaded? resurrects the
+    # ghost from ebin.
+    case :code.which(mod) do
+      path when is_list(path) -> File.rm(List.to_string(path))
+      _ -> :ok
+    end
+
     :code.purge(mod)
     :code.delete(mod)
 

@@ -110,6 +110,56 @@ defmodule Examples.EHotReload do
     end
   end
 
+  @doc """
+  I remove a module from a file and verify the reload purges it: the
+  compile result is the file's full module set, so a module absent
+  from it was deleted from the source. Message-driven - I wait on the
+  broker's own events (no sleeps) and sync the projection with a
+  get_state barrier before reading it. Returns the app's surviving
+  module names.
+  """
+  @spec removed_module_purged() :: [String.t()]
+  example removed_module_purged do
+    {path, original} = source_for(HotReloadTest)
+    doomed = "\ndefmodule HotReloadTest.Doomed do\n  def gone, do: :soon\nend\n"
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      GtBridge.HotReload.reload(path, original <> doomed)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :recompiled,
+                         mod: HotReloadTest.Doomed
+                       }
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Analysis.LoadedModules)
+      assert GtBridge.Analysis.LoadedModules.loaded?("HotReloadTest.Doomed")
+
+      GtBridge.HotReload.reload(path, original)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :source_removed,
+                         mod: HotReloadTest.Doomed
+                       }
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Analysis.LoadedModules)
+      refute GtBridge.Analysis.LoadedModules.loaded?("HotReloadTest.Doomed")
+      refute :code.is_loaded(HotReloadTest.Doomed)
+
+      GtBridge.Analysis.LoadedModules.all_names()
+      |> Enum.filter(&String.starts_with?(&1, "HotReloadTest"))
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      GtBridge.HotReload.reload(path, original)
+    end
+  end
+
   # I verify revert restores source, beam, and module exports.
   # Returns exports after revert.
   @spec revert_clean() :: [{atom(), non_neg_integer()}]

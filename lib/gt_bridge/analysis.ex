@@ -149,11 +149,11 @@ defmodule GtBridge.Analysis do
   """
   @spec module_in_source(String.t()) :: String.t() | nil
   def module_in_source(source) do
-    case Code.string_to_quoted(source) do
-      {:ok, {:defmodule, _, [{:__aliases__, _, parts} | _]}} ->
-        Enum.map_join(parts, ".", &Atom.to_string/1)
+    case modules_in_source(source) do
+      [first | _] ->
+        first
 
-      _ ->
+      [] ->
         # Parse failed (syntax error elsewhere).  The defmodule line
         # itself almost always parses; pull the name by regex so error
         # notifications still name the right module.
@@ -167,6 +167,37 @@ defmodule GtBridge.Analysis do
       _ -> nil
     end
   end
+
+  @doc """
+  I return every module `source` defines (nested `defmodule`s and
+  `typedstruct module:` children included) as dotted-name strings.
+  Returns `[]` when the source doesn't parse.
+  """
+  @spec modules_in_source(String.t()) :: [String.t()]
+  def modules_in_source(source) do
+    case Code.string_to_quoted(source) do
+      {:ok, ast} -> collect_modules(ast, "")
+      _ -> []
+    end
+  end
+
+  @spec collect_modules(Macro.t(), String.t()) :: [String.t()]
+  defp collect_modules({:__block__, _, stmts}, prefix),
+    do: Enum.flat_map(stmts, &collect_modules(&1, prefix))
+
+  defp collect_modules({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]}, prefix) do
+    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
+    [full | collect_modules(body, full)]
+  end
+
+  defp collect_modules({:typedstruct, _, _} = node, prefix) do
+    case typedstruct_submodule(node) do
+      nil -> []
+      sub -> [qualify(prefix, sub)]
+    end
+  end
+
+  defp collect_modules(_, _), do: []
 
   @doc """
   I parse `source` and return the AST function entries (the same shape
