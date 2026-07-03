@@ -22,6 +22,8 @@ defmodule GtBridge.Analysis.LoadedModules do
   - `loaded?/1` — true when the named module is in my set (O(1))
   - `all_names/0` — every loaded module's dotted-name string
   - `modules_for_app/1` — the module atoms belonging to `app`
+  - `sync/0` — enter modules loaded outside the bridge's pipeline
+  - `full_sync/0` — sync both directions, retracting vanished modules
   """
 
   use GenServer
@@ -51,6 +53,42 @@ defmodule GtBridge.Analysis.LoadedModules do
   @spec modules_for_app(atom()) :: [module()]
   def modules_for_app(app), do: :ets.select(@table, [{{:_, :"$1", app}, [], [:"$1"]}])
 
+  @doc """
+  I diff the BEAM's loaded modules against my set and broadcast a
+  `:recompiled` fact for each one that arrived outside the bridge's
+  pipeline (iex `defmodule`, dynamic codegen, eval snippets). Other
+  projections hear the facts through their normal subscriptions; to
+  every consumer a discovered module is indistinguishable from a
+  recompiled one. Returns the newly entered module names.
+  """
+  @spec sync() :: [String.t()]
+  def sync, do: GenServer.call(__MODULE__, :sync)
+
+  @doc """
+  I reconcile in both directions: enter appearances like `sync/0`, and
+  retract modules that no longer exist (not loaded, not in any loaded
+  app's spec, not loadable), broadcasting `:source_removed` for each.
+  Absence from `:code.all_loaded/0` alone is ambiguous (the BEAM loads
+  lazily), so retraction cross-checks the app specs and the code
+  server too - heavier than `sync/0`, so I run at bridge connection,
+  not per eval.
+  """
+  @spec full_sync() :: %{added: [String.t()], removed: [String.t()]}
+  def full_sync, do: GenServer.call(__MODULE__, :full_sync)
+
+  @doc """
+  I enter facts without blocking the caller: `sync_async/0` after
+  every eval and `full_sync_async/0` at bridge connection. Entering
+  facts is fire-and-forget; a blocking call here serializes every
+  eval through me and lets a busy queue kill the SSE stream's init
+  on its call timeout.
+  """
+  @spec sync_async() :: :ok
+  def sync_async, do: GenServer.cast(__MODULE__, :sync)
+
+  @spec full_sync_async() :: :ok
+  def full_sync_async, do: GenServer.cast(__MODULE__, :full_sync)
+
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
@@ -73,6 +111,25 @@ defmodule GtBridge.Analysis.LoadedModules do
   end
 
   @impl true
+  def handle_call(:sync, _from, state), do: {:reply, do_sync(), state}
+
+  @impl true
+  def handle_call(:full_sync, _from, state),
+    do: {:reply, %{added: do_sync(), removed: retract_vanished()}, state}
+
+  @impl true
+  def handle_cast(:sync, state) do
+    do_sync()
+    {:noreply, state}
+  end
+
+  def handle_cast(:full_sync, state) do
+    do_sync()
+    retract_vanished()
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(%Event{body: %ModuleEvent{kind: :recompiled, mod: mod}}, state)
       when is_atom(mod) and not is_nil(mod) do
     :ets.insert(@table, {inspect(mod), mod, app_of(mod)})
@@ -92,13 +149,63 @@ defmodule GtBridge.Analysis.LoadedModules do
   ############################################################
 
   defp populate do
+    for entry <- spec_entries(), do: :ets.insert(@table, entry)
+    :ok
+  end
+
+  # Every module vouched for by a loaded application's spec, in table
+  # entry shape.
+  @spec spec_entries() :: [{String.t(), module(), atom()}]
+  defp spec_entries do
     for {app, _, _} <- Application.loaded_applications(),
         {:ok, mods} <- [:application.get_key(app, :modules)],
-        mod <- mods do
-      :ets.insert(@table, {inspect(mod), mod, app})
-    end
+        mod <- mods,
+        do: {inspect(mod), mod, app}
+  end
 
-    :ok
+  # I record the missed modules directly (so back-to-back syncs don't
+  # re-announce) and broadcast each as a fact for the other projections.
+  # `:elixir_compiler_N` workspaces are the compiler's own scaffolding,
+  # not modules-as-facts; a fresh one appears on every compiling eval.
+  @spec do_sync() :: [String.t()]
+  defp do_sync do
+    for {mod, _file} <- :code.all_loaded(),
+        name = inspect(mod),
+        not String.starts_with?(name, ":elixir_compiler_"),
+        not :ets.member(@table, name) do
+      :ets.insert(@table, {name, mod, app_of(mod)})
+      Events.broadcast(%ModuleEvent{kind: :recompiled, mod: mod})
+      name
+    end
+  end
+
+  # A module still in my set but not loaded, not vouched for by any
+  # loaded app's spec, and not loadable (:code.which :non_existing) was
+  # deleted out-of-band (bare :code.delete, external purge). The spec
+  # check matters: Mix prunes unused apps' code paths at boot, so their
+  # modules are unloadable yet very much exist. The final :code.which
+  # keeps a dynamic module whose beam was persisted to an ebin.
+  @spec retract_vanished() :: [String.t()]
+  defp retract_vanished do
+    existing = existing_names()
+
+    for name <- all_names(),
+        not MapSet.member?(existing, name),
+        [{^name, mod, _app}] <- [:ets.lookup(@table, name)],
+        :code.which(mod) == :non_existing do
+      :ets.delete(@table, name)
+      Events.broadcast(%ModuleEvent{kind: :source_removed, mod: mod})
+      name
+    end
+  end
+
+  # Everything that exists: loaded now, or listed in a loaded
+  # application's spec (the BEAM loads lazily, so unloaded is not gone).
+  @spec existing_names() :: MapSet.t(String.t())
+  defp existing_names do
+    loaded = for {mod, _file} <- :code.all_loaded(), do: inspect(mod)
+    spec_listed = for {name, _mod, _app} <- spec_entries(), do: name
+    MapSet.new(loaded ++ spec_listed)
   end
 
   # `Application.get_application/1` resolves via the app spec's module

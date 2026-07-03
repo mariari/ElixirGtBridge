@@ -284,6 +284,72 @@ defmodule Examples.EAnalysis do
     result
   end
 
+  @doc """
+  I define a module outside the bridge's pipeline (bare eval, as iex
+  or dynamic codegen would) and verify `sync` enters it into the
+  record: the fact is broadcast and the projection picks it up.
+  Message-driven - I wait on the broker's own event, no sleeps.
+  Returns the names sync announced.
+  """
+  @spec dynamic_module_discovery() :: [String.t()]
+  example dynamic_module_discovery do
+    mod = DynDiscoveryProbe
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      Code.eval_string("defmodule DynDiscoveryProbe do\n  def here, do: :yes\nend")
+
+      announced = Analysis.LoadedModules.sync()
+      assert "DynDiscoveryProbe" in announced
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{kind: :recompiled, mod: ^mod}
+                     },
+                     5_000
+
+      assert Analysis.LoadedModules.loaded?("DynDiscoveryProbe")
+      announced
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      GtBridge.HotReload.purge_module(mod)
+    end
+  end
+
+  @doc """
+  I delete a module out-of-band (bare `:code.delete`, not the bridge's
+  purge) and verify full reconciliation retracts it as a
+  `:source_removed` fact. Not loaded alone is not enough (the BEAM
+  loads lazily); gone means not vouched for by any app spec and not
+  loadable either. Returns the reconciliation diff.
+  """
+  @spec out_of_band_removal_retracted() :: %{added: [String.t()], removed: [String.t()]}
+  example out_of_band_removal_retracted do
+    mod = OutOfBandProbe
+    Code.eval_string("defmodule OutOfBandProbe do\n  def gone_soon, do: :yes\nend")
+    assert "OutOfBandProbe" in Analysis.LoadedModules.sync()
+
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      :code.purge(mod)
+      :code.delete(mod)
+      assert Analysis.LoadedModules.loaded?("OutOfBandProbe")
+
+      diff = Analysis.LoadedModules.full_sync()
+      assert "OutOfBandProbe" in diff.removed
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{kind: :source_removed, mod: ^mod}
+                     },
+                     5_000
+
+      refute Analysis.LoadedModules.loaded?("OutOfBandProbe")
+      diff
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+    end
+  end
+
   @spec call_sites_with_aliases() :: [map()]
   example call_sites_with_aliases do
     source = ~s'''
