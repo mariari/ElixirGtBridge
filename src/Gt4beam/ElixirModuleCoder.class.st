@@ -45,11 +45,12 @@ ElixirModuleCoder class >> forModule: aModuleName application: anApp [
 
 { #category : 'actions' }
 ElixirModuleCoder >> addFunction: newText [
-	"Append newText as a new function. The bridge locates the module's
-	 closing `end` from the parse, so it lands in the right place."
+	"Append newText as a new function just before moduleName's closing
+	 `end`, located from the parse so a sibling or nested module in the
+	 same file doesn't misdirect it."
 	^ self applySourceEdit:
 		('GtBridge.Analysis.append_function(', (self base64Expr: self sourceCode),
-			', ', (self base64Expr: newText), ')')
+			', "', self moduleName, '", ', (self base64Expr: newText), ')')
 ]
 
 { #category : 'accessing' }
@@ -585,7 +586,7 @@ ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
 	saving := true.
 	[ self applySourceEdit:
 		('GtBridge.Analysis.replace_function(', (self base64Expr: self sourceCode),
-			', "', aName, '", ', anArity printString, ', ', (self base64Expr: newText), ')') ]
+			', "', self moduleName, '", "', aName, '", ', anArity printString, ', ', (self base64Expr: newText), ')') ]
 	ensure: [ saving := false ]
 ]
 
@@ -609,7 +610,7 @@ ElixirModuleCoder >> swapFunctions: entryA with: entryB [
 	 range can."
 	^ self applySourceEdit:
 		('GtBridge.Analysis.swap_functions(', (self base64Expr: self sourceCode),
-			', "', (entryA attributeAt: #name) asString, '", ', (entryA attributeAt: #arity) printString,
+			', "', self moduleName, '", "', (entryA attributeAt: #name) asString, '", ', (entryA attributeAt: #arity) printString,
 			', "', (entryB attributeAt: #name) asString, '", ', (entryB attributeAt: #arity) printString, ')')
 ]
 
