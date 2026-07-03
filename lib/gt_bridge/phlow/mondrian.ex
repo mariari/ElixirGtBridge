@@ -61,7 +61,7 @@ defmodule GtBridge.Phlow.Mondrian do
   def node_color(self, fun) do
     %__MODULE__{self | node_color: fun}
   end
-  
+
   @spec edges(t(), (any() -> list())) :: t()
   def edges(self, fun) when is_function(fun, 1) do
     %__MODULE__{self | edges_callback: fun}
@@ -76,7 +76,7 @@ defmodule GtBridge.Phlow.Mondrian do
   def as_dict(self) do
     items = if self.nodes_callback, do: self.nodes_callback.(), else: []
     label_fn = self.node_label || (&inspect/1)
-    color_fn = self.node_color || "#d3d3d3"
+    color_fn = self.node_color || fn _ -> "#d3d3d3" end
 
     # First-occurrence wins so duplicate values share a node
     # rather than creating orphans.

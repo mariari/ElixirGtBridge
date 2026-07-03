@@ -49,7 +49,7 @@ defmodule Examples.EMondrian do
       |> Mondrian.nodes([1, 2, 3])
       |> Mondrian.as_dict()
 
-    assert Enum.at(dict.nodes, 0) == %{label: "1", object: 1}
+    assert Enum.at(dict.nodes, 0) == %{label: "1", object: 1, color: "#d3d3d3"}
 
     dict
   end
