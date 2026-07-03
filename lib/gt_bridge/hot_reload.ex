@@ -20,12 +20,14 @@ defmodule GtBridge.HotReload do
      module that was compiled. On parse/compile failure, broadcasts a
      `%ModuleEvent{kind: :compile_failed}` and reraises.
 
-  Returns `%{recompiled: [payload]}` where each payload is a map. The
-  directly-saved module's payload carries `mod`, `source_hash`, and
-  `functions` (the new `Analysis.all_functions/1` result) inline, so
-  GT-side subscribers re-render from the announcement without a
-  follow-up bridge call. Sibling modules from ParallelCompiler
-  propagation arrive bare (`%{mod: name, source_hash: nil, functions: nil}`)
+  Returns `%{recompiled: [payload]}` where each payload is a map. Every
+  module compiled from the saved file carries `mod`, `source_hash`, and
+  `functions` (the `Analysis.all_functions/1` result, scoped to that
+  module) inline, so each module's GT-side cache re-renders from the
+  announcement without a follow-up bridge call. A sibling or nested
+  module gets refreshed too, not just the file's first module. Modules
+  from ParallelCompiler propagation of *other* files arrive bare
+  (`%{mod: name, source_hash: nil, functions: nil}`)
   and let any subscribers fall back to refetching on demand.
 
   Returns `:ok` regardless of success/failure; subscribers learn the
@@ -296,7 +298,8 @@ defmodule GtBridge.HotReload do
       GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
         kind: :recompiled,
         mod: m,
-        source_hash: source_hash
+        source_hash: source_hash,
+        functions: GtBridge.Analysis.all_functions(m)
       })
     end
 
