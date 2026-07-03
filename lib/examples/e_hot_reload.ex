@@ -111,6 +111,42 @@ defmodule Examples.EHotReload do
   end
 
   @doc """
+  I add a brand-new module and verify its beam lands in the app's
+  ebin: a new module is in no app spec, so per-module app resolution
+  skipped it and it existed only in memory until the next full mix
+  compile. Reverting removes the module, which must delete the beam
+  again. Returns the new module's beam exports.
+  """
+  @spec new_module_beam_persisted() :: [{atom(), non_neg_integer()}]
+  example new_module_beam_persisted do
+    {path, original} = source_for(HotReloadTest)
+    fresh = "\ndefmodule HotReloadTest.Fresh do\n  def here, do: :yes\nend\n"
+
+    beam =
+      Path.join(
+        Application.app_dir(:hot_reload_test, "ebin"),
+        "Elixir.HotReloadTest.Fresh.beam"
+      )
+
+    try do
+      GtBridge.HotReload.reload(path, original <> fresh)
+      assert File.exists?(beam)
+
+      {:ok, {_, [{:exports, exports}]}} =
+        :beam_lib.chunks(String.to_charlist(beam), [:exports])
+
+      assert {:here, 0} in exports
+
+      GtBridge.HotReload.reload(path, original)
+      refute File.exists?(beam)
+
+      exports
+    after
+      GtBridge.HotReload.reload(path, original)
+    end
+  end
+
+  @doc """
   I remove a module from a file and verify the reload purges it: the
   compile result is the file's full module set, so a module absent
   from it was deleted from the source. Message-driven - I wait on the

@@ -107,7 +107,7 @@ defmodule GtBridge.HotReload do
 
     compiled = Code.compile_file(path)
     [{mod, _} | _] = compiled
-    app = Application.get_application(mod)
+    app = Application.get_application(mod) || app_from_path(abs_path)
     main_app = Mix.Project.config()[:app]
 
     sibling_mods =
@@ -119,7 +119,7 @@ defmodule GtBridge.HotReload do
           []
 
         _ ->
-          for {m, binary} <- compiled, do: persist_beam(m, binary)
+          for {m, binary} <- compiled, do: persist_beam(app, m, binary)
 
           self_path = __ENV__.file |> Path.expand()
 
@@ -127,29 +127,41 @@ defmodule GtBridge.HotReload do
             app_source_files(app)
             |> Enum.reject(&(&1 in [abs_path, self_path]))
 
-          parallel_compile_or_throw(siblings)
+          parallel_compile_or_throw(siblings, app)
       end
 
     recompile_preserving_modules()
-    purge_removed_modules(compiled, previous)
+    purge_removed_modules(compiled, previous, app)
     broadcast_recompiled(compiled, sibling_mods, content)
   end
 
   # The compile result is the file's complete module set, so a module
   # the previous source defined but absent from it was removed by this
   # save. Purge it instead of leaving a ghost in the module list.
-  @spec purge_removed_modules([{module(), binary()}], String.t() | nil) :: :ok
-  defp purge_removed_modules(_, nil), do: :ok
+  @spec purge_removed_modules([{module(), binary()}], String.t() | nil, atom() | nil) :: :ok
+  defp purge_removed_modules(_, nil, _), do: :ok
 
-  defp purge_removed_modules(compiled, previous) do
+  defp purge_removed_modules(compiled, previous, app) do
     current = MapSet.new(compiled, fn {m, _} -> m end)
 
     for name <- GtBridge.Analysis.modules_in_source(previous),
         m = Module.concat([name]),
         not MapSet.member?(current, m) do
+      delete_persisted_beam(app, m)
       purge_module(m)
     end
 
+    :ok
+  end
+
+  # purge_module's own beam cleanup goes through :code.which, which
+  # reports the in-memory load file for a Code.compile_file'd module,
+  # not the beam persist_beam wrote; delete that one by its known path.
+  @spec delete_persisted_beam(atom() | nil, module()) :: :ok
+  defp delete_persisted_beam(nil, _), do: :ok
+
+  defp delete_persisted_beam(app, mod) do
+    File.rm(Path.join(Application.app_dir(app, "ebin"), "#{mod}.beam"))
     :ok
   end
 
@@ -259,9 +271,9 @@ defmodule GtBridge.HotReload do
   # errors so reload's catch-clause builds the failure shape with
   # file/line/column preserved per error.  Used uniformly for the
   # save target and for cascade siblings.
-  defp parallel_compile_or_throw(paths) do
+  defp parallel_compile_or_throw(paths, app) do
     case Kernel.ParallelCompiler.compile(paths,
-           each_module: fn _file, m, binary -> persist_beam(m, binary) end
+           each_module: fn _file, m, binary -> persist_beam(app, m, binary) end
          ) do
       {:ok, mods, _warnings} -> mods
       {:error, errors, _warnings} -> throw_verifier_errors(errors)
@@ -361,15 +373,25 @@ defmodule GtBridge.HotReload do
     mods |> Enum.map(&GtBridge.Resolve.source_file/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
 
-  defp persist_beam(mod, binary) do
-    case Application.get_application(mod) do
-      nil ->
-        :skip
+  # The caller names the app: resolving it per module via
+  # Application.get_application skipped brand-new modules (in no app
+  # spec yet), so their beams never reached ebin and they existed only
+  # in memory until the next full mix compile.
+  defp persist_beam(app, mod, binary) do
+    ebin = Application.app_dir(app, "ebin")
+    File.mkdir_p!(ebin)
+    File.write!(Path.join(ebin, "#{mod}.beam"), binary)
+  end
 
-      app ->
-        ebin = Application.app_dir(app, "ebin")
-        File.mkdir_p!(ebin)
-        File.write!(Path.join(ebin, "#{mod}.beam"), binary)
+  # The app owning `path`, from Mix's dep source-tree mapping. A brand
+  # new file's modules are in no app spec, so get_application can't
+  # place them; the file's location can.
+  @spec app_from_path(String.t()) :: atom() | nil
+  defp app_from_path(path) do
+    if mix_started?() do
+      Enum.find_value(Mix.Project.deps_paths(), fn {app, dep_path} ->
+        String.starts_with?(path, Path.expand(dep_path) <> "/") && app
+      end)
     end
   end
 
