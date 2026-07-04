@@ -37,7 +37,9 @@ defmodule GtBridge.Eval do
   def init(init_args) do
     Process.flag(:trap_exit, true)
     port = Keyword.get(init_args, :port, nil)
-    default_bindings = if port, do: [port: port], else: []
+    # `pid` gives snippets their session process (self() also works;
+    # the binding frees `self` for the inspector's inspected object).
+    default_bindings = if port, do: [pid: self(), port: port], else: [pid: self()]
     {:ok, %__MODULE__{bindings: default_bindings, env: GtBridge.Eval.Env.env(), port: port}}
   end
 
@@ -110,8 +112,8 @@ defmodule GtBridge.Eval do
 
         bindings =
           if port,
-            do: [port: port, command_id: command_id],
-            else: [command_id: command_id]
+            do: [pid: self(), port: port, command_id: command_id],
+            else: [pid: self(), command_id: command_id]
 
         Code.eval_quoted_with_env(quoted, bindings, GtBridge.Eval.Env.env())
       catch
