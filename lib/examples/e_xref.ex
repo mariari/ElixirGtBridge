@@ -75,7 +75,9 @@ defmodule Examples.EXref do
 
   Indirect verification — we can't easily diff xref state before/after
   without another query — so we just assert the recompile path doesn't
-  crash and the post-recompile query still works.
+  crash and the post-recompile query still works. Message-driven: I
+  wait on the broker's own recompile fact (no sleeps), then sync the
+  xref service with a get_state barrier before querying it.
   """
   @spec recompile_event_keeps_index_valid() :: non_neg_integer()
   example recompile_event_keeps_index_valid do
@@ -83,17 +85,28 @@ defmodule Examples.EXref do
     original = File.read!(src_path)
 
     {:ok, mods_before} = GtBridge.Xref.q(~c"M")
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
 
     try do
       :ok = trigger_recompile(src_path, original)
-      # Give the cast a beat to be processed
-      Process.sleep(50)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :recompiled,
+                         mod: HotReloadTest
+                       }
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Xref)
       {:ok, mods_after} = GtBridge.Xref.q(~c"M")
+
       assert length(mods_after) >= length(mods_before),
              "module count should not shrink after recompile event"
 
       length(mods_after)
     after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
       File.write!(src_path, original)
     end
   end
