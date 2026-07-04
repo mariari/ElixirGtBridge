@@ -11,7 +11,8 @@ defmodule GtBridge.Mix do
   - `path_dep_opts/1` — opts for a specific path-dep, or nil.
   """
 
-  @type dep :: atom() | {atom(), keyword()} | {atom(), String.t(), keyword()} | {atom(), String.t()}
+  @type dep ::
+          atom() | {atom(), keyword()} | {atom(), String.t(), keyword()} | {atom(), String.t()}
 
   @spec normalize_dep(dep()) :: {atom(), keyword()}
   def normalize_dep({app, opts}) when is_list(opts), do: {app, opts}
