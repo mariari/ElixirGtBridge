@@ -1,5 +1,71 @@
 * Changelog
-** v0.17.2
+** v0.18.0
+
+*** Features
+
+- Multi-module files work through the save pipeline :: a file with
+  several modules (siblings, nested ~defmodule~, ~typedstruct
+  module:~ children) edits the module you are actually in.  Function
+  add/save/move resolve their target through one ~module_scope~
+  walker shared with the readers; appending to a
+  typedstruct-generated module is a no-op instead of landing in the
+  enclosing module.
+- Every compiled module refreshes its own caches :: each module
+  compiled from a save carries its scoped ~all_functions~ list on
+  its ~:recompiled~ event, so sibling and nested modules re-render
+  too, not just the file's first module (stale sidebar entries and
+  the stuck add-function draft pane both came from this).
+- Removed modules are purged, added modules persist :: a save that
+  drops a module broadcasts ~:source_removed~ for it (computed from
+  the file's previous source, purging code, beam, and projections),
+  and a brand-new module's beam is persisted to its app's ebin so it
+  survives until the next full compile.
+- Loaded-module reconciliation :: ~LoadedModules~ converts
+  code-server reality into facts.  Modules born outside the bridge
+  (iex ~defmodule~, dynamic codegen, eval snippets) enter the record
+  after every eval and at bridge connection; ~full_sync~ also
+  retracts modules that no longer exist anywhere.  Fact entry is
+  fire-and-forget, so eval bursts cannot starve the event stream.
+- Functions list filters :: GT's filter-v2 bar on the Functions tab
+  narrows by Kind, Name, and body Substring, case-insensitively,
+  with the matches highlighted in place in each function's source.
+- Mondrian node colours :: ~Mondrian.node_color/2~ colours graph
+  nodes end to end, GT renders the colour with a darker border, and
+  clicking a node spawns its object.  (l4e21)
+- Inline function coder :: the ~|>~ expander dropdown and the
+  Add-function draft embed a real function coder, so completion sees
+  the module's imports and aliases; no-source functions render their
+  synthesized signature.
+- Struct completion in every cursor context :: ~%__MODULE__~,
+  ~%File.~ (submodule structs), and ~%@attr~ complete with the ~%~
+  prefix instead of crashing the completion request.
+- ~pid~ eval binding :: snippets reach their session process through
+  the ~pid~ binding (named so the inspector keeps ~self~ for the
+  inspected object).
+- Function edits recompute ranges from source :: save, move, and
+  append splice against the source that was passed in, so cached
+  line drift cannot corrupt a file; append locates the module end
+  from the parse, not a text scan.
+- Types survive source listings :: typedstruct-with-options types
+  are located correctly and a save keeps type entries in the
+  function browser.
+- Module enumeration via projection :: the browser and spotter list
+  the live ~LoadedModules~ projection instead of the boot-frozen app
+  spec.
+- Xref index at bridge startup :: indexing moved off VM boot; the
+  test suite waits for readiness instead of racing it.
+
+*** Bug Fixes
+
+- Substring filter highlight agrees with its match (both
+  case-insensitive).
+- Hot-reload examples run in the test suite; the xref example waits
+  on the broker's own recompile fact instead of sleeping.
+- The tree is clean under ~mix format --check-formatted~ and ~mix
+  dialyzer~ (PLT config now includes ~:mnesia~; a provably dead
+  fallback clause removed).
+
+** v0.17.3
 *** Bug Fixes
 - Fix error view causing the debugger to spawn
 ** v0.17.2
