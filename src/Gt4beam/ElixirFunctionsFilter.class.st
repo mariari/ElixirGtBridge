@@ -32,6 +32,12 @@ ElixirFunctionsFilter >> hash [
 	^ self class hash bitXor: self filterValueString hash
 ]
 
+{ #category : 'highlighting' }
+ElixirFunctionsFilter >> highlightRangesIn: aString [
+	"Source ranges I want highlighted. None by default; substring filters override."
+	^ #()
+]
+
 { #category : 'matching' }
 ElixirFunctionsFilter >> isType: anEntry [
 	^ #('type' 'opaque' 'typep') includes: (self entryKind: anEntry)
@@ -40,4 +46,16 @@ ElixirFunctionsFilter >> isType: anEntry [
 { #category : 'matching' }
 ElixirFunctionsFilter >> matches: anEntry [
 	^ true
+]
+
+{ #category : 'highlighting' }
+ElixirFunctionsFilter >> rangesOf: aSubstring in: aString [
+	| ranges idx |
+	(aSubstring isNil or: [ aSubstring isEmpty ]) ifTrue: [ ^ #() ].
+	ranges := OrderedCollection new.
+	idx := aString indexOfSubCollection: aSubstring startingAt: 1.
+	[ idx > 0 ] whileTrue: [
+		ranges add: (idx to: idx + aSubstring size - 1).
+		idx := aString indexOfSubCollection: aSubstring startingAt: idx + 1 ].
+	^ ranges
 ]

@@ -75,6 +75,12 @@ ElixirFunctionStreamingModel >> onModuleSourceCodeChanged: anAnnouncement [
 	self refreshStream
 ]
 
+{ #category : 'streaming' }
+ElixirFunctionStreamingModel >> refreshItemsStreamDueTo: aReason [
+	super refreshItemsStreamDueTo: aReason.
+	self restyleHighlightCoders
+]
+
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
 	"Drops cached entries whose key isn't in the fresh set —
@@ -92,4 +98,13 @@ ElixirFunctionStreamingModel >> refreshStream [
 		coders keys copy do: [ :k |
 			(freshKeys includes: k) ifFalse: [ coders removeKey: k ] ] ].
 	self refreshItemsStreamDueTo: 'functions reordered'
+]
+
+{ #category : 'streaming' }
+ElixirFunctionStreamingModel >> restyleHighlightCoders [
+	"Rebuild each cached coder's addOns so the <gtAstCoderAddOns:> highlight styler re-reads
+	 the active substrings and re-underlines (or clears) after a filter change."
+
+	(mutex critical: [ coders values asArray ])
+		do: [ :coder | coder requestUpdateAddOns ]
 ]

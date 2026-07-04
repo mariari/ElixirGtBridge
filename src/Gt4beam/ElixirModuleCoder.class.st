@@ -12,7 +12,8 @@ Class {
 		'sessionId',
 		'selfObject',
 		'saving',
-		'sourceCache'
+		'sourceCache',
+		'functionStreamingModel'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -170,8 +171,10 @@ ElixirModuleCoder >> buildExampleMapElement [
 { #category : 'private' }
 ElixirModuleCoder >> buildFunctionsFilterBar: aStreamingModel [
 	"GT filter-v2 bar: GtFilterItemsModel renders our filter models as native dropdowns
-	 (Kind default-shown, others via +); the updater syncs picks into additionalFilters."
+	 (Kind default-shown, others via +); the updater syncs picks into additionalFilters.
+	 Also kept as functionStreamingModel so the source highlighter can read the active substrings."
 	| aModel builder active defaults bar updater |
+	self functionStreamingModel: aStreamingModel.
 	aModel := GtFilterItemsModel new.
 	builder := ElixirFunctionFiltersBuilder new coders: aStreamingModel.
 	aModel availableFiltersBuilder: builder.
@@ -385,6 +388,16 @@ ElixirModuleCoder >> functionEntries [
 	^ (result isKindOf: BeamProxyObject)
 		ifTrue: [ result asList ]
 		ifFalse: [ result ]
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> functionStreamingModel [
+	^ functionStreamingModel
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> functionStreamingModel: aModel [
+	functionStreamingModel := aModel
 ]
 
 { #category : 'as yet unclassified' }

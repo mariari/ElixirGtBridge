@@ -37,6 +37,11 @@ ElixirBodySubstringFilter >> filterValueString [
 	^ self substring
 ]
 
+{ #category : 'highlighting' }
+ElixirBodySubstringFilter >> highlightRangesIn: aString [
+	^ self rangesOf: self substring in: aString
+]
+
 { #category : 'testing' }
 ElixirBodySubstringFilter >> matches: anEntry [
 	^ (anEntry attributeAt: #source) includesSubstring: self substring

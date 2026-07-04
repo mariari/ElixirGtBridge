@@ -34,6 +34,11 @@ ElixirNameSubstringFilter >> filterValueString [
 	^ substring
 ]
 
+{ #category : 'highlighting' }
+ElixirNameSubstringFilter >> highlightRangesIn: aString [
+	^ self rangesOf: self substring in: aString
+]
+
 { #category : 'matching' }
 ElixirNameSubstringFilter >> matches: anEntry [
 	^ (anEntry attributeAt: #name) asString asLowercase
