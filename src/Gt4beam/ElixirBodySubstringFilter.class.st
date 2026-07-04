@@ -9,18 +9,18 @@ Class {
 	#tag : 'Filters'
 }
 
-{ #category : 'descriptors' }
-ElixirBodySubstringFilter class >> globalFilterDescriptor2 [
-	^ GtFilterTextModel new
-		creator: [ :value | self substring: value ];
-		named: 'Substring';
-		order: 10;
-		yourself
+{ #category : 'instance creation' }
+ElixirBodySubstringFilter class >> forSubstring: value [
+	^ self new substring: value
 ]
 
 { #category : 'descriptors' }
-ElixirBodySubstringFilter class >> substring: value [
-	^ self new substring: value
+ElixirBodySubstringFilter class >> globalFilterDescriptor2 [
+	^ GtFilterTextModel new
+		creator: [ :value | self forSubstring: value ];
+		named: 'Substring';
+		order: 10;
+		yourself
 ]
 
 { #category : 'descriptors' }
@@ -44,7 +44,8 @@ ElixirBodySubstringFilter >> highlightRangesIn: aString [
 
 { #category : 'testing' }
 ElixirBodySubstringFilter >> matches: anEntry [
-	^ (anEntry attributeAt: #source) includesSubstring: self substring
+	^ (anEntry attributeAt: #source) asString asLowercase
+		includesSubstring: self substring asLowercase
 ]
 
 { #category : 'accessing' }

@@ -50,12 +50,16 @@ ElixirFunctionsFilter >> matches: anEntry [
 
 { #category : 'highlighting' }
 ElixirFunctionsFilter >> rangesOf: aSubstring in: aString [
-	| ranges idx |
+	"Case-insensitive, agreeing with the filters' matches:. Scans
+	 lowered copies; the ranges index the original string."
+	| ranges idx lowered target |
 	(aSubstring isNil or: [ aSubstring isEmpty ]) ifTrue: [ ^ #() ].
+	lowered := aSubstring asLowercase.
+	target := aString asLowercase.
 	ranges := OrderedCollection new.
-	idx := aString indexOfSubCollection: aSubstring startingAt: 1.
+	idx := target indexOfSubCollection: lowered startingAt: 1.
 	[ idx > 0 ] whileTrue: [
-		ranges add: (idx to: idx + aSubstring size - 1).
-		idx := aString indexOfSubCollection: aSubstring startingAt: idx + 1 ].
+		ranges add: (idx to: idx + lowered size - 1).
+		idx := target indexOfSubCollection: lowered startingAt: idx + 1 ].
 	^ ranges
 ]
