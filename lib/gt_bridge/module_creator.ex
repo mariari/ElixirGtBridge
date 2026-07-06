@@ -55,7 +55,10 @@ defmodule GtBridge.ModuleCreator do
   @spec project_apps() :: [atom()]
   def project_apps do
     main = Mix.Project.config()[:app]
-    deps = for dep <- Mix.Project.config()[:deps] || [], do: elem(GtBridge.Mix.normalize_dep(dep), 0)
+
+    deps =
+      for dep <- Mix.Project.config()[:deps] || [], do: elem(GtBridge.Mix.normalize_dep(dep), 0)
+
     [main | deps] |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end
 

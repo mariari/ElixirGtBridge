@@ -79,5 +79,4 @@ defmodule GtBridge.Eval.Preamble do
       Code.put_compiler_option(:no_warn_undefined, old)
     end
   end
-
 end
