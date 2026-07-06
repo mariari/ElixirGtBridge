@@ -26,13 +26,14 @@ defmodule Examples.EMondrian do
       |> Mondrian.priority(5)
       |> Mondrian.nodes(nodes)
       |> Mondrian.node_label(&Atom.to_string/1)
+      |> Mondrian.node_color(fn _ -> "#d3d3d2" end)
       |> Mondrian.edges(fn node -> Map.get(children, node, []) end)
       |> Mondrian.layout(:horizontal_tree)
       |> Mondrian.as_dict()
 
     assert dict.viewName == "GtPhlowMondrianViewSpecification"
     assert length(dict.nodes) == 4
-    assert Enum.at(dict.nodes, 0) == %{label: "a", object: :a}
+    assert Enum.at(dict.nodes, 0) == %{label: "a", object: :a, color: "#d3d3d2"}
     assert Enum.at(dict.adjacency, 0) == [1, 2]
     assert Enum.at(dict.adjacency, 1) == [3]
     assert Enum.at(dict.adjacency, 2) == []
@@ -48,7 +49,7 @@ defmodule Examples.EMondrian do
       |> Mondrian.nodes([1, 2, 3])
       |> Mondrian.as_dict()
 
-    assert Enum.at(dict.nodes, 0) == %{label: "1", object: 1}
+    assert Enum.at(dict.nodes, 0) == %{label: "1", object: 1, color: "#d3d3d3"}
 
     dict
   end

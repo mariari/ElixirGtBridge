@@ -28,6 +28,7 @@ defmodule GtBridge.Phlow.Mondrian do
     field(:view_priority, integer(), default: 1)
     field(:nodes_callback, (-> list()) | nil, default: nil)
     field(:node_label, (any() -> String.t()) | nil, default: nil)
+    field(:node_color, (any() -> String.t()) | nil, default: nil)
     field(:edges_callback, (any() -> list()) | nil, default: nil)
     field(:layout, atom(), default: :horizontal_tree)
   end
@@ -56,6 +57,11 @@ defmodule GtBridge.Phlow.Mondrian do
     %__MODULE__{self | node_label: fun}
   end
 
+  @spec node_color(t(), (any() -> String.t())) :: t()
+  def node_color(self, fun) do
+    %__MODULE__{self | node_color: fun}
+  end
+
   @spec edges(t(), (any() -> list())) :: t()
   def edges(self, fun) when is_function(fun, 1) do
     %__MODULE__{self | edges_callback: fun}
@@ -70,6 +76,7 @@ defmodule GtBridge.Phlow.Mondrian do
   def as_dict(self) do
     items = if self.nodes_callback, do: self.nodes_callback.(), else: []
     label_fn = self.node_label || (&inspect/1)
+    color_fn = self.node_color || fn _ -> "#d3d3d3" end
 
     # First-occurrence wins so duplicate values share a node
     # rather than creating orphans.
@@ -81,7 +88,7 @@ defmodule GtBridge.Phlow.Mondrian do
 
     nodes_data =
       Enum.map(items, fn item ->
-        %{label: label_fn.(item), object: item}
+        %{label: label_fn.(item), object: item, color: color_fn.(item)}
       end)
 
     adjacency =
