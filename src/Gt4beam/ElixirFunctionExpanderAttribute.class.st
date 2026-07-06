@@ -23,7 +23,7 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 	mc := ElixirModuleCoder new
 		moduleName: targetModule;
 		application: application;
-		sourcePath: (((path isKindOf: String) and: [ path asFileReference exists ])
+		sourcePath: ((path isString and: [ path asFileReference exists ])
 			ifTrue: [ path ] ifFalse: [ nil ]).
 	entry := mc functionEntries
 		detect: [ :e | (e attributeAt: #name) asString = functionName asString

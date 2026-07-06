@@ -276,7 +276,7 @@ ElixirFunctionCoder >> initializeShortcuts: addOns [
 
 { #category : 'testing' }
 ElixirFunctionCoder >> isNewFunction [
-	"I have no source line yet — a draft to be appended, not spliced."
+	"I have no source line yet: a draft to be appended, not spliced."
 	^ startLine isNil
 ]
 

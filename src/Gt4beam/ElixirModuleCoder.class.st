@@ -80,7 +80,7 @@ ElixirModuleCoder >> asCoderViewModel [
 ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 	"I insert a draft editor pane immediately after addRow, seeded with a
 	 new-function template.  It's an ElixirFunctionCoder (no eval buttons,
-	 dedent), so its own Save appends via addFunction: — completion sees my
+	 dedent), so its own Save appends via addFunction:; completion sees my
 	 imports/aliases through my editor session.  The pane removes itself
 	 once the append recompiles (the same GtCoderSourceCodeChanged the
 	 streaming list refreshes on).  Cancel just removes the pane."
