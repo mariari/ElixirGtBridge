@@ -744,10 +744,7 @@ defmodule GtBridge.Analysis do
   @doc "I return all module names across all loaded applications, sorted."
   @spec all_module_names() :: [String.t()]
   def all_module_names do
-    Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} -> modules(app) end)
-    |> Enum.map(&inspect/1)
-    |> Enum.sort()
+    GtBridge.Analysis.LoadedModules.all_names() |> Enum.sort()
   end
 
   @doc "I return module names matching a substring query, limited to `max` results."
@@ -1153,11 +1150,12 @@ defmodule GtBridge.Analysis do
   defp synth_no_source(name_str, arity, spec_string),
     do: "@spec #{spec_string}\n# #{name_str}/#{arity}, no source"
 
+  # I read the LoadedModules projection, not :application.get_key, so
+  # modules created by a live recompile (a new file, or a nested module
+  # from typedstruct module:) are enumerated instead of being frozen at
+  # the boot-time app spec.
   defp modules(app) do
-    case :application.get_key(app, :modules) do
-      {:ok, mods} -> mods
-      _ -> []
-    end
+    GtBridge.Analysis.LoadedModules.modules_for_app(app)
   end
 
   defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
