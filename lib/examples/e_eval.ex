@@ -40,6 +40,23 @@ defmodule Examples.EEval do
     pid
   end
 
+  @doc """
+  I prove snippets can reach their session process through the `pid`
+  binding (named `pid`, not `self`, so the inspector can bind `self`
+  to the inspected object) and that /BINDINGS filters it as internal.
+  Returns the session.
+  """
+  @spec pid_binds_the_session_process() :: pid()
+  example pid_binds_the_session_process do
+    pid = new_eval()
+
+    assert Eval.eval(pid, "pid", nil) == pid
+    assert Eval.eval(pid, "send(pid, :from_snippet) == :from_snippet", nil) == true
+    refute Map.has_key?(Eval.get_bindings(pid), "pid")
+
+    pid
+  end
+
   @spec bind_a_to_30() :: pid()
   example bind_a_to_30 do
     pid = new_eval()
