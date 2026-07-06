@@ -55,6 +55,7 @@ ElixirFunctionStreamingModel >> newCoderFor: anEntry [
 	| coder |
 	coder := ElixirFunctionCoder forEntry: anEntry moduleCoder: moduleCoder.
 	coder selfObject: moduleCoder selfObject.
+	coder list: self.
 	^ coder
 ]
 
