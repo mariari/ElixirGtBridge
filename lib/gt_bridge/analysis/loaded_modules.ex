@@ -1,24 +1,27 @@
 defmodule GtBridge.Analysis.LoadedModules do
   @moduledoc """
-  I maintain the set of every loaded Elixir module name (e.g.
-  "GtBridge.Eval"), populated initially from
-  `:application.get_key/2` for every loaded application and
-  maintained additively by EventBroker `%ModuleEvent{}` events.
+  I maintain the set of every loaded Elixir module, keyed by its dotted
+  name string (e.g. "GtBridge.Eval") and carrying its module atom and
+  owning application.  I am populated initially from
+  `:application.get_key/2` for every loaded application and maintained
+  additively by EventBroker `%ModuleEvent{}` events.
 
-  Consumers query me through `loaded?/1` for an O(1) ETS read —
-  no recompute per call.  Module recompiles add to my set; module
-  removals delete from it.
-
-  This is the FRP shape the bridge is moving toward: derived state
-  (the "modules currently loaded" projection) maintained by the
+  This is the FRP shape the bridge is moving toward: derived state (the
+  "modules currently loaded" projection) maintained by the
   infrastructure (events) instead of recomputed by every consumer.
-  Today only `Analysis.unresolved_modules/2` reads me; future
-  consumers (e.g. a wider styler that flags unresolved struct
-  literals or behaviours) plug in identically.
+  `:application.get_key/2` is a static snapshot frozen at app load, so a
+  module born from a live recompile (a new file, or a nested module from
+  `typedstruct module:`) never appears in it — but it does arrive here as
+  a `:recompiled` fact.  That is why module enumeration
+  (`Analysis.all_module_names/0`, the private `modules/1`, and through
+  them the spotter and the module browser) reads me rather than
+  `get_key` directly.
 
   ### Public API
 
-  - `loaded?/1` — true when the named module is in my set.
+  - `loaded?/1` — true when the named module is in my set (O(1))
+  - `all_names/0` — every loaded module's dotted-name string
+  - `modules_for_app/1` — the module atoms belonging to `app`
   """
 
   use GenServer
@@ -39,6 +42,14 @@ defmodule GtBridge.Analysis.LoadedModules do
   """
   @spec loaded?(String.t()) :: boolean()
   def loaded?(name), do: :ets.member(@table, name)
+
+  @doc "I return every loaded module's dotted-name string."
+  @spec all_names() :: [String.t()]
+  def all_names, do: :ets.select(@table, [{{:"$1", :_, :_}, [], [:"$1"]}])
+
+  @doc "I return the module atoms belonging to `app`."
+  @spec modules_for_app(atom()) :: [module()]
+  def modules_for_app(app), do: :ets.select(@table, [{{:_, :"$1", app}, [], [:"$1"]}])
 
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -64,11 +75,11 @@ defmodule GtBridge.Analysis.LoadedModules do
   @impl true
   def handle_info(%Event{body: %ModuleEvent{kind: :recompiled, mod: mod}}, state)
       when is_atom(mod) and not is_nil(mod) do
-    :ets.insert(@table, {inspect(mod)})
+    :ets.insert(@table, {inspect(mod), mod, app_of(mod)})
     {:noreply, state}
   end
 
-  def handle_info(%Event{body: %ModuleEvent{kind: :removed, mod: mod}}, state)
+  def handle_info(%Event{body: %ModuleEvent{kind: :source_removed, mod: mod}}, state)
       when is_atom(mod) and not is_nil(mod) do
     :ets.delete(@table, inspect(mod))
     {:noreply, state}
@@ -81,13 +92,44 @@ defmodule GtBridge.Analysis.LoadedModules do
   ############################################################
 
   defp populate do
-    Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} ->
-      case :application.get_key(app, :modules) do
-        {:ok, mods} -> mods
-        _ -> []
-      end
-    end)
-    |> Enum.each(fn mod -> :ets.insert(@table, {inspect(mod)}) end)
+    for {app, _, _} <- Application.loaded_applications(),
+        {:ok, mods} <- [:application.get_key(app, :modules)],
+        mod <- mods do
+      :ets.insert(@table, {inspect(mod), mod, app})
+    end
+
+    :ok
+  end
+
+  # `Application.get_application/1` resolves via the app spec's module
+  # list, frozen at load — a live-recompiled new module isn't in it and
+  # comes back nil, so I fall back to the module's beam location under an
+  # app's ebin directory.
+  defp app_of(mod) do
+    case Application.get_application(mod) do
+      app when is_atom(app) and not is_nil(app) -> app
+      _ -> app_from_beam(mod)
+    end
+  end
+
+  defp app_from_beam(mod) do
+    with beam when is_list(beam) <- :code.which(mod) do
+      beam_str = List.to_string(beam)
+
+      Enum.find_value(Application.loaded_applications(), fn {app, _, _} ->
+        ebin = safe_ebin(app)
+        ebin && String.starts_with?(beam_str, ebin) && app
+      end)
+    else
+      _ -> nil
+    end
+  end
+
+  # app_dir raises ArgumentError for an app whose lib dir can't be
+  # resolved (loaded spec without a directory, e.g. pruned code paths).
+  defp safe_ebin(app) do
+    Application.app_dir(app, "ebin")
+  rescue
+    ArgumentError -> nil
   end
 end
