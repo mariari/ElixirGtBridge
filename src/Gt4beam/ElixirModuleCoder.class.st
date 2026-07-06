@@ -45,20 +45,11 @@ ElixirModuleCoder class >> forModule: aModuleName application: anApp [
 
 { #category : 'actions' }
 ElixirModuleCoder >> addFunction: newText [
-	"I insert newText just before the module's closing `end`, so new
-	 functions land after any types, attributes, and existing defs.
-	 findLast: is critical — a backward loop without early termination
-	 would fall through every `end` and land on the earliest one (a
-	 nested def's close), splicing the new function inside that def."
-	| lines lastEnd newLines |
-	lines := self sourceCode lines asOrderedCollection.
-	lastEnd := lines findLast: [ :line | line trimBoth = 'end' ].
-	lastEnd = 0 ifTrue: [ lastEnd := lines size + 1 ].
-	newLines := (lines copyFrom: 1 to: lastEnd - 1) asOrderedCollection.
-	newLines add: ''.
-	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: lastEnd to: lines size).
-	^ self saveAndCompile: (String lf join: newLines)
+	"Append newText as a new function. The bridge locates the module's
+	 closing `end` from the parse, so it lands in the right place."
+	^ self applySourceEdit:
+		('GtBridge.Analysis.append_function(', (self base64Expr: self sourceCode),
+			', ', (self base64Expr: newText), ')')
 ]
 
 { #category : 'accessing' }
@@ -71,9 +62,25 @@ ElixirModuleCoder >> application: anApp [
 	application := anApp
 ]
 
+{ #category : 'private' }
+ElixirModuleCoder >> applySourceEdit: anExpression [
+	"Run an Analysis source-edit expression returning the new module source
+	 and save it; skip the save on a bridge error (non-String result)."
+	| result |
+	result := application newCommandFactory << anExpression; sendAndWait.
+	^ result isString ifTrue: [ self saveAndCompile: result ] ifFalse: [ self ]
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> asCoderViewModel [
 	^ ElixirModuleCoderViewModel new coder: self
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> base64Expr: aString [
+	"An Elixir Base.decode64! expression carrying aString, safe to embed as
+	 a string argument in a bridge call."
+	^ 'Base.decode64!("', (ZnBase64Encoder new encode: aString utf8Encoded), '")'
 ]
 
 { #category : 'private' }
@@ -571,26 +578,14 @@ ElixirModuleCoder >> sourcePath: aString [
 
 { #category : 'actions' }
 ElixirModuleCoder >> spliceFunction: newText forFunction: aName arity: anArity [
-	"I find the function's current position in the file by name/arity,
-	 splice the new text in, and save. Skips if a save is already running.
-
-	 `functionEntries` short-circuits on the cache populated by the
-	 most recent BeamModuleRecompiled, so back-to-back saves don't
-	 each pay an `all_functions/1` round-trip."
-	| match lines newLines st en |
+	"Save (or delete, when newText is empty) one function by name/arity.
+	 The bridge locates it in the source I pass, so the splice can't drift
+	 like a cached range can. Skips if a save is already running."
 	saving == true ifTrue: [ ^ self ].
 	saving := true.
-	[ match := self functionEntries
-		detect: [ :e | (e attributeAt: #name) asString = aName
-			and: [ (e attributeAt: #arity) = anArity ] ]
-		ifNone: [ ^ self ].
-	st := match attributeAt: #start.
-	en := match attributeAt: #end_line.
-	lines := self sourceCode lines.
-	newLines := (lines copyFrom: 1 to: st - 1) asOrderedCollection.
-	newLines addAll: newText lines.
-	newLines addAll: (lines copyFrom: en + 1 to: lines size).
-	self saveAndCompile: (String lf join: newLines) ]
+	[ self applySourceEdit:
+		('GtBridge.Analysis.replace_function(', (self base64Expr: self sourceCode),
+			', "', aName, '", ', anArity printString, ', ', (self base64Expr: newText), ')') ]
 	ensure: [ saving := false ]
 ]
 
@@ -609,25 +604,13 @@ ElixirModuleCoder >> subscribeToEntries [
 
 { #category : 'actions' }
 ElixirModuleCoder >> swapFunctions: entryA with: entryB [
-	"I swap two function blocks in the source, save, and compile."
-	| lines startA endA startB endB blockA blockB newLines t |
-	startA := entryA attributeAt: #start.
-	endA := entryA attributeAt: #end_line.
-	startB := entryB attributeAt: #start.
-	endB := entryB attributeAt: #end_line.
-	"Ensure A comes before B"
-	startA > startB ifTrue: [
-		t := startA. startA := startB. startB := t.
-		t := endA. endA := endB. endB := t ].
-	lines := self sourceCode lines.
-	blockA := lines copyFrom: startA to: endA.
-	blockB := lines copyFrom: startB to: endB.
-	newLines := (lines copyFrom: 1 to: startA - 1),
-		blockB,
-		(lines copyFrom: endA + 1 to: startB - 1),
-		blockA,
-		(lines copyFrom: endB + 1 to: lines size).
-	^ self saveAndCompile: (String lf join: newLines)
+	"Move: swap two functions by name/arity. The bridge recomputes the
+	 ranges from the source I pass, so the splice can't drift like a cached
+	 range can."
+	^ self applySourceEdit:
+		('GtBridge.Analysis.swap_functions(', (self base64Expr: self sourceCode),
+			', "', (entryA attributeAt: #name) asString, '", ', (entryA attributeAt: #arity) printString,
+			', "', (entryB attributeAt: #name) asString, '", ', (entryB attributeAt: #arity) printString, ')')
 ]
 
 { #category : 'subscriptions' }
