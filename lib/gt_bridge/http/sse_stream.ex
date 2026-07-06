@@ -23,6 +23,10 @@ defmodule GtBridge.Http.SseStream do
     req = :cowboy_req.set_resp_header("cache-control", "no-cache", req)
     req = :cowboy_req.stream_reply(200, req)
     EventBroker.subscribe_me([%Events.AnyModuleEvent{}])
+    # GT starts watching now; reconcile both directions for anything
+    # that happened while nobody was recording (iex work between BEAM
+    # boot and this connection, out-of-band deletes).
+    GtBridge.Analysis.LoadedModules.full_sync_async()
     {:cowboy_loop, req, %{subscribed: true}, :hibernate}
   end
 

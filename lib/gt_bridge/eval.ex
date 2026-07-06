@@ -116,6 +116,7 @@ defmodule GtBridge.Eval do
             else: [pid: self(), command_id: command_id]
 
         Code.eval_quoted_with_env(quoted, bindings, GtBridge.Eval.Env.env())
+        GtBridge.Analysis.LoadedModules.sync_async()
       catch
         kind, e ->
           error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
@@ -164,6 +165,9 @@ defmodule GtBridge.Eval do
           state.bindings ++ [command_id: command_id],
           state.env
         )
+
+      # The snippet may have defined modules; enter them into the record.
+      GtBridge.Analysis.LoadedModules.sync_async()
 
       # Remove duplicated keys and ports
       unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
