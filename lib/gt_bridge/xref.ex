@@ -11,8 +11,11 @@ defmodule GtBridge.Xref do
   perceptibly slow.
 
   I keep one xref server running for the lifetime of the BEAM. Indexing
-  runs in a background `:low`-priority Task so it yields to any
-  normal-priority work — eager add_directory on every loaded app
+  does not run at VM boot: `start_indexing/0` kicks it off on bridge
+  startup (when a listener spins up), so a host app that only pulls
+  GtBridge in as a dependency pays nothing until GT actually connects.
+  Indexing then runs in a background `:low`-priority Task so it yields to
+  any normal-priority work — eager add_directory on every loaded app
   contends with the OTP code server enough to cascade GT's startup
   module_details fan-out into 5s eval timeouts at normal priority.
   Queries arriving before indexing completes return `{:ok, []}` rather
@@ -23,6 +26,7 @@ defmodule GtBridge.Xref do
 
   ### Public API
 
+  - `start_indexing/0` — begin the initial indexing pass (called on bridge startup)
   - `q/1` — run an xref query string and return its `:xref.q/2` result
   - `replace/1` — explicitly refresh one module's edges (also called
     automatically on `BeamModuleRecompiled`)
@@ -53,6 +57,16 @@ defmodule GtBridge.Xref do
 
   @spec replace(module()) :: :ok
   def replace(mod) when is_atom(mod), do: GenServer.cast(__MODULE__, {:replace, mod})
+
+  @doc """
+  I begin the initial cross-reference indexing pass.  Called on bridge
+  startup (when a TCP/HTTP listener spins up), not at VM boot, so a host
+  app that only pulls GtBridge in as a dependency pays no `add_directory`
+  sweep until GT actually connects.  Idempotent: calls after indexing has
+  begun are no-ops.
+  """
+  @spec start_indexing() :: :ok
+  def start_indexing, do: GenServer.cast(__MODULE__, :start_indexing)
 
   @doc """
   I am true once the initial indexing pass has completed.  Until then
@@ -92,23 +106,10 @@ defmodule GtBridge.Xref do
 
     EventBroker.subscribe_me([%Events.AnyModuleEvent{}])
 
-    # Kick off indexing immediately via handle_continue so init returns
-    # straight away. The Task itself runs at :low priority so it
-    # yields to any eval handler that wants the scheduler.
-    {:ok, %{ready: false, waiters: []}, {:continue, :index_apps}}
-  end
-
-  @impl true
-  def handle_continue(:index_apps, state) do
-    pid = self()
-
-    Task.start(fn ->
-      Process.flag(:priority, :low)
-      add_all_apps()
-      GenServer.cast(pid, :indexing_done)
-    end)
-
-    {:noreply, state}
+    # Indexing is deferred to bridge startup (a listener spinning up) via
+    # start_indexing/0, not run here at VM boot, so a host app that only
+    # depends on GtBridge doesn't pay the add_directory cost on every boot.
+    {:ok, %{ready: false, indexing: false, waiters: []}}
   end
 
   @impl true
@@ -134,9 +135,11 @@ defmodule GtBridge.Xref do
   end
 
   @impl true
+  def handle_cast(:start_indexing, state), do: {:noreply, ensure_indexing(state)}
+
   def handle_cast(:indexing_done, state) do
     Enum.each(state.waiters, &GenServer.reply(&1, :ok))
-    {:noreply, %{state | ready: true, waiters: []}}
+    {:noreply, %{state | ready: true, indexing: false, waiters: []}}
   end
 
   def handle_cast({:replace, mod}, state) do
@@ -159,6 +162,22 @@ defmodule GtBridge.Xref do
   ############################################################
   #                   Private Implementation                 #
   ############################################################
+
+  # I start the background indexing Task once.  It runs at :low priority
+  # so it yields to any eval handler that wants the scheduler.
+  defp ensure_indexing(%{indexing: false, ready: false} = state) do
+    pid = self()
+
+    Task.start(fn ->
+      Process.flag(:priority, :low)
+      add_all_apps()
+      GenServer.cast(pid, :indexing_done)
+    end)
+
+    %{state | indexing: true}
+  end
+
+  defp ensure_indexing(state), do: state
 
   defp add_all_apps do
     for {app, _, _} <- Application.loaded_applications() do

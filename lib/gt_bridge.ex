@@ -26,6 +26,9 @@ defmodule GtBridge do
   end
 
   def start_listener(port \\ 0) do
+    # Bridge is coming up: begin xref indexing now (deferred from VM boot).
+    GtBridge.Xref.start_indexing()
+
     DynamicSupervisor.start_child(
       Tcp.Supervisor,
       {Tcp.Listener, [host: {0, 0, 0, 0}, port: port]}
