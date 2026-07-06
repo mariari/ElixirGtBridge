@@ -61,13 +61,10 @@ ElixirFunctionStreamingModel >> newCoderFor: anEntry [
 
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newItemsStream [
-	"I return function entries as an async stream in the order
-	 GtBridge.Analysis.all_functions/1 emits them.  The BEAM-side
-	 already groups default-arg arity siblings (start: 0) above
-	 their AST counterpart and parks orphan macro-generated entries
-	 at the end, so re-sorting by start would just lump every
-	 start: 0 entry at the top."
-	^ moduleCoder functionEntries asAsyncStream
+	"additionalFilters (not compositeFilter): the null main filter isn't a
+	 predicate, and entries keep all_functions/1 order via select:."
+	^ (moduleCoder functionEntries select: [ :e |
+		self additionalFilters allSatisfy: [ :f | f matches: e ] ]) asAsyncStream
 ]
 
 { #category : 'announcements' }
@@ -77,6 +74,12 @@ ElixirFunctionStreamingModel >> onModuleSourceCodeChanged: anAnnouncement [
 	 cache from the BeamModuleRecompiled payload by the time I run, so
 	 `refreshStream` reads cached function entries — no bridge call."
 	self refreshStream
+]
+
+{ #category : 'streaming' }
+ElixirFunctionStreamingModel >> refreshItemsStreamDueTo: aReason [
+	super refreshItemsStreamDueTo: aReason.
+	self restyleHighlightCoders
 ]
 
 { #category : 'as yet unclassified' }
@@ -96,4 +99,13 @@ ElixirFunctionStreamingModel >> refreshStream [
 		coders keys copy do: [ :k |
 			(freshKeys includes: k) ifFalse: [ coders removeKey: k ] ] ].
 	self refreshItemsStreamDueTo: 'functions reordered'
+]
+
+{ #category : 'streaming' }
+ElixirFunctionStreamingModel >> restyleHighlightCoders [
+	"Rebuild each cached coder's addOns so the <gtAstCoderAddOns:> highlight styler re-reads
+	 the active substrings and re-underlines (or clears) after a filter change."
+
+	(mutex critical: [ coders values asArray ])
+		do: [ :coder | coder requestUpdateAddOns ]
 ]

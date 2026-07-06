@@ -219,6 +219,15 @@ ElixirFunctionCoder >> hasSource [
 	^ startLine isNotNil and: [ startLine > 0 ]
 ]
 
+{ #category : 'add-ons' }
+ElixirFunctionCoder >> highlightFiltersFor: anAst into: coderAddOns [
+	"Underline the active substring filters matches in the source. A <gtAstCoderAddOns:>
+	 pragma (not initializeAddOns:) so it is re-collected + re-run on every addOns rebuild."
+
+	<gtAstCoderAddOns: 11>
+	coderAddOns addStyler: ElixirSubstringHighlightStyler new
+]
+
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> initializeAddOns: addOns [
 	super initializeAddOns: addOns.

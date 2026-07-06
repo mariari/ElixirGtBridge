@@ -12,7 +12,8 @@ Class {
 		'sessionId',
 		'selfObject',
 		'saving',
-		'sourceCache'
+		'sourceCache',
+		'functionStreamingModel'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -171,13 +172,37 @@ ElixirModuleCoder >> buildExampleMapElement [
 ]
 
 { #category : 'private' }
+ElixirModuleCoder >> buildFunctionsFilterBar: aStreamingModel [
+	"GT filter-v2 bar: GtFilterItemsModel renders our filter models as native dropdowns
+	 (Kind default-shown, others via +); the updater syncs picks into additionalFilters.
+	 Also kept as functionStreamingModel so the source highlighter can read the active substrings."
+	| aModel builder active defaults bar updater |
+	self functionStreamingModel: aStreamingModel.
+	aModel := GtFilterItemsModel new.
+	builder := ElixirFunctionFiltersBuilder new coders: aStreamingModel.
+	aModel availableFiltersBuilder: builder.
+	active := (aStreamingModel additionalFilters
+		collect: [ :f | f filterDescriptor2For: aStreamingModel ]) reject: [ :x | x isNil ].
+	defaults := builder availableFilters
+		select: [ :m | m isDefaultFilterModel and: [ (active includes: m) not ] ].
+	aModel items: (Array streamContents: [ :s | s nextPutAll: active. s nextPutAll: defaults ]).
+	bar := aModel asFiltersElement.
+	updater := GtFilterMethodCodersAdditionalFiltersUpdater new
+		coders: aStreamingModel;
+		filtersModel: aModel.
+	bar userData at: #elixirFilterUpdater put: updater.
+	bar constraintsDo: [ :c | c horizontal matchParent. c vertical fitContent ].
+	^ bar
+]
+
+{ #category : 'private' }
 ElixirModuleCoder >> buildFunctionsViewElement [
 	"I build the Functions tab. If focusLine is set, I set a scroll
 	 target on the view model — the streaming element handles
 	 scroll via list scrollToItemSuchThat:offset: when the matching
 	 item loads (same pattern as GtPharoStreamingMethodsCoderElement).
 	 Each function coder starts folded so the user scans the list."
-	| container addRow streaming vm streamingElement focusStart |
+	| container addRow streaming vm streamingElement focusStart filterBar |
 	container := BlElement new
 		layout: BlLinearLayout vertical;
 		constraintsDo: [ :c |
@@ -215,7 +240,14 @@ ElixirModuleCoder >> buildFunctionsViewElement [
 	container
 		addChild: addRow;
 		addChild: streamingElement matchParent.
-	^ container
+	filterBar := self buildFunctionsFilterBar: streaming.
+	"Wrap rather than sibling addRow: the draft pane inserts by index into container."
+	^ BlElement new
+		layout: BlLinearLayout vertical;
+		constraintsDo: [ :c | c horizontal matchParent. c vertical matchParent ];
+		addChild: filterBar;
+		addChild: container;
+		yourself
 ]
 
 { #category : 'private' }
@@ -341,6 +373,16 @@ ElixirModuleCoder >> functionEntries [
 	^ (result isKindOf: BeamProxyObject)
 		ifTrue: [ result asList ]
 		ifFalse: [ result ]
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> functionStreamingModel [
+	^ functionStreamingModel
+]
+
+{ #category : 'accessing' }
+ElixirModuleCoder >> functionStreamingModel: aModel [
+	functionStreamingModel := aModel
 ]
 
 { #category : 'as yet unclassified' }
