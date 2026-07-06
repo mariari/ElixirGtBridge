@@ -149,11 +149,11 @@ defmodule GtBridge.Analysis do
   """
   @spec module_in_source(String.t()) :: String.t() | nil
   def module_in_source(source) do
-    case Code.string_to_quoted(source) do
-      {:ok, {:defmodule, _, [{:__aliases__, _, parts} | _]}} ->
-        Enum.map_join(parts, ".", &Atom.to_string/1)
+    case modules_in_source(source) do
+      [first | _] ->
+        first
 
-      _ ->
+      [] ->
         # Parse failed (syntax error elsewhere).  The defmodule line
         # itself almost always parses; pull the name by regex so error
         # notifications still name the right module.
@@ -167,6 +167,37 @@ defmodule GtBridge.Analysis do
       _ -> nil
     end
   end
+
+  @doc """
+  I return every module `source` defines (nested `defmodule`s and
+  `typedstruct module:` children included) as dotted-name strings.
+  Returns `[]` when the source doesn't parse.
+  """
+  @spec modules_in_source(String.t()) :: [String.t()]
+  def modules_in_source(source) do
+    case Code.string_to_quoted(source) do
+      {:ok, ast} -> collect_modules(ast, "")
+      _ -> []
+    end
+  end
+
+  @spec collect_modules(Macro.t(), String.t()) :: [String.t()]
+  defp collect_modules({:__block__, _, stmts}, prefix),
+    do: Enum.flat_map(stmts, &collect_modules(&1, prefix))
+
+  defp collect_modules({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]}, prefix) do
+    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
+    [full | collect_modules(body, full)]
+  end
+
+  defp collect_modules({:typedstruct, _, _} = node, prefix) do
+    case typedstruct_submodule(node) do
+      nil -> []
+      sub -> [qualify(prefix, sub)]
+    end
+  end
+
+  defp collect_modules(_, _), do: []
 
   @doc """
   I parse `source` and return the AST function entries (the same shape
@@ -196,13 +227,14 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I swap two functions (by `{name, arity}`) in `source`, taking ranges from
-  `source` itself so the splice can't drift. Unknown name/arity returns
-  `source` unchanged.
+  I swap two functions (by `{name, arity}`) within `module` in `source`,
+  taking ranges from `source` itself so the splice can't drift. Unknown
+  name/arity returns `source` unchanged.
   """
-  @spec swap_functions(String.t(), String.t(), arity(), String.t(), arity()) :: String.t()
-  def swap_functions(source, name_a, arity_a, name_b, arity_b) do
-    entries = functions_in_source(source)
+  @spec swap_functions(String.t(), String.t(), String.t(), arity(), String.t(), arity()) ::
+          String.t()
+  def swap_functions(source, module, name_a, arity_a, name_b, arity_b) do
+    entries = module_source_entries(source, module)
 
     with a when not is_nil(a) <- find_function(entries, name_a, arity_a),
          b when not is_nil(b) <- find_function(entries, name_b, arity_b) do
@@ -213,28 +245,31 @@ defmodule GtBridge.Analysis do
   end
 
   @doc """
-  I replace the `{name, arity}` function in `source` with `new_text` (or
-  remove it when `new_text` is empty), taking the range from `source` itself
-  so the splice can't drift. Unknown name/arity returns `source` unchanged.
+  I replace the `{name, arity}` function within `module` in `source` with
+  `new_text` (or remove it when `new_text` is empty), taking the range from
+  `source` itself so the splice can't drift. Unknown name/arity returns
+  `source` unchanged.
   """
-  @spec replace_function(String.t(), String.t(), arity(), String.t()) :: String.t()
-  def replace_function(source, name, arity, new_text) do
-    case find_function(functions_in_source(source), name, arity) do
+  @spec replace_function(String.t(), String.t(), String.t(), arity(), String.t()) :: String.t()
+  def replace_function(source, module, name, arity, new_text) do
+    case find_function(module_source_entries(source, module), name, arity) do
       nil -> source
       f -> rewrite(source, [{f, text_lines(new_text)}])
     end
   end
 
   @doc """
-  I append `new_text` as a new function just before `source`'s module-closing
-  `end`, located from the parse (not a text scan, which trailing comments or
-  string `end`s defeat). Returns `source` unchanged if it doesn't parse.
+  I append `new_text` as a new function just before `module`'s closing `end`,
+  located from the parse so a sibling or nested module in the same file doesn't
+  misdirect it. Returns `source` unchanged when `module` has no `defmodule` to
+  append to (e.g. a typedstruct-generated module), or the source doesn't parse.
   """
-  @spec append_function(String.t(), String.t()) :: String.t()
-  def append_function(source, new_text) do
+  @spec append_function(String.t(), String.t(), String.t()) :: String.t()
+  def append_function(source, module, new_text) do
     with {:ok, ast} <- Code.string_to_quoted(source, token_metadata: true),
-         line when is_integer(line) <- module_end_line(ast) do
-      # a zero-width edit at `line` inserts the blank + new function before it
+         {:defmodule, meta, _} <- module_scope(ast, module),
+         line when is_integer(line) <- get_in(meta, [:end, :line]) do
+      # a zero-width edit at `line` inserts the blank + new function before end
       rewrite(source, [{%{start: line, end_line: line - 1}, ["" | text_lines(new_text)]}])
     else
       _ -> source
@@ -262,17 +297,6 @@ defmodule GtBridge.Analysis do
 
   defp find_function(entries, name, arity),
     do: Enum.find(entries, &(&1.name == name and &1.arity == arity))
-
-  # Line of the outermost module's closing `end`, from token metadata.
-  defp module_end_line(ast) do
-    {_, line} =
-      Macro.prewalk(ast, nil, fn
-        {:defmodule, meta, _} = node, nil -> {node, get_in(meta, [:end, :line])}
-        node, acc -> {node, acc}
-      end)
-
-    line
-  end
 
   # 1-indexed inclusive slice; the from > to guard matters because
   # (from - 1)..(to - 1) wraps to the whole list when to is 0.
@@ -414,7 +438,7 @@ defmodule GtBridge.Analysis do
 
     ast_entries =
       GtBridge.Resolve.with_source(mod, [], fn source ->
-        functions_in_source(source)
+        module_source_entries(source, inspect(mod))
       end)
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
@@ -537,6 +561,141 @@ defmodule GtBridge.Analysis do
     kw = List.last(args)
     is_list(kw) and Keyword.keyword?(kw) and Keyword.has_key?(kw, :do)
   end
+
+  # Function/type entries for one module, scoped to its own subtree so a nested
+  # or sibling module in the same file doesn't leak the other's. `module` is the
+  # dotted name string. Shared by all_functions/1 and the edit ops.
+  @spec module_source_entries(String.t(), String.t()) :: [map()]
+  defp module_source_entries(source, module) do
+    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+      {:ok, ast} ->
+        lines = String.split(source, "\n")
+
+        case module_scope(ast, module) do
+          {:defmodule, _, [_, [do: body]]} ->
+            stmts = body_statements(body)
+            functions_from_statements(stmts, lines) ++ types_from_statements(stmts, lines)
+
+          {:typedstruct, _, _} = node ->
+            typedstruct_type(node, lines)
+
+          nil ->
+            []
+        end
+
+      _ ->
+        lenient_function_entries(source)
+    end
+  end
+
+  # The AST node for `target`'s scope: a defmodule tuple, or a `typedstruct
+  # module: X` tuple that generates <enclosing>.X. Walks defmodule nesting to
+  # build full names. The one place that answers "which module is this"; both
+  # the read and write paths use it.
+  @spec module_scope(Macro.t(), String.t()) :: Macro.t() | nil
+  defp module_scope(ast, target), do: module_scope(ast, "", target)
+
+  defp module_scope({:__block__, _, stmts}, prefix, target),
+    do: Enum.find_value(stmts, &module_scope(&1, prefix, target))
+
+  defp module_scope(
+         {:defmodule, _, [{:__aliases__, _, parts}, [do: body]]} = node,
+         prefix,
+         target
+       ) do
+    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
+
+    cond do
+      full == target -> node
+      String.starts_with?(target, full <> ".") -> module_scope(body, full, target)
+      true -> nil
+    end
+  end
+
+  defp module_scope({:typedstruct, _, _} = node, prefix, target) do
+    case typedstruct_submodule(node) do
+      nil -> nil
+      sub -> if qualify(prefix, sub) == target, do: node
+    end
+  end
+
+  defp module_scope(_, _, _), do: nil
+
+  @spec qualify(String.t(), String.t()) :: String.t()
+  defp qualify("", suffix), do: suffix
+  defp qualify(prefix, suffix), do: prefix <> "." <> suffix
+
+  @spec body_statements(Macro.t()) :: [Macro.t()]
+  defp body_statements({:__block__, _, stmts}), do: stmts
+  defp body_statements(single), do: [single]
+
+  # A typedstruct's `module:` option as a dotted string, or nil for a plain
+  # typedstruct (whose `t` belongs to the enclosing module). The option can be
+  # in any leading keyword arg, so scan them all.
+  @spec typedstruct_submodule(Macro.t()) :: String.t() | nil
+  defp typedstruct_submodule({:typedstruct, _, args}) when is_list(args) do
+    module =
+      args
+      |> Enum.filter(&(is_list(&1) and Keyword.keyword?(&1)))
+      |> Enum.find_value(&Keyword.get(&1, :module))
+
+    case module do
+      {:__aliases__, _, parts} -> Enum.map_join(parts, ".", &Atom.to_string/1)
+      _ -> nil
+    end
+  end
+
+  defp typedstruct_submodule(_), do: nil
+
+  @spec functions_from_statements([Macro.t()], [String.t()]) :: [map()]
+  defp functions_from_statements(stmts, lines) do
+    stmts
+    |> Enum.flat_map(&function_entry/1)
+    |> merge_clauses()
+    |> Enum.map(fn f ->
+      start = walk_back_annotations(lines, f.start)
+      %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
+    end)
+  end
+
+  # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
+  # A `typedstruct module: X` is skipped; its `t` is the child's, not ours.
+  @spec types_from_statements([Macro.t()], [String.t()]) :: [map()]
+  defp types_from_statements(stmts, lines) do
+    typedstruct =
+      Enum.find_value(stmts, [], fn
+        {:typedstruct, _, _} = node ->
+          if typedstruct_submodule(node) == nil, do: typedstruct_type(node, lines)
+
+        _ ->
+          nil
+      end)
+
+    decls = Enum.flat_map(stmts, &type_decl(&1, lines))
+    (typedstruct ++ decls) |> Enum.uniq_by(&{&1.name, &1.arity})
+  end
+
+  @spec typedstruct_type(Macro.t(), [String.t()]) :: [map()]
+  defp typedstruct_type({:typedstruct, meta, args}, lines) do
+    if typedstruct_do?(args) do
+      s = Keyword.get(meta, :line)
+      e = get_in(meta, [:end, :line]) || s
+      [type_row("t", 0, :type, s, e, lines)]
+    else
+      []
+    end
+  end
+
+  @spec type_decl(Macro.t(), [String.t()]) :: [map()]
+  defp type_decl({:@, meta, [{kind, _, [{:"::", _, [{name, _, args} | _]}]}]}, lines)
+       when kind in [:type, :opaque, :typep] and is_atom(name) do
+    arity = if is_list(args), do: length(args), else: 0
+    s = Keyword.get(meta, :line)
+    e = get_in(meta, [:end_of_expression, :line]) || s
+    [type_row(Atom.to_string(name), arity, kind, s, e, lines)]
+  end
+
+  defp type_decl(_, _), do: []
 
   defp slice_lines(lines, s, e), do: take_lines(lines, s, e) |> Enum.join("\n")
 

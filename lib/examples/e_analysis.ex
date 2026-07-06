@@ -328,7 +328,7 @@ defmodule Examples.EAnalysis do
     end
     '''
 
-    swapped = Analysis.swap_functions(source, "stored_head", 0, "main", 0)
+    swapped = Analysis.swap_functions(source, "AL.Branch", "stored_head", 0, "main", 0)
 
     # Re-parses cleanly with the two functions reordered and each body whole.
     {:ok, _} = Code.string_to_quoted(swapped)
@@ -359,14 +359,14 @@ defmodule Examples.EAnalysis do
     end
     '''
 
-    edited = Analysis.replace_function(source, "a", 0, "  def a, do: :rewritten")
+    edited = Analysis.replace_function(source, "M", "a", 0, "  def a, do: :rewritten")
     {:ok, _} = Code.string_to_quoted(edited)
     assert edited =~ "def a, do: :rewritten"
     refute edited =~ "if true do"
     assert edited =~ "def b, do: :ok"
 
     # Empty new_text removes the function (the delete path).
-    removed = Analysis.replace_function(source, "a", 0, "")
+    removed = Analysis.replace_function(source, "M", "a", 0, "")
     {:ok, _} = Code.string_to_quoted(removed)
     assert Analysis.functions_in_source(removed) |> Enum.map(& &1.name) == ["b"]
 
@@ -378,7 +378,7 @@ defmodule Examples.EAnalysis do
     # `end # M` has no bare-`end` line, which defeats a findLast-"end" scan;
     # parsing locates the module close, so the new function lands inside it.
     source = "defmodule M do\n  def a, do: 1\nend # M\n"
-    appended = Analysis.append_function(source, "  def b, do: 2")
+    appended = Analysis.append_function(source, "M", "  def b, do: 2")
 
     {:ok, _} = Code.string_to_quoted(appended)
     assert Analysis.functions_in_source(appended) |> Enum.map(& &1.name) == ["a", "b"]
