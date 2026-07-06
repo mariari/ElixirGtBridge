@@ -65,6 +65,21 @@ defmodule Examples.ECompletion do
     results
   end
 
+  @spec complete_struct_non_alias() :: [String.t()]
+  example complete_struct_non_alias do
+    # cursor_context wraps these struct names in nested context tuples, not a
+    # plain charlist. We still complete the ones we know: the %__MODULE__
+    # special form and structs under a dotted alias (%File. -> %File.Stat).
+    assert Completion.complete("%__MOD") == ["%__MODULE__"]
+    assert "%File.Stat" in Completion.complete("%File.")
+
+    # Shapes with no known struct name complete to nothing (and never crash).
+    assert Completion.complete("%@foo") == []
+    assert Completion.complete("%foo.bar") == []
+
+    Completion.complete("%__MOD")
+  end
+
   @spec complete_struct_fields() :: [String.t()]
   example complete_struct_fields do
     # GT sends "ho" as code (from { separator) and full source for context
