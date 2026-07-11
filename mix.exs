@@ -1,7 +1,7 @@
 defmodule GtBridge.MixProject do
   use Mix.Project
 
-  @version "0.18.0"
+  @version "0.18.1"
   @source_url "https://github.com/mariari/ElixirGtBridge"
 
   def project do
