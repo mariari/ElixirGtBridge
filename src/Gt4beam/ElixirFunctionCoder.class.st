@@ -203,6 +203,15 @@ ElixirFunctionCoder >> dedentSource: aString [
 				ifFalse: [ line trimLeft ]) ] ]
 ]
 
+{ #category : 'add-ons' }
+ElixirFunctionCoder >> embeddedDebuggerAddOnFor: anAST into: coderAddOns [
+	"Suppress GtSourceCoder's embedded-debugger stylers: they are
+	 Pharo-AST visitors (GtGenericPharoStyler) and signal a DNU on
+	 every Elixir SmaCC node, e.g. #visitGrammar:.  The embedded
+	 debugger only renders Pharo shared debug sessions, which
+	 Elixir evaluation never produces."
+]
+
 { #category : 'accessing' }
 ElixirFunctionCoder >> functionName [
 	^ functionName

@@ -105,6 +105,15 @@ GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 	elixirLinkApplicationStrategy := anApplicationStrategy
 ]
 
+{ #category : 'add-ons' }
+GtElixirCoderModel >> embeddedDebuggerAddOnFor: anAST into: coderAddOns [
+	"Suppress GtSourceCoder's embedded-debugger stylers: they are
+	 Pharo-AST visitors (GtGenericPharoStyler) and signal a DNU on
+	 every Elixir SmaCC node, e.g. #visitGrammar:.  The embedded
+	 debugger only renders Pharo shared debug sessions, which
+	 Elixir evaluation never produces."
+]
+
 { #category : 'private' }
 GtElixirCoderModel >> ensurePreambleLoaded: selfObj [
 	"I fetch and cache the module's preamble directives (aliases,
