@@ -131,8 +131,47 @@ defmodule GtBridge.HotReload do
       end
 
     recompile_preserving_modules()
+    broadcast_mix_compiled_modules(MapSet.new(compiled, fn {m, _} -> m end))
     purge_removed_modules(compiled, previous, app)
     broadcast_recompiled(compiled, sibling_mods, content)
+  end
+
+  # Mix's recompile also builds files this save never touched - a brand
+  # new file added outside the bridge gets compiled but appears in no
+  # `compiled` or sibling list, so nothing announced it and the module
+  # stayed invisible until first use. The freshly regenerated .app
+  # files on disk are the authoritative module sets after that
+  # recompile (the in-memory spec is boot-frozen); enter their diff
+  # against the projection as facts.
+  @spec broadcast_mix_compiled_modules(MapSet.t(module())) :: :ok
+  defp broadcast_mix_compiled_modules(already_announced) do
+    for app <- [Mix.Project.config()[:app] | GtBridge.Mix.path_dep_apps()],
+        app != nil,
+        m <- disk_spec_modules(app),
+        not MapSet.member?(already_announced, m),
+        not GtBridge.Analysis.LoadedModules.loaded?(inspect(m)),
+        # the spec lags a removal until mix recompiles something else;
+        # a module that exists nowhere isn't entered as a fact.
+        :code.which(m) != :non_existing do
+      GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{kind: :recompiled, mod: m})
+    end
+
+    :ok
+  end
+
+  # The module list from `app`'s .app file on disk, [] when unreadable.
+  # app_dir raises ArgumentError for an app whose lib dir can't be
+  # resolved (loaded spec without a directory).
+  @spec disk_spec_modules(atom()) :: [module()]
+  defp disk_spec_modules(app) do
+    with path <- Path.join(Application.app_dir(app, "ebin"), "#{app}.app"),
+         {:ok, [{:application, ^app, props}]} <- :file.consult(path) do
+      Keyword.get(props, :modules, [])
+    else
+      _ -> []
+    end
+  rescue
+    ArgumentError -> []
   end
 
   # The compile result is the file's complete module set, so a module

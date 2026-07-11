@@ -111,6 +111,43 @@ defmodule Examples.EHotReload do
   end
 
   @doc """
+  I add a module file OUTSIDE the bridge (plain File.write, as an
+  external editor would) and verify the next save of any file
+  announces it: mix's recompile builds the new file, and its
+  regenerated .app on disk names the module even though no compiled
+  or sibling list does. Message-driven, no sleeps. Returns the
+  announced module's name.
+  """
+  @spec external_file_announced_on_recompile() :: String.t()
+  example external_file_announced_on_recompile do
+    {path, original} = source_for(HotReloadTest)
+    fresh_path = "lib/examples/hot_reload_external.ex"
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      File.write!(fresh_path, "defmodule HotReloadExternal do\n  def here, do: :yes\nend\n")
+      GtBridge.HotReload.reload(path, original)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :recompiled,
+                         mod: HotReloadExternal
+                       }
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Analysis.LoadedModules)
+      assert GtBridge.Analysis.LoadedModules.loaded?("HotReloadExternal")
+      "HotReloadExternal"
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      File.rm(fresh_path)
+      GtBridge.HotReload.purge_module(HotReloadExternal)
+      GtBridge.HotReload.reload(path, original)
+    end
+  end
+
+  @doc """
   I add a brand-new module and verify its beam lands in the app's
   ebin: a new module is in no app spec, so per-module app resolution
   skipped it and it existed only in memory until the next full mix
