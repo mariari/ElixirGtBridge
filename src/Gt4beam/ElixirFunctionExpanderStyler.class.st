@@ -61,6 +61,10 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	 (resetting lastIndex per cycle) so expand state persists across
 	 re-styles.
 
+	 Sites arrive as a JSON relation of values, not proxies: I read
+	 every field of every site, and a proxy field read is a bridge
+	 round trip.
+
 	 Two-tier cache: cachedHash/cachedSites short-circuits the BEAM
 	 round-trip for back-to-back styles of the same source. On miss
 	 the BEAM-side :gtbridge_cache (keyed
@@ -77,28 +81,29 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 		ifTrue: [ sites := cachedSites ]
 		ifFalse: [
 			b64 := ZnBase64Encoder new encode: source utf8Encoded.
-			query := 'GtBridge.Analysis.call_sites(Base.decode64!("', b64, '")'.
+			query := 'GtBridge.Analysis.call_sites_relation(Base.decode64!("', b64, '")'.
 			self contextModuleName ifNotNil: [ :mod |
 				query := query, ', ', mod ].
 			query := query, ')'.
-			sites := [ (self application evaluateAndWait: query) asList ]
+			sites := [ STONJSON fromString:
+					(self application evaluateAndWait: query) asString ]
 				on: Error do: [ #() ].
 			cachedHash := hash.
 			cachedSites := sites ].
 	sites do: [ :site |
 		| line col fnName absPos |
-		line := (site attributeAt: #line) asInteger.
-		col := (site attributeAt: #column) asInteger.
-		fnName := (site attributeAt: #function) asString.
+		line := site at: 'line'.
+		col := site at: 'column'.
+		fnName := site at: 'function'.
 		absPos := self absolutePositionForLine: line column: col in: source.
 		(absPos isNotNil and: [ absPos + fnName size - 1 <= aText size ])
 			ifTrue: [
 				| endPos attr |
 				endPos := absPos + fnName size - 1.
 				attr := ElixirFunctionExpanderAttribute new
-					targetModule: (site attributeAt: #target_module) asString
+					targetModule: (site at: 'target_module')
 					functionName: fnName
-					arity: (site attributeAt: #arity) asInteger
+					arity: (site at: 'arity')
 					application: self application.
 				attr id: ('elixir-expander--', self nextIndex asString) asSymbol.
 				self attribute: attr from: endPos to: endPos ] ]
