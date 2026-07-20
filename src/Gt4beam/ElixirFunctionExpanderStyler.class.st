@@ -368,8 +368,13 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 
 	 Sites arrive as a JSON relation of values, not proxies: I read
 	 every field of every site, and a proxy field read is a bridge
-	 round trip."
-	| source effectiveSource pageSrc hash sites b64 query |
+	 round trip.
+
+	 A bridge error (an older gt_bridge without call_sites_relation,
+	 say) yields no triangles for this pass and is deliberately not
+	 cached, so the next restyle retries instead of staying blank
+	 until the source changes."
+	| source effectiveSource pageSrc hash sites reply b64 query |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
@@ -392,11 +397,13 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 			self contextModuleName ifNotNil: [ :mod |
 				query := query, ', ', mod ].
 			query := query, ')'.
-			sites := [ STONJSON fromString:
-					(self application evaluateAndWait: query) asString ]
-				on: Error do: [ #() ].
-			cachedHash := hash.
-			cachedSites := sites ].
+			reply := self application evaluateAndWait: query.
+			(reply isKindOf: BeamBridgeEvalError)
+				ifTrue: [ sites := #() ]
+				ifFalse: [
+					sites := STONJSON fromString: reply asString.
+					cachedHash := hash.
+					cachedSites := sites ] ].
 	sites do: [ :site |
 		| line col fnName absPos |
 		line := site at: 'line'.
