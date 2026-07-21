@@ -147,14 +147,11 @@ defmodule GtBridge.Completion do
   end
 
   defp complete_erlang_module(hint) do
-    # Still `:code.all_loaded/0`: `LoadedModules` tracks Elixir modules,
-    # and Erlang ones reach it only if `sync/0` folded them in.
-    for {module, _} <- :code.all_loaded(),
-        name = Atom.to_string(module),
-        not String.starts_with?(name, "Elixir."),
-        String.starts_with?(name, hint) do
-      ":" <> name
-    end
+    # Erlang modules are stored as `inspect/1` renders them, so ":inet"
+    # and ~s(:"OTP-PUB-KEY") need separate walks.
+    (LoadedModules.names_with_prefix(":" <> hint) ++
+       LoadedModules.names_with_prefix(~s(:") <> hint))
+    |> Enum.uniq()
     |> Enum.sort()
   end
 

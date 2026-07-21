@@ -1,10 +1,11 @@
 defmodule GtBridge.Analysis.LoadedModules do
   @moduledoc """
-  I maintain the set of every loaded Elixir module, keyed by its dotted
-  name string (e.g. "GtBridge.Eval") and carrying its module atom and
-  owning application.  I am populated initially from
-  `:application.get_key/2` for every loaded application and maintained
-  additively by EventBroker `%ModuleEvent{}` events.
+  I maintain the set of every loaded module, keyed by its name as
+  `inspect/1` renders it ("GtBridge.Eval", ":erlang") and carrying its
+  module atom and owning application.  I am populated initially from
+  `:application.get_key/2` for every loaded application plus whatever
+  the VM has already loaded, and maintained additively by EventBroker
+  `%ModuleEvent{}` events.
 
   This is the FRP shape the bridge is moving toward: derived state (the
   "modules currently loaded" projection) maintained by the
@@ -174,6 +175,17 @@ defmodule GtBridge.Analysis.LoadedModules do
 
   defp populate do
     for entry <- spec_entries(), do: :ets.insert(@table, entry)
+    # App specs miss whatever the running VM loaded without one -- `erts`
+    # is a loaded application under `mix run` but not under `mix test`,
+    # so `:erlang` would come and go with the environment.  Seeding from
+    # the VM too makes coverage the same everywhere.  Unlike `do_sync/0`
+    # this stays quiet: nobody has subscribed yet at init.
+    for {mod, _file} <- :code.all_loaded(),
+        name = inspect(mod),
+        not String.starts_with?(name, ":elixir_compiler_") do
+      :ets.insert(@table, {name, mod, app_of(mod)})
+    end
+
     :ok
   end
 
