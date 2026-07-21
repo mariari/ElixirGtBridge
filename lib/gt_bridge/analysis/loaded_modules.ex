@@ -49,6 +49,27 @@ defmodule GtBridge.Analysis.LoadedModules do
   @spec all_names() :: [String.t()]
   def all_names, do: :ets.select(@table, [{{:"$1", :_, :_}, [], [:"$1"]}])
 
+  @doc """
+  I return every loaded module's dotted name starting with `prefix`,
+  in sorted order.
+
+  My table is an `:ordered_set`, so names sharing a prefix are
+  contiguous: I seek to `prefix` and walk forward while it still
+  matches.  That is O(log n + k) in the number of matches, where
+  filtering `all_names/0` is O(n) over every loaded module — the
+  difference completion pays on every keystroke.
+
+  Erlang modules are stored as `inspect/1` renders them (`":inet"`),
+  so a caller after Erlang names asks for a `":"`-prefixed hint.
+  """
+  @spec names_with_prefix(String.t()) :: [String.t()]
+  def names_with_prefix(prefix) do
+    # `:ets.next/2` is strictly-greater-than, so an exact hit on the
+    # prefix itself (hint "Enum", module `Enum`) needs asking for.
+    exact = if :ets.member(@table, prefix), do: [prefix], else: []
+    exact ++ walk_prefix(:ets.next(@table, prefix), prefix, [])
+  end
+
   @doc "I return the module atoms belonging to `app`."
   @spec modules_for_app(atom()) :: [module()]
   def modules_for_app(app), do: :ets.select(@table, [{{:_, :"$1", app}, [], [:"$1"]}])
@@ -98,8 +119,11 @@ defmodule GtBridge.Analysis.LoadedModules do
 
   @impl true
   def init(_) do
+    # `:ordered_set` rather than `:set` so `names_with_prefix/1` can walk
+    # a contiguous key range.  It costs `loaded?/1` O(1) -> O(log n),
+    # which on a few thousand modules is a handful of comparisons.
     :ets.new(@table, [
-      :set,
+      :ordered_set,
       :public,
       :named_table,
       read_concurrency: true
@@ -147,6 +171,14 @@ defmodule GtBridge.Analysis.LoadedModules do
   ############################################################
   #                   Private Implementation                 #
   ############################################################
+
+  defp walk_prefix(:"$end_of_table", _prefix, acc), do: Enum.reverse(acc)
+
+  defp walk_prefix(key, prefix, acc) do
+    if String.starts_with?(key, prefix),
+      do: walk_prefix(:ets.next(@table, key), prefix, [key | acc]),
+      else: Enum.reverse(acc)
+  end
 
   defp populate do
     for entry <- spec_entries(), do: :ets.insert(@table, entry)

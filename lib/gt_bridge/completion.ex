@@ -12,7 +12,16 @@ defmodule GtBridge.Completion do
   - `complete/1` — complete with no bindings
   - `complete/2` — complete with bindings from an Eval session
   - `complete/3` — complete with bindings and full source context
+
+  Module names come from `GtBridge.Analysis.LoadedModules` rather than
+  `:code.all_loaded/0`.  That projection is maintained by module events,
+  so reading it is an indexed lookup instead of rebuilding a list of
+  every loaded module on each keystroke — and it knows about modules
+  that an application declares but has not yet lazily loaded, which
+  `:code.all_loaded/0` cannot see.
   """
+
+  alias GtBridge.Analysis.LoadedModules
 
   @doc """
   I return a list of completion strings for `code_prefix`,
@@ -62,11 +71,8 @@ defmodule GtBridge.Completion do
     depth = length(String.split(hint, "."))
 
     loaded =
-      for {module, _} <- :code.all_loaded(),
-          name = Atom.to_string(module),
-          String.starts_with?(name, "Elixir."),
-          short = String.replace_prefix(name, "Elixir.", ""),
-          String.starts_with?(short, hint) do
+      for short <- LoadedModules.names_with_prefix(hint),
+          not String.starts_with?(short, ":") do
         short |> String.split(".") |> Enum.take(depth) |> Enum.join(".")
       end
 
@@ -108,12 +114,10 @@ defmodule GtBridge.Completion do
         prefix <> name <> suffix
       end
 
-    parent = Atom.to_string(module) <> "."
+    parent = inspect(module) <> "."
 
     submodule_completions =
-      for {mod, _} <- :code.all_loaded(),
-          full = Atom.to_string(mod),
-          String.starts_with?(full, parent),
+      for full <- LoadedModules.names_with_prefix(parent),
           rest = String.replace_prefix(full, parent, ""),
           segment = rest |> String.split(".") |> hd(),
           String.starts_with?(segment, hint) do
@@ -146,6 +150,10 @@ defmodule GtBridge.Completion do
   end
 
   defp complete_erlang_module(hint) do
+    # Deliberately still `:code.all_loaded/0`.  `LoadedModules` tracks
+    # Elixir modules; Erlang ones reach it only when `sync/0` happens to
+    # fold them in, so completing `:erlan` from it would depend on
+    # whether an eval had run yet.
     for {module, _} <- :code.all_loaded(),
         name = Atom.to_string(module),
         not String.starts_with?(name, "Elixir."),
