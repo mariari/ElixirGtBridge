@@ -69,11 +69,10 @@ BeamLinkDeserializer >> decodeWire: aValue [
 
 { #category : 'as yet unclassified' }
 BeamLinkDeserializer >> privateDeserialize: rawObj [
-
-	rawObj isCollection ifFalse: [ ^ rawObj ].
-	rawObj isDictionary
-		and: [ (rawObj includesKey: #exid) ifTrue: [ ^ self reifyProxyFor: rawObj ] ].
-	^ rawObj collect: [ :elem | self privateDeserialize: elem ]
+	"The LanguageLink hook for turning a decoded response into GT
+	 objects.  `decodeWire:` is that, and total over the wire format,
+	 so there is one implementation rather than two that drift."
+	^ self decodeWire: rawObj
 ]
 
 { #category : 'as yet unclassified' }
