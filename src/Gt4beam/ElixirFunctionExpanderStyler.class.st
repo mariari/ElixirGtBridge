@@ -386,7 +386,8 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	effectiveSource := pageSrc isEmpty
 		ifTrue: [ source ]
 		ifFalse: [ source , String lf , pageSrc ].
-	hash := { source hash. self contextModuleName. pageSrc hash }.
+	hash := { source hash. self contextModuleName. pageSrc hash.
+		BeamModuleResolution default generation }.
 	hash = cachedHash
 		ifTrue: [ sites := cachedSites ]
 		ifFalse: [
