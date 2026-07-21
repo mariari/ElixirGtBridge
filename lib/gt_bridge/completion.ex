@@ -13,12 +13,9 @@ defmodule GtBridge.Completion do
   - `complete/2` — complete with bindings from an Eval session
   - `complete/3` — complete with bindings and full source context
 
-  Module names come from `GtBridge.Analysis.LoadedModules` rather than
-  `:code.all_loaded/0`.  That projection is maintained by module events,
-  so reading it is an indexed lookup instead of rebuilding a list of
-  every loaded module on each keystroke — and it knows about modules
-  that an application declares but has not yet lazily loaded, which
-  `:code.all_loaded/0` cannot see.
+  Module names come from `GtBridge.Analysis.LoadedModules`, which is
+  maintained by module events and also sees modules an application
+  declares but has not yet loaded.
   """
 
   alias GtBridge.Analysis.LoadedModules
@@ -150,10 +147,8 @@ defmodule GtBridge.Completion do
   end
 
   defp complete_erlang_module(hint) do
-    # Deliberately still `:code.all_loaded/0`.  `LoadedModules` tracks
-    # Elixir modules; Erlang ones reach it only when `sync/0` happens to
-    # fold them in, so completing `:erlan` from it would depend on
-    # whether an eval had run yet.
+    # Still `:code.all_loaded/0`: `LoadedModules` tracks Elixir modules,
+    # and Erlang ones reach it only if `sync/0` folded them in.
     for {module, _} <- :code.all_loaded(),
         name = Atom.to_string(module),
         not String.starts_with?(name, "Elixir."),
@@ -207,6 +202,17 @@ defmodule GtBridge.Completion do
   defp struct_fields_for(nil, _hint), do: []
 
   defp struct_fields_for(source, hint) do
+    if inside_open_brace?(source), do: parse_struct_fields(source, hint), else: []
+  end
+
+  # A cursor inside `%Struct{...}` needs an unclosed `{`, so counting
+  # rules out the parse (~0.14us/byte) cheaply.  Braces in strings count
+  # too, so `%User{a: "}"` loses its field completion.
+  defp inside_open_brace?(source) do
+    length(:binary.matches(source, "{")) > length(:binary.matches(source, "}"))
+  end
+
+  defp parse_struct_fields(source, hint) do
     with {:ok, ast} <- Code.Fragment.container_cursor_to_quoted(source),
          {:%, _, [{:__aliases__, _, aliases}, {:%{}, _, _}]} <-
            find_struct_around_cursor(ast),
