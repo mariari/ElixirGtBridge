@@ -28,16 +28,6 @@ BeamProxyObject class >> elixirClass: aClass [
 ]
 
 { #category : 'as yet unclassified' }
-BeamProxyObject class >> identitySentinels [
-	"Wire markers for terms whose usefulness is their identity rather
-	 than their printed form.  A payload containing one is materialised
-	 element by element so those elements stay live proxies: a pid
-	 rendered as the string '<0.0.0>' has lost every view and action
-	 that made it worth showing."
-	^ #('__pid__' '__ref__' '__port__' '__fun__')
-]
-
-{ #category : 'as yet unclassified' }
 BeamProxyObject class >> leProxyTypeForPlaygroundPage [
 	^ BeamProxyObject
 ]
@@ -89,8 +79,13 @@ BeamProxyObject >> asList [
 	 Enum.at/2 walks a linked list.  Listing a 52-function module cost
 	 53 requests and 71ms; it now costs one request and 9ms.
 
-	 Elements come back wrapped in BeamValue so they answer the same
-	 reading protocol I do and callers need no change.
+	 Elements arrive as values, wrapped in BeamValue so they answer the
+	 same reading protocol I do, except pids, which the decoder rebuilds
+	 as live BeamPIDObjects from their printed form.
+
+	 The deserializer is wired through executionHandler rather than
+	 `application:`, because LanguageLinkDeserializer's getter reads
+	 through the handler while its setter writes an ivar it never reads.
 
 	 I fall back to the per-element path when the serializer cannot
 	 represent my contents.  That is a named failure mode, not a
@@ -102,10 +97,8 @@ BeamProxyObject >> asList [
 		on: Error do: [ nil ].
 	(json isNil or: [ json isKindOf: BeamBridgeEvalError ])
 		ifTrue: [ ^ self asListElementByElement ].
-	(self class identitySentinels anySatisfy: [ :each |
-		json asString includesSubstring: each ])
-		ifTrue: [ ^ self asListElementByElement ].
-	decoded := [ (BeamLinkDeserializer new application: application; yourself)
+	decoded := [ (BeamLinkDeserializer new
+			executionHandler: application executionHandler; yourself)
 		decodeWire: (STONJSON fromString: json asString) ]
 		on: Error do: [ nil ].
 	(decoded isNil or: [ decoded isArray not ])
