@@ -101,7 +101,12 @@ defmodule Tcp.Connection do
   ############################################################
 
   defp serve(request, socket) do
-    Task.start(fn -> send_frame(socket, Tcp.Dispatch.reply_to(request)) end)
+    Task.start(fn ->
+      case Tcp.Dispatch.reply_to(request) do
+        :no_reply -> :ok
+        reply -> send_frame(socket, reply)
+      end
+    end)
   end
 
   defp send_frame(socket, message), do: :gen_tcp.send(socket, Jason.encode!(message))

@@ -12,18 +12,37 @@ defmodule Tcp.Dispatch do
   alias GtBridge.EvalRegistry
 
   @doc """
-  I answer `request` with the map to send back.
+  I answer `request` with the map to send back, or `:no_reply` when the
+  request wants none.
 
-  Every reply carries the `id` its request arrived with, so GT can
-  match it to a pending promise no matter what order replies return in.
+  Every reply carries the `id` its request arrived with and the uniform
+  type `"EVAL"` -- an answer for a command id -- so GT resolves the
+  waiting promise no matter which channel asked.  The request's own type
+  routes what runs; only the value's encoding differs: an eval result is
+  registered as a proxy, a completion list stays a plain list.
   """
-  @spec reply_to(map()) :: map()
+  @spec reply_to(map()) :: map() | :no_reply
   def reply_to(%{"type" => "ENQUEUE"} = request) do
-    %{type: "EVAL", id: request["commandId"], value: Eval.encode_result(evaluate(request))}
+    answer(request, Eval.encode_result(evaluate(request)))
+  end
+
+  def reply_to(%{"type" => "COMPLETE"} = request) do
+    results = Eval.complete(resolve_eval(request), request["code"] || "", request["source"])
+    answer(request, Jason.encode!(results))
+  end
+
+  def reply_to(%{"type" => "BINDINGS"} = request) do
+    {:ok, json} = GtBridge.Serializer.to_json(Eval.get_bindings(resolve_eval(request)))
+    answer(request, json)
+  end
+
+  def reply_to(%{"type" => "SESSION_CLOSE"} = request) do
+    if sid = request["sessionId"], do: EvalRegistry.remove(sid)
+    :no_reply
   end
 
   def reply_to(%{"type" => "IS_ALIVE"} = request) do
-    %{type: "IS_ALIVE", id: request["commandId"]}
+    answer(request, Jason.encode!("IS_ALIVE"))
   end
 
   def reply_to(request) do
@@ -33,6 +52,14 @@ defmodule Tcp.Dispatch do
   ############################################################
   #                   Private Implementation                 #
   ############################################################
+
+  defp answer(request, value_json) do
+    %{type: "EVAL", id: request["commandId"], value: value_json}
+  end
+
+  defp resolve_eval(request) do
+    EvalRegistry.get_or_create(request["sessionId"] || "default", port: nil)
+  end
 
   defp evaluate(%{"statements" => ""}), do: nil
 
