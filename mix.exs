@@ -43,7 +43,6 @@ defmodule GtBridge.MixProject do
 
   defp deps do
     [
-      {:msgpax, "~> 2.4"},
       {:typed_struct, "~> 0.3.0"},
       {:event_broker, "~> 1.1.1"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
