@@ -540,9 +540,10 @@ ElixirModuleCoder >> remove [
 { #category : 'actions' }
 ElixirModuleCoder >> saveAndCompile: newSource [
 	"I write source to disk and trigger compile.  Bridge-side events
-	 (`:source_written`, `:recompiled`, `:compile_failed`) flow through
-	 `BeamEventStreamReader` and fire on `BeamEventAnnouncer` —
-	 subscribers see them without me observing the HTTP response.
+	 (`:source_written`, `:recompiled`, `:compile_failed`) arrive over the
+	 socket, dispatch through `BeamEventStreamReader`, and fire on
+	 `BeamEventAnnouncer` — subscribers see them without me observing the
+	 save.
 
 	 Preserves the original file's line ending convention and trailing
 	 newline."

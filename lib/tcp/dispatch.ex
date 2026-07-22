@@ -72,8 +72,8 @@ defmodule Tcp.Dispatch do
 
   defp evaluate(request) do
     # No session means no per-page bindings to keep; each request runs
-    # in the connection's task, which is the isolation the Cowboy
-    # process gave.  `port: nil` -- the reply is the only route back.
+    # in the connection's task, which is the isolation a per-request
+    # process gives.  `port: nil` -- the reply is the only route back.
     Eval.eval_stateless_sync(request["statements"], request["commandId"], nil)
   end
 end
