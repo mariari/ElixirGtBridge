@@ -1,16 +1,17 @@
 defmodule Tcp.Supervisor do
   @moduledoc """
-  I am a TCP Supervisor, I supervise TCP Listeners and Connections.
-
-  I am useful when trying to talk to the bridge over `msgpack`.
-
-  There are no default TCP Listeners by default, instead I expect you
-  to instruct me to spawn up listeners.
+  I supervise the framed-transport `Tcp.Listener` and its `Tcp.Connection`
+  children.  I start empty; `start_listener/1` brings a listener up.
   """
   use DynamicSupervisor
 
   def start_link(init_arg) do
     DynamicSupervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  end
+
+  @doc "I bring up a framed-transport listener on `port`."
+  def start_listener(port) do
+    DynamicSupervisor.start_child(__MODULE__, {Tcp.Listener, host: {0, 0, 0, 0}, port: port})
   end
 
   # We don't have any children by default wait until one spawns it up
