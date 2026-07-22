@@ -77,30 +77,17 @@ GtElixirCoderModel >> contextModuleName: aString [
 
 { #category : 'private' }
 GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
-	| serverAddress url response raw result payload deserializer |
+	"Bindings go over the framed transport as a BINDINGS request.  The
+	 reader's deserializer already reifies proxy values (the one-decoder
+	 path), so the resolved dictionary is the reified result."
+	| payload result |
 	application ifNil: [ ^ Dictionary new ].
-	serverAddress := application settings serverSocketAddress.
-	serverAddress ifNil: [ ^ Dictionary new ].
-	url := 'http://' , serverAddress ipOrName , ':'
-		, serverAddress port asString , '/BINDINGS'.
 	payload := Dictionary new.
-	sid ifNotNil: [ payload at: #sessionId put: sid ].
-	response := ZnClient new
-		url: url;
-		entity: (ZnEntity
-				with: (STONJSON toString: payload)
-				type: ZnMimeType applicationJson);
-		post;
-		response.
-	response isSuccess ifFalse: [ ^ Dictionary new ].
-	raw := STONJSON fromString: response contents.
-	result := Dictionary new: raw size.
-	deserializer := BeamLinkDeserializer new
-		executionHandler: application executionHandler;
-		yourself.
-	raw keysAndValuesDo: [ :name :value |
-		result at: name put: (deserializer decodeWire: value) ].
-	^ result
+	payload at: 'type' put: 'BINDINGS'.
+	sid ifNotNil: [ payload at: 'sessionId' put: sid ].
+	result := [ application executionHandler requestAndWait: payload ]
+		on: Error do: [ Dictionary new ].
+	^ (result isKindOf: Dictionary) ifTrue: [ result ] ifFalse: [ Dictionary new ]
 ]
 
 { #category : 'accessing' }

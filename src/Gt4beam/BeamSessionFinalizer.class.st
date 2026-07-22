@@ -24,19 +24,14 @@ BeamSessionFinalizer >> application: anApplication [
 
 { #category : 'finalization' }
 BeamSessionFinalizer >> finalize [
-	| serverAddress url |
-	([ application isRunning ] on: Error do: [ ^ self ])
-		ifFalse: [ ^ self ].
-	serverAddress := application settings serverSocketAddress.
-	url := 'http://' , serverAddress ipOrName , ':'
-		, serverAddress port asString , '/SESSION_CLOSE'.
-	[ ZnClient new
-		url: url;
-		entity: (ZnEntity
-			with: (STONJSON toString: { #sessionId -> sessionId } asDictionary)
-			type: ZnMimeType applicationJson);
-		post ]
-		on: Error do: [ "server may be stopped" ]
+	"Session close is fire-and-forget over the framed transport: no
+	 answer, so no promise -- just hand the request to the broker."
+	([ application isRunning ] on: Error do: [ ^ self ]) ifFalse: [ ^ self ].
+	[ application settings messageBroker primSendMessage: (Dictionary new
+		at: 'type' put: 'SESSION_CLOSE';
+		at: 'sessionId' put: sessionId;
+		yourself) ]
+		on: Error do: [ "broker may be down" ]
 ]
 
 { #category : 'accessing' }
