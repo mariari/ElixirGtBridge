@@ -42,8 +42,9 @@ BeamLinkTcpMessageBroker >> eventReader: aReader [
 
 { #category : 'accessing' }
 BeamLinkTcpMessageBroker >> tcpPort [
-	"The framed transport listens one port above the HTTP one."
-	^ settings serverSocketAddress port + 1
+	"The framed transport is the only one now, so it takes the server
+	 port directly."
+	^ settings serverSocketAddress port
 ]
 
 { #category : 'testing' }

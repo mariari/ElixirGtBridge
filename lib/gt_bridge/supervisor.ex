@@ -11,7 +11,6 @@ defmodule GtBridge.Supervisor do
       {Registry, keys: :unique, name: GtBridge.EvalRegistry},
       {EvaluationSupervisor, []},
       {Tcp.Supervisor, []},
-      {GtBridge.Http.Supervisor, []},
       {GtBridge.Views, [name: GtBridge.Views]},
       {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]},
       {GtBridge.CacheReaper, []},

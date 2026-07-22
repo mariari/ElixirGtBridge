@@ -47,7 +47,6 @@ defmodule GtBridge.MixProject do
       {:event_broker, "~> 1.1.1"},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
-      {:plug_cowboy, "~> 2.7.3"},
       # We need faithful encoding and decoding of atoms
       {:jexon, "~> 0.9.5"},
       {:ex_example, "~> 0.1.2"},

@@ -111,7 +111,7 @@ defmodule Tcp.Connection do
 
   defp send_frame(socket, message), do: :gen_tcp.send(socket, Jason.encode!(message))
 
-  # Same shape `GtBridge.Http.SseStream` puts on the wire, so GT reads
+  # Same event shape GT already knows, so it reads
   # an event identically whichever transport delivered it.
   defp encode_event(%ModuleEvent{} = event) do
     event
