@@ -7,10 +7,12 @@ Class {
 }
 
 { #category : 'accessing' }
-BeamLinkApplication class >> connectwithServerPort: server clientPort: cleint [
+BeamLinkApplication class >> connectwithServerPort: server [
+	"Connect over the framed TCP transport on `server`.  There is no
+	 client port: the socket is full-duplex, so replies and events come
+	 back on the connection I open."
 	^ self
 		startWith: (LanguageLinkSettings new
-				clientSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: cleint);
 				serverSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: server);
 				messageBrokerStrategy: BeamLinkTcpMessageBroker;
 				serverProcessClass: BeamLinkBeamProcess;
