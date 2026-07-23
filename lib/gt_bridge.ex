@@ -25,13 +25,16 @@ defmodule GtBridge do
     result
   end
 
-  def start_listener(port \\ 0) do
+  @doc """
+  I bring the bridge's transports up.  This is the transport-neutral
+  entry point GT calls once connected: I start xref indexing, the framed
+  TCP transport (the default, one port above HTTP), and the HTTP server
+  that still carries the channels not yet moved over.
+  """
+  def start_listener(port_server, port_client) do
     # Bridge is coming up: begin xref indexing now (deferred from VM boot).
     GtBridge.Xref.start_indexing()
-
-    DynamicSupervisor.start_child(
-      Tcp.Supervisor,
-      {Tcp.Listener, [host: {0, 0, 0, 0}, port: port]}
-    )
+    Tcp.Supervisor.start_listener(port_server + 1)
+    GtBridge.Http.Supervisor.start_listener(port_server, port_client)
   end
 end
