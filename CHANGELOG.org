@@ -1,4 +1,63 @@
 * Changelog
+** v0.19.0
+
+*** Features
+
+- One TCP transport replaces HTTP :: the bridge now speaks a single
+  framed full-duplex socket (~packet: 4~, JSON) that carries evals,
+  completion, bindings, session-close, and the event stream in both
+  directions.  ~BeamLinkTcpMessageBroker~ owns the socket; the GT
+  side connects with ~BeamLinkApplication connectwithServerPort:~ and
+  no longer opens a second client port.  The HTTP/SSE transport, its
+  supervisor, and the now-unused ~req~ and ~msgpax~ dependencies are
+  gone; both listeners start from ~GtBridge.start_listener~.
+- Evals return synchronously :: an eval result comes back in the
+  reply to the command instead of arriving later on a notify
+  callback, so the caller that asked for the value is the one that
+  receives it.
+- One wire decoder, proxies delivered as values :: a single recursive
+  decoder reifies the serializer's wire form in one place.  The
+  serializer sanitizes every term (not just some), proxied lists
+  materialise in a single call instead of one round-trip per element,
+  pids rebuild from the wire rather than being flattened to text, and
+  list elements keep their identity when that identity is the point.
+  Call sites travel as a relation of values, retiring
+  ~call_sites_relation~, and derived facts record what they were
+  computed from.
+- Completion reads projections, not re-parses :: module and Erlang
+  names complete from the ~LoadedModules~ projection (seeded from the
+  VM), docs come straight from the Docs chunk instead of
+  ~Code.fetch_docs/1~, and the source is only parsed when the cursor
+  could actually be inside a struct.
+
+*** Performance
+
+- Coder opens without a full re-parse :: the Functions tab is guarded
+  from compiled BEAM metadata instead of re-parsing every function
+  (~33 ms~ down to ~1 ms~), so the coder's tabs appear immediately
+  instead of after a white flash.
+- Function-expander styler is no longer O(n^2) :: precomputed
+  line-start offsets and reuse of the framework AST drop two
+  redundant re-parses (cold ~369 ms~ down to ~20 ms~).
+- Cross-module call sites resolve from exports :: a referenced
+  module's call targets come from its compiled export table rather
+  than re-parsing its source on every keystroke (cold ~114 ms~ down
+  to ~16 ms~).
+- Bridge call profiler :: a profiler built on PharoLink's existing
+  signals measures per-call cost end to end.
+
+*** Bug Fixes
+
+- Elixir coders keep their own stylers :: the Pharo debugger addon no
+  longer installs its stylers on Elixir coders, and the override
+  lives in the shared trait so every coder that needs it inherits it.
+- A failed call-sites fetch is not cached :: a transient failure no
+  longer poisons the cache and blanks the wrenches until the next
+  recompile.
+- New modules resolve their application :: a brand-new module in a
+  path dep is placed in its owning app from its source location, so
+  the Application button finds it instead of showing nothing.
+
 ** v0.18.0
 
 *** Features
