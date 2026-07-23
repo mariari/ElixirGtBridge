@@ -444,9 +444,14 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> hasFunctions [
-	"I return true if the bridge can enumerate my functions.
-	 Precompiled modules without debug info return empty."
-	^ [ self functionEntries isNotEmpty ]
+	"Cheap guard: GtBridge.Analysis.has_functions?/1 answers from BEAM
+	 metadata for normal modules (~1ms) and parses source only for
+	 struct / macro-generated modules — instead of fetching and
+	 serializing the whole function list just to test non-emptiness.
+	 This guard runs eagerly when the coder builds its tab bar, so it
+	 must be cheap or every module-coder open pays for it (white screen)."
+	^ [ self application evaluateAndWait:
+		'GtBridge.Analysis.has_functions?(', self moduleName, ')' ]
 		on: Error do: [ false ]
 ]
 

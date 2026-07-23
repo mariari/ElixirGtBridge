@@ -491,6 +491,32 @@ defmodule GtBridge.Analysis do
     grouped ++ orphans
   end
 
+  @doc """
+  I answer whether the Functions view should show a tab for `mod`, without
+  building or serializing the full function list.
+
+  A public (non-`__`) function guarantees `all_functions/1` is non-empty:
+  its runtime-export branch reads the same `__info__(:functions)`, so any
+  such function ends up in the result. That check settles the common
+  module in ~1ms. Only when there's no public function do I fall back to
+  the source-parsing `all_functions/1`, which also finds defp-only,
+  macro-only, and struct modules. So the answer is identical to
+  `all_functions(mod) != []` — just cheaper for the common case.
+  """
+  @spec has_functions?(module()) :: boolean()
+  def has_functions?(mod) do
+    Code.ensure_loaded(mod)
+    has_public_function?(mod) or all_functions(mod) != []
+  rescue
+    _ -> false
+  end
+
+  defp has_public_function?(mod) do
+    Enum.any?(mod.__info__(:functions), fn {name, _arity} ->
+      not String.starts_with?(Atom.to_string(name), "__")
+    end)
+  end
+
   # Type rows located from the source itself: typedstruct's `t` plus each
   # @type / @opaque / @typep. functions_in_source is the single source of both
   # functions and types, so the source-written and recompiled cache primes
