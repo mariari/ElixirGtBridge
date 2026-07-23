@@ -184,6 +184,42 @@ defmodule Examples.EHotReload do
   end
 
   @doc """
+  I verify a brand-new module in a path dep is associated with that app
+  in the LoadedModules projection.  A new module is in no app spec, and
+  its Code.compile_file'd beam reports no ebin path, so `app_of/1`
+  resolved it to nil and `modules_for_app/1` couldn't find it — the
+  Application button on the module then showed nothing.  Its source
+  location now places it.  Returns the app's modules including the fresh
+  one.
+  """
+  @spec new_module_associated_with_app() :: [module()]
+  example new_module_associated_with_app do
+    {path, original} = source_for(HotReloadTest)
+    fresh = "\ndefmodule HotReloadTest.FreshApp do\n  def here, do: :yes\nend\n"
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      GtBridge.HotReload.reload(path, original <> fresh)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :recompiled,
+                         mod: HotReloadTest.FreshApp
+                       }
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Analysis.LoadedModules)
+      mods = GtBridge.Analysis.LoadedModules.modules_for_app(:hot_reload_test)
+      assert HotReloadTest.FreshApp in mods
+      mods
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      GtBridge.HotReload.reload(path, original)
+    end
+  end
+
+  @doc """
   I remove a module from a file and verify the reload purges it: the
   compile result is the file's full module set, so a module absent
   from it was deleted from the source. Message-driven - I wait on the

@@ -4,8 +4,8 @@ defmodule GtBridge.CacheReaper do
   invalidate per-module entries when the module recompiles.
 
   Cache consumers (styler call_sites, alias maps, function records, doc
-  fetches, source paths, module→app lookups) read and write this table
-  directly via `:ets`. I do not mediate reads or writes — I only react to
+  fetches, source paths) read and write this table directly via `:ets`. I
+  do not mediate reads or writes — I only react to
   `%ModuleEvent{kind: :recompiled}` from the EventBroker by
   deleting every entry tagged with the affected module.
 
@@ -17,7 +17,6 @@ defmodule GtBridge.CacheReaper do
       {:functions,  mod, source_hash}
       {:docs,       mod}
       {:source_file, mod}
-      {:module_app, mod}
 
   ### Public API
 
