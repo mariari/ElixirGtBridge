@@ -1,10 +1,11 @@
 defmodule GtBridge.Analysis.LoadedModules do
   @moduledoc """
-  I maintain the set of every loaded Elixir module, keyed by its dotted
-  name string (e.g. "GtBridge.Eval") and carrying its module atom and
-  owning application.  I am populated initially from
-  `:application.get_key/2` for every loaded application and maintained
-  additively by EventBroker `%ModuleEvent{}` events.
+  I maintain the set of every loaded module, keyed by its name as
+  `inspect/1` renders it ("GtBridge.Eval", ":erlang") and carrying its
+  module atom and owning application.  I am populated initially from
+  `:application.get_key/2` for every loaded application plus whatever
+  the VM has already loaded, and maintained additively by EventBroker
+  `%ModuleEvent{}` events.
 
   This is the FRP shape the bridge is moving toward: derived state (the
   "modules currently loaded" projection) maintained by the
@@ -48,6 +49,20 @@ defmodule GtBridge.Analysis.LoadedModules do
   @doc "I return every loaded module's dotted-name string."
   @spec all_names() :: [String.t()]
   def all_names, do: :ets.select(@table, [{{:"$1", :_, :_}, [], [:"$1"]}])
+
+  @doc """
+  I return every loaded module's dotted name starting with `prefix`, in
+  sorted order, by walking my key range rather than filtering every name.
+
+  Erlang modules are stored as `inspect/1` renders them, so ask for them
+  with a `":"`-prefixed hint.
+  """
+  @spec names_with_prefix(String.t()) :: [String.t()]
+  def names_with_prefix(prefix) do
+    # `:ets.next/2` is strictly greater, so an exact hit needs asking for.
+    exact = if :ets.member(@table, prefix), do: [prefix], else: []
+    exact ++ walk_prefix(:ets.next(@table, prefix), prefix, [])
+  end
 
   @doc "I return the module atoms belonging to `app`."
   @spec modules_for_app(atom()) :: [module()]
@@ -98,8 +113,10 @@ defmodule GtBridge.Analysis.LoadedModules do
 
   @impl true
   def init(_) do
+    # `:ordered_set` so `names_with_prefix/1` can walk a key range; costs
+    # `loaded?/1` O(1) -> O(log n).
     :ets.new(@table, [
-      :set,
+      :ordered_set,
       :public,
       :named_table,
       read_concurrency: true
@@ -148,8 +165,27 @@ defmodule GtBridge.Analysis.LoadedModules do
   #                   Private Implementation                 #
   ############################################################
 
+  defp walk_prefix(:"$end_of_table", _prefix, acc), do: Enum.reverse(acc)
+
+  defp walk_prefix(key, prefix, acc) do
+    if String.starts_with?(key, prefix),
+      do: walk_prefix(:ets.next(@table, key), prefix, [key | acc]),
+      else: Enum.reverse(acc)
+  end
+
   defp populate do
     for entry <- spec_entries(), do: :ets.insert(@table, entry)
+    # App specs miss whatever the running VM loaded without one -- `erts`
+    # is a loaded application under `mix run` but not under `mix test`,
+    # so `:erlang` would come and go with the environment.  Seeding from
+    # the VM too makes coverage the same everywhere.  Unlike `do_sync/0`
+    # this stays quiet: nobody has subscribed yet at init.
+    for {mod, _file} <- :code.all_loaded(),
+        name = inspect(mod),
+        not String.starts_with?(name, ":elixir_compiler_") do
+      :ets.insert(@table, {name, mod, app_of(mod)})
+    end
+
     :ok
   end
 
