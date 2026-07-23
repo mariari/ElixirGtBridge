@@ -78,33 +78,18 @@ BeamLinkBeamProcess >> start [
 	process stdinStream
 		nextPutAll: 'Elixir.Logger.configure(level: :debug)';
 		lf.
-	self
-		startHTTPAt: self application settings serverSocketAddress port asString
-		andClient: self application settings clientSocketAddress port asString
+	self startBridgeAt: self application settings serverSocketAddress port asString
 ]
 
-{ #category : 'http' }
-BeamLinkBeamProcess >> startHTTPAt: server andClient: client [
+{ #category : 'start-stop' }
+BeamLinkBeamProcess >> startBridgeAt: server [
+	"Bring the bridge up on the framed TCP transport at `server`."
 	process stdinStream
 		nextPutAll: (String
-				streamContents: [ :stream | 
-					stream
-						nextPutAll: 'GtBridge.Http.Supervisor.start_listener(';
-						nextPutAll: server;
-						nextPut: $,;
-						nextPutAll: client;
-						nextPut: $);
-						lf ])
-]
-
-{ #category : 'tcp' }
-BeamLinkBeamProcess >> startTCPAt: socket [
-	process stdinStream
-		nextPutAll: (String
-				streamContents: [ :stream | 
+				streamContents: [ :stream |
 					stream
 						nextPutAll: 'GtBridge.start_listener(';
-						nextPutAll: socket asString;
+						nextPutAll: server;
 						nextPut: $);
 						lf ])
 ]

@@ -36,17 +36,12 @@ Gt4beamSessionLifecycleExamples >> atomSpotterTool [
 
 { #category : 'private' }
 Gt4beamSessionLifecycleExamples >> closeSessionId: aSessionId on: anApp [
-	"I send POST /SESSION_CLOSE for the given sessionId."
-	| serverAddress url |
-	serverAddress := anApp settings serverSocketAddress.
-	url := 'http://' , serverAddress ipOrName , ':'
-		, serverAddress port asString , '/SESSION_CLOSE'.
-	^ ZnClient new
-		url: url;
-		entity: (ZnEntity
-			with: (STONJSON toString: { #sessionId -> aSessionId } asDictionary)
-			type: ZnMimeType applicationJson);
-		post
+	"I close the session over the framed transport, the way
+	 BeamSessionFinalizer does -- fire-and-forget, no answer."
+	^ anApp settings messageBroker primSendMessage: (Dictionary new
+		at: 'type' put: 'SESSION_CLOSE';
+		at: 'sessionId' put: aSessionId;
+		yourself)
 ]
 
 { #category : 'examples - completion' }

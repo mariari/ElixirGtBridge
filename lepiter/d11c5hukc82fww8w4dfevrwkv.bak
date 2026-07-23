@@ -180,7 +180,7 @@
 								"__type" : "time",
 								"time" : {
 									"__type" : "dateAndTime",
-									"dateAndTimeString" : "2025-07-26T11:02:01.518669-07:00"
+									"dateAndTimeString" : "2025-07-26T11:05:05.240243-07:00"
 								}
 							},
 							"uid" : {
@@ -217,14 +217,14 @@
 								"__type" : "time",
 								"time" : {
 									"__type" : "dateAndTime",
-									"dateAndTimeString" : "2025-07-26T11:04:48.940679-07:00"
+									"dateAndTimeString" : "2026-07-22T16:28:20.027775+08:00"
 								}
 							},
 							"uid" : {
 								"__type" : "uid",
 								"uidString" : "v4C/kTr3DQCvz2irAn8S3A=="
 							},
-							"code" : "iex(misuzu@YU-NO)2> GtBridge.Http.Supervisor.start_listener(1212,5032)\n{:ok, #PID<0.2738.0>}"
+							"code" : "\riex(misuzu@YU-NO)2> GtBridge.start_listener(1212)\n{:ok, #PID<0.2738.0>}"
 						}
 					]
 				},
@@ -326,14 +326,14 @@
 								"__type" : "time",
 								"time" : {
 									"__type" : "dateAndTime",
-									"dateAndTimeString" : "2025-07-26T11:01:28.939524-07:00"
+									"dateAndTimeString" : "2026-07-22T16:28:22.86799+08:00"
 								}
 							},
 							"uid" : {
 								"__type" : "uid",
 								"uidString" : "B8Otkzr3DQCwqvpAAn8S3A=="
 							},
-							"code" : "BeamLinkApplication stop.\rBeamLinkApplication connectwithServerPort: 1212 clientPort: 5032"
+							"code" : "BeamLinkApplication stop.\rBeamLinkApplication connectwithServerPort: 1212 "
 						}
 					]
 				},
