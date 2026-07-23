@@ -252,7 +252,7 @@
 					"__type" : "time",
 					"time" : {
 						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2026-04-25T14:34:26.175976+08:00"
+						"dateAndTimeString" : "2026-07-20T16:07:26.167822+08:00"
 					}
 				},
 				"uid" : {
@@ -262,7 +262,191 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## BEAM-side\n\n`GtBridge.Analysis.call_sites(source, contextModule)` parses the AST, resolves aliases (using the context module's preamble when missing from source), filters unresolvable / unsourced / non-existent calls. Returns `[%{target_module, function, arity, line, column}]`. Styler caches by source hash."
+				"string" : "## BEAM-side\n\n`GtBridge.Analysis.call_sites/2` parses the AST, resolves aliases (using the context module's preamble when missing from source), filters unresolvable / unsourced / non-existent calls, and returns `[%{target_module, function, arity, line, column}]`.\n\nThe styler does not call that one. It calls `GtBridge.Analysis.call_sites_relation/2`, which is the same data handed through `JSON.encode!`, and it decodes the result locally with `STONJSON`. That one detail is the difference between a 17ms restyle and a 739ms one, so it gets its own section below."
+			},
+			{
+				"__type" : "textSnippet",
+				"children" : {
+					"__type" : "snippets",
+					"items" : [
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:07:36.35456+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:14:19.112663+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "n7wTRLDkTCy2DU7k+ZPAjQ=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "Everything compound that crosses the bridge arrives as a lazy handle, and every field you read off a handle is an HTTP round trip to `GtBridge.ObjectRegistry.get_attribute`. Scalars are the exception: an Elixir integer arrives as a real `SmallInteger`, a string as a `ByteString`.\n\nSo the boundary is value-preserving for scalars and handle-based for containers. Encoding to JSON turns a container back into a scalar, which is the only way to carry structured data across as values. After `STONJSON` decodes it, the line and column numbers are ordinary Smalltalk integers built locally, never fetched.\n\nEvaluate this to watch each shape land:"
+						},
+						{
+							"__type" : "pharoSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [ ]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:07:43.342712+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:07:43.342712+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "9v+oXcGORVyCHDl7GcDpQA=="
+							},
+							"code" : "| app probe |\napp := BeamLinkApplication uniqueInstance.\nprobe := [ :expr | expr -> (app evaluateAndWait: expr) class name ].\n{ probe value: '42'.\n  probe value: '\"a string\"'.\n  probe value: '[1, 2, 3]'.\n  probe value: '%{a: 1}'.\n  probe value: 'JSON.encode!(%{a: 1})' }"
+						},
+						{
+							"__type" : "textSnippet",
+							"children" : {
+								"__type" : "snippets",
+								"items" : [
+									{
+										"__type" : "textSnippet",
+										"children" : {
+											"__type" : "snippets",
+											"items" : [ ]
+										},
+										"createEmail" : {
+											"__type" : "email",
+											"emailString" : "<unknown>"
+										},
+										"createTime" : {
+											"__type" : "time",
+											"time" : {
+												"__type" : "dateAndTime",
+												"dateAndTimeString" : "2026-07-20T16:07:53.629661+08:00"
+											}
+										},
+										"editEmail" : {
+											"__type" : "email",
+											"emailString" : "<unknown>"
+										},
+										"editTime" : {
+											"__type" : "time",
+											"time" : {
+												"__type" : "dateAndTime",
+												"dateAndTimeString" : "2026-07-20T16:14:25.088529+08:00"
+											}
+										},
+										"uid" : {
+											"__type" : "uid",
+											"uidString" : "mHzKMysPTvGsE2fcHO0chg=="
+										},
+										"paragraphStyle" : {
+											"__type" : "textStyle"
+										},
+										"string" : "The styler reads all five fields of every call site on every keystroke. As handles that is one round trip per field: 113 sites by 5 fields is 565 round trips at roughly 1.34ms each.\n\nMeasured on a 535-line file:\n\n- cold style: 922ms, now 73ms\n- warm restyle: 739ms, now 17ms\n\nThe `cachedHash` / `cachedSites` cache did not rescue this, because it cached the handles rather than their values. A warm restyle re-fetched every field and still paid nearly the full price.\n\nWorth contrasting with the wrench half of this same styler, which was built cost-first a day later: it walks the SmaCC AST locally and asks the BEAM one batched question, so after warm-up its bridge traffic is zero. Same file, same styler, two different eras of thinking. See the \"Wrench: Unresolved Module Affordance\" page.\n\nNote that the styler now requires a gt_bridge providing `call_sites_relation/2`. An image updated ahead of its project's hex pin will get a `BeamBridgeEvalError` back; the styler skips the cache write in that case so it retries on the next restyle rather than staying blank."
+									}
+								]
+							},
+							"createEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"createTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:14:25.086625+08:00"
+								}
+							},
+							"editEmail" : {
+								"__type" : "email",
+								"emailString" : "<unknown>"
+							},
+							"editTime" : {
+								"__type" : "time",
+								"time" : {
+									"__type" : "dateAndTime",
+									"dateAndTimeString" : "2026-07-20T16:14:27.797823+08:00"
+								}
+							},
+							"uid" : {
+								"__type" : "uid",
+								"uidString" : "rwYXupILQpScHVhPKB+FPw=="
+							},
+							"paragraphStyle" : {
+								"__type" : "textStyle"
+							},
+							"string" : "## What it cost before"
+						}
+					]
+				},
+				"createEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"createTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-07-20T16:14:19.109606+08:00"
+					}
+				},
+				"editEmail" : {
+					"__type" : "email",
+					"emailString" : "<unknown>"
+				},
+				"editTime" : {
+					"__type" : "time",
+					"time" : {
+						"__type" : "dateAndTime",
+						"dateAndTimeString" : "2026-07-20T16:14:29.24551+08:00"
+					}
+				},
+				"uid" : {
+					"__type" : "uid",
+					"uidString" : "+pr9imuxRg2rt8QWQbGbsA=="
+				},
+				"paragraphStyle" : {
+					"__type" : "textStyle"
+				},
+				"string" : "## Why the relation crosses as a String"
 			}
 		]
 	},
