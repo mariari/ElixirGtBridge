@@ -237,6 +237,19 @@ TElixirNavigationCoder >> detectElixirFunctionAt: aPosition ifFound: foundBlock 
 	^ foundBlock value: moduleName value: functionName
 ]
 
+{ #category : 'addons' }
+TElixirNavigationCoder >> embeddedDebuggerAddOnFor: anAST into: coderAddOns [
+	"I install nothing.  GT's embedded-debugger stylers are Pharo AST
+	 visitors, but an Elixir coder's AST is a SmaCC tree whose
+	 acceptVisitor: sends visitGrammar:, so they log a DNU on every
+	 keystroke.
+
+	 The pragma has to stay: GtCoderModel>>pragmasNamed:inHierarchy:
+	 dedupes by method selector walking subclass-first, so only a
+	 pragma-carrying override suppresses GtSourceCoder's."
+	<gtAstCoderAddOns: 80>
+]
+
 { #category : 'navigation' }
 TElixirNavigationCoder >> functionInContext: aFunctionName [
 	"I am true when the bare function name is defined in the current

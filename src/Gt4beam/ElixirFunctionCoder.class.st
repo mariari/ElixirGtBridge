@@ -203,18 +203,6 @@ ElixirFunctionCoder >> dedentSource: aString [
 				ifFalse: [ line trimLeft ]) ] ]
 ]
 
-{ #category : 'addons' }
-ElixirFunctionCoder >> embeddedDebuggerAddOnFor: anAST into: coderAddOns [
-	"I install nothing.  GT's embedded-debugger stylers are Pharo AST
-	 visitors, but my AST is a SmaCC Elixir tree whose acceptVisitor:
-	 sends visitGrammar:, so they log a DNU on every keystroke.
-
-	 The pragma has to stay: GtCoderModel>>pragmasNamed:inHierarchy:
-	 dedupes by method selector walking subclass-first, so only a
-	 pragma-carrying override suppresses GtSourceCoder's."
-	<gtAstCoderAddOns: 80>
-]
-
 { #category : 'accessing' }
 ElixirFunctionCoder >> functionName [
 	^ functionName
