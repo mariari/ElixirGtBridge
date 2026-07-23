@@ -36,6 +36,14 @@ GtElixirCoderModel >> asCoderViewModel [
 	^ GtElixirSnippetCoderViewModel new coder: self
 ]
 
+{ #category : 'private' }
+GtElixirCoderModel >> atomKeyed: aDictionary at: aName [
+	"Read `aName` whether it arrived plain or `__atom__:`-prefixed."
+	^ aDictionary
+		at: aName
+		ifAbsent: [ aDictionary at: '__atom__:' , aName ifAbsent: [ nil ] ]
+]
+
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
 	"I prepend preamble, import, and self binding, then eval."
@@ -249,11 +257,16 @@ GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFai
 GtElixirCoderModel >> reifyBindingValue: aValue [
 	"Proxy references carry exid+exclass; reify as BeamProxyObject.
 	Base64-tagged arrays carry non-UTF-8 binaries; decode as ByteArray.
-	Recurses into collections to handle nested values."
-	(aValue isDictionary and: [ aValue includesKey: 'exid' ])
+	Recurses into collections to handle nested values.
+
+	The reference arrives keyed either plainly or with an `__atom__:`
+	prefix, depending on which encoder ran on the BEAM: `Jason.encode`
+	emits `exid`, `GtBridge.Serializer.to_json` marks atom-valued map
+	keys and emits `__atom__:exid`."
+	(aValue isDictionary and: [ (self atomKeyed: aValue at: 'exid') notNil ])
 		ifTrue: [
-			^ (BeamProxyObject elixirClass: (aValue at: 'exclass'))
-				elixirVar: (aValue at: 'exid');
+			^ (BeamProxyObject elixirClass: (self atomKeyed: aValue at: 'exclass'))
+				elixirVar: (self atomKeyed: aValue at: 'exid');
 				application: application ].
 	(aValue isArray and: [ aValue size = 2 and: [ aValue first = '__base64__' ] ])
 		ifTrue: [ ^ (ZnBase64Encoder new decode: aValue second) asByteArray ].
