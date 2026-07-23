@@ -39,42 +39,38 @@ defmodule GtBridge.Http.Router do
     send_resp(conn, 200, JSON.encode!("IS_ALIVE"))
   end
 
-  # We get a notify to begin with, we should forward it properly
   post "/ENQUEUE" do
     {:ok, _, conn} = Plug.Conn.read_body(conn)
     body = conn.body_params
 
-    if body["statements"] != "" do
-      port = conn.assigns.pharo_client
+    result =
+      if body["statements"] != "" do
+        port = conn.assigns.pharo_client
 
-      case body["sessionId"] do
-        nil ->
-          # No session = no per-page bindings needed. Run in a fresh
-          # process so concurrent system queries (view-block fetches,
-          # proxy-GC finalizers, browser fan-out) don't serialize
-          # through one shared GenServer mailbox.
-          Eval.eval_stateless(body["statements"], body["commandId"], port)
+        case body["sessionId"] do
+          nil ->
+            # No session = no per-page bindings needed. Run inline: each
+            # request already has its own Cowboy process, which is the
+            # same isolation a Task gave, and running here lets the
+            # answer travel back in this response.
+            Eval.eval_stateless_sync(body["statements"], body["commandId"], port)
 
-        sid ->
-          # Session-bound: snippet evals on a Lepiter page need
-          # bindings persisted across snippets, so route to the
-          # per-page Eval GenServer.
-          eval = EvalRegistry.get_or_create(sid, port: port)
-          Eval.eval(eval, body["statements"], body["commandId"])
+          sid ->
+            # Session-bound: snippet evals on a Lepiter page need
+            # bindings persisted across snippets, so route to the
+            # per-page Eval GenServer.
+            eval = EvalRegistry.get_or_create(sid, port: port)
+            Eval.eval(eval, body["statements"], body["commandId"])
+        end
       end
-    end
 
-    # Always return empty JSON like Python bridge does
-    conn
-    |> send_resp(200, "{}")
-  end
-
-  # Receive notifications/callbacks (GT might POST here)
-  post "/EVAL" do
-    {:ok, _, conn} = Plug.Conn.read_body(conn)
+    # Carry the answer in the response, encoded as the callback used to
+    # encode it, so complex results stay proxies.
+    value_json = Eval.encode_result(result)
+    body_out = Jason.encode!(%{type: "EVAL", id: body["commandId"], value: value_json})
 
     conn
-    |> send_resp(200, Jason.encode!(%{success: true}))
+    |> send_resp(200, body_out)
   end
 
   post "/COMPLETE" do
