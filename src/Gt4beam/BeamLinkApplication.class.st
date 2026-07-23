@@ -12,7 +12,7 @@ BeamLinkApplication class >> connectwithServerPort: server clientPort: cleint [
 		startWith: (LanguageLinkSettings new
 				clientSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: cleint);
 				serverSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: server);
-				messageBrokerStrategy: BeamLinkHttpMessageBroker;
+				messageBrokerStrategy: BeamLinkTcpMessageBroker;
 				serverProcessClass: BeamLinkBeamProcess;
 				platform: BeamPlatform new;
 				commandFactoryClass: BeamLinkCommandFactory;
@@ -51,11 +51,17 @@ BeamLinkApplication >> initializeHandlers [
 
 { #category : 'initialization' }
 BeamLinkApplication >> postInitialization [
-	"Start the SSE reader so BEAM-side broadcasts feed
-	 `BeamEventAnnouncer` and the per-module caches.  Without this
-	 the entire event-driven UI flow (cache → SourceChanged → coder
-	 refresh) is dead on first boot."
-	(BeamEventStreamReader for: self) start
+	"The event reader feeds BeamEventAnnouncer and the per-module caches
+	 (cache -> SourceChanged -> coder refresh); without it the
+	 event-driven UI is dead on first boot.  Over TCP the broker reads
+	 events off its own socket, so I hand it the reader for dispatch and
+	 skip the SSE poll; over HTTP I start the poll."
+	| broker reader |
+	reader := BeamEventStreamReader for: self.
+	broker := self settings messageBroker.
+	(broker respondsTo: #eventReader:)
+		ifTrue: [ broker eventReader: reader ]
+		ifFalse: [ reader start ]
 ]
 
 { #category : 'accessing' }
