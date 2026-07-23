@@ -11,18 +11,7 @@ BeamLinkApplication class >> connectwithServerPort: server [
 	"Connect over the framed TCP transport on `server`.  There is no
 	 client port: the socket is full-duplex, so replies and events come
 	 back on the connection I open."
-	^ self
-		startWith: (LanguageLinkSettings new
-				serverSocketAddress: (LanguageLinkSocketAddress ipOrName: 'localhost' port: server);
-				messageBrokerStrategy: BeamLinkTcpMessageBroker;
-				serverProcessClass: BeamLinkBeamProcess;
-				platform: BeamPlatform new;
-				commandFactoryClass: BeamLinkCommandFactory;
-				commandClass: ElixirLinkCommand;
-				serializerClass: LanguageLinkSerializer;
-				deserializerClass: BeamLinkDeserializer;
-				parserClass: ElixirParser;
-				yourself)
+	^ self startWith: (LanguageLinkSettings elixirDefaultSettings: server)
 ]
 
 { #category : 'start - stop' }
