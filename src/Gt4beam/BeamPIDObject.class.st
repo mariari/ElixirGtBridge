@@ -144,3 +144,14 @@ BeamPIDObject >> printOn: str [
 BeamPIDObject >> process_state [
 	^ self evaluateAndWait: self resolve , '|> :sys.get_state()'
 ]
+
+{ #category : 'accessing' }
+BeamPIDObject >> resolve [
+	"A pid names itself.  When I am built from the wire form
+	 ['__pid__', ...] my elixirVar holds the printed pid rather than a
+	 registry id, and :erlang.list_to_pid rebuilds the identical live
+	 process, so I need no registry slot."
+	^ elixirVar isString
+		ifTrue: [ ':erlang.list_to_pid(~c"' , elixirVar , '")' ]
+		ifFalse: [ super resolve ]
+]

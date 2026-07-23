@@ -37,7 +37,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'resolved',
-		'unresolved'
+		'unresolved',
+		'generation'
 	],
 	#classInstVars : [
 		'default'
@@ -103,6 +104,15 @@ BeamModuleResolution >> classify: aModuleName [
 	^ #unknown
 ]
 
+{ #category : 'accessing' }
+BeamModuleResolution >> generation [
+	"I count recompile events seen.  A derived fact computed from BEAM
+	 module state records the generation it was computed at, so
+	 currency becomes a comparison rather than a guess: a content hash
+	 answers 'same input?' and cannot answer 'still current?'."
+	^ generation ifNil: [ generation := 0 ]
+]
+
 { #category : 'initialization' }
 BeamModuleResolution >> init [
 	"I initialize my two sets and wire up event subscription via
@@ -118,7 +128,11 @@ BeamModuleResolution >> onBeamModuleRecompiled: anAnnouncement [
 	 additively — no invalidation, no bridge call.  If the module
 	 was already in `resolved` (recompile of an existing module),
 	 this is a no-op.  If it wasn't in either set (we never asked
-	 about it), it lands in `resolved`."
+	 about it), it lands in `resolved`.
+
+	 I also advance the generation, which is what lets a consumer tell
+	 a stale derivation from a current one."
+	generation := self generation + 1.
 	anAnnouncement mod ifNotNil: [ :modName |
 		| name |
 		name := modName asString.
