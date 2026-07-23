@@ -967,13 +967,21 @@ defmodule GtBridge.Analysis do
         |> GtBridge.Analysis.Walker.resolve_call_aliases(aliases)
         |> GtBridge.Analysis.Walker.resolve_import_targets(imports)
 
-      # Build a per-module lookup of defined function names for filtering.
-      # Includes both def and defp via all_functions/1 (AST-based).
+      # A cross-module call can't reach a private fn, so exports are the
+      # full callable set (no parse); the context adds its local defs from
+      # the AST already parsed above.
       modules_in_calls = calls |> Enum.map(& &1.target_module) |> Enum.uniq()
+      context_str = context_module && inspect(context_module)
+
+      local_names =
+        if context_str,
+          do: MapSet.union(source_function_names(source, ast), exported_names(context_str)),
+          else: MapSet.new()
 
       defined =
         Map.new(modules_in_calls, fn mod_str ->
-          {mod_str, defined_function_names(mod_str)}
+          names = if mod_str == context_str, do: local_names, else: exported_names(mod_str)
+          {mod_str, names}
         end)
 
       Enum.filter(calls, fn site ->
@@ -1009,21 +1017,28 @@ defmodule GtBridge.Analysis do
     end)
   end
 
-  defp defined_function_names(mod_str) do
+  # A module's exported functions + macros — the names a cross-module
+  # call can reach.
+  defp exported_names(nil), do: MapSet.new()
+
+  defp exported_names(mod_str) do
     mod = Module.concat([mod_str])
 
     if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
-      ast_names = all_functions(mod) |> Enum.map(& &1.name) |> MapSet.new()
-
-      exported_names =
-        safe_exported_functions(mod)
-        |> Enum.map(fn {n, _} -> Atom.to_string(n) end)
-        |> MapSet.new()
-
-      MapSet.union(ast_names, exported_names)
+      (safe_module_info(mod, :functions) ++ safe_module_info(mod, :macros))
+      |> Enum.map(fn {name, _arity} -> Atom.to_string(name) end)
+      |> MapSet.new()
     else
       MapSet.new()
     end
+  end
+
+  defp source_function_names(source, ast) do
+    lines = String.split(source, "\n")
+
+    (extract_functions(ast) ++ types_in_source(ast, lines))
+    |> Enum.map(& &1.name)
+    |> MapSet.new()
   end
 
   @doc "I resolve an alias name using a context module's alias declarations."
@@ -1137,15 +1152,14 @@ defmodule GtBridge.Analysis do
   #                   Private Implementation                 #
   ############################################################
 
-  # I return [{name_atom, arity}] from mod.__info__(:functions),
-  # or [] if the module doesn't export __info__/1 or raises.
-  # Several call sites need this: macro-only modules sometimes
-  # raise inside __info__(:functions) despite exporting it, so
-  # the try/rescue is mandatory wherever we call it.
-  defp safe_exported_functions(mod) do
+  defp safe_exported_functions(mod), do: safe_module_info(mod, :functions)
+
+  # __info__/1 can raise for some macro-only modules despite exporting it,
+  # so the try/rescue is mandatory.
+  defp safe_module_info(mod, kind) do
     if function_exported?(mod, :__info__, 1) do
       try do
-        mod.__info__(:functions)
+        mod.__info__(kind)
       rescue
         _ in [UndefinedFunctionError, ArgumentError] -> []
       end
