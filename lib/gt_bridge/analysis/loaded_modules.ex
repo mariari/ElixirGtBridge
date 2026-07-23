@@ -208,14 +208,19 @@ defmodule GtBridge.Analysis.LoadedModules do
     MapSet.new(loaded ++ spec_listed)
   end
 
-  # `Application.get_application/1` resolves via the app spec's module
-  # list, frozen at load — a live-recompiled new module isn't in it and
-  # comes back nil, so I fall back to the module's beam location under an
-  # app's ebin directory.
+  # `Application.get_application/1` reads the app spec's module list,
+  # frozen at load, so a live-recompiled new module comes back nil.
+  # `app_from_beam/1` matches `:code.which` against ebin dirs, but a
+  # `Code.compile_file`'d module reports its source path (or ""), never
+  # an ebin beam.  `app_from_source/1` places a new file in a path dep
+  # by its source location.  Anything still unplaced (Erlang internals,
+  # eval-only modules) falls back to the current application rather than
+  # nil, so it surfaces under the project being worked on instead of
+  # vanishing from every app's view.
   defp app_of(mod) do
     case Application.get_application(mod) do
       app when is_atom(app) and not is_nil(app) -> app
-      _ -> app_from_beam(mod)
+      _ -> app_from_beam(mod) || app_from_source(mod) || current_app()
     end
   end
 
@@ -238,5 +243,32 @@ defmodule GtBridge.Analysis.LoadedModules do
     Application.app_dir(app, "ebin")
   rescue
     ArgumentError -> nil
+  end
+
+  # A path dep owns the source files under its checked-out tree, so a
+  # new module there maps to that app by its source location — the same
+  # mapping the hot-reload pipeline uses to place the beam.  Needs Mix;
+  # in a release (no Mix project) there's nothing to map, so rescue nil.
+  defp app_from_source(mod) do
+    with src when is_binary(src) <- GtBridge.Resolve.source_file(mod) do
+      abs = Path.expand(src)
+
+      Enum.find_value(Mix.Project.deps_paths(), fn {app, dep_path} ->
+        String.starts_with?(abs, Path.expand(dep_path) <> "/") && app
+      end)
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  # The application the bridge is embedded in — the user's own project,
+  # whatever it is — used as the last-resort owner for an otherwise
+  # unplaceable module.  nil in a release with no Mix project loaded.
+  defp current_app do
+    Mix.Project.config()[:app]
+  rescue
+    _ -> nil
   end
 end
