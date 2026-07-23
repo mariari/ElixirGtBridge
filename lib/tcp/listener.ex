@@ -210,8 +210,11 @@ defmodule Tcp.Listener do
           {:ok, :inet.socket(), port_number()} | {:error, any()}
   defp create_socket(host, port) do
     # start the sockets in passive mode (i.e., no messages)
+    # `packet: 4` frames each message with a 4-byte length, so a
+    # connection reads whole frames; accepts messages up to 4GB.
     listen_options = [
       :binary,
+      packet: 4,
       active: false,
       exit_on_close: true,
       reuseaddr: true,
