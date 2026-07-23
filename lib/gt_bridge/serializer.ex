@@ -29,6 +29,28 @@ defmodule GtBridge.Serializer do
     if String.valid?(data), do: data, else: ["__base64__", Base.encode64(data)]
   end
 
+  defp sanitize(data) when is_reference(data) do
+    ["__ref__" | :erlang.ref_to_list(data)]
+  end
+
+  defp sanitize(data) when is_port(data) do
+    ["__port__" | :erlang.port_to_list(data)]
+  end
+
+  defp sanitize(data) when is_function(data) do
+    ["__fun__", inspect(data)]
+  end
+
+  # Must precede the is_map/1 clause: a struct matches both and the
+  # first match wins.  Map.new/2 would enumerate it, and structs do
+  # not implement Enumerable.
+  defp sanitize(%mod{} = data) do
+    data
+    |> Map.from_struct()
+    |> Map.new(fn {k, v} -> {k, sanitize(v)} end)
+    |> Map.put(:__struct__, mod)
+  end
+
   defp sanitize(data) when is_map(data) do
     Map.new(data, fn {k, v} -> {k, sanitize(v)} end)
   end
@@ -59,6 +81,19 @@ defmodule GtBridge.Serializer do
 
   defp desanitize(["__pid__" | rest]), do: :erlang.list_to_pid(rest)
   defp desanitize(["__base64__", encoded]), do: Base.decode64!(encoded)
+  defp desanitize(["__ref__" | rest]), do: :erlang.list_to_ref(rest)
+  defp desanitize(["__port__" | rest]), do: :erlang.list_to_port(rest)
+
+  # Jexon reconstitutes structs on decode, so the same clause-order and
+  # Enumerable constraints apply here as in sanitize/1.  A function
+  # cannot be rebuilt from its printed form, so `__fun__` is left as
+  # the descriptive list it arrived as.
+  defp desanitize(%mod{} = data) do
+    data
+    |> Map.from_struct()
+    |> Map.new(fn {k, v} -> {k, desanitize(v)} end)
+    |> Map.put(:__struct__, mod)
+  end
 
   defp desanitize(data) when is_map(data) do
     Map.new(data, fn {k, v} -> {k, desanitize(v)} end)
