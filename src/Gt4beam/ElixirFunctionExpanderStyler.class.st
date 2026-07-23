@@ -364,8 +364,15 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	 Each gets a unique ID (resetting lastIndex per cycle) so expand
 	 state persists across re-styles.  cachedHash/cachedSites
 	 short-circuits the BEAM round-trip for back-to-back styles of
-	 the same source."
-	| source effectiveSource pageSrc hash sites b64 query |
+	 the same source.
+
+	 Reading a site's fields is local: `asList` materialises the whole
+	 result in one call, so the per-field reads below cost nothing.
+
+	 A bridge error yields no triangles for this pass and is
+	 deliberately not cached, so the next restyle retries instead of
+	 staying blank until the source changes."
+	| source effectiveSource pageSrc hash sites reply b64 query |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
@@ -379,7 +386,8 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	effectiveSource := pageSrc isEmpty
 		ifTrue: [ source ]
 		ifFalse: [ source , String lf , pageSrc ].
-	hash := { source hash. self contextModuleName. pageSrc hash }.
+	hash := { source hash. self contextModuleName. pageSrc hash.
+		BeamModuleResolution default generation }.
 	hash = cachedHash
 		ifTrue: [ sites := cachedSites ]
 		ifFalse: [
@@ -388,10 +396,13 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 			self contextModuleName ifNotNil: [ :mod |
 				query := query, ', ', mod ].
 			query := query, ')'.
-			sites := [ (self application evaluateAndWait: query) asList ]
-				on: Error do: [ #() ].
-			cachedHash := hash.
-			cachedSites := sites ].
+			reply := self application evaluateAndWait: query.
+			(reply isKindOf: BeamBridgeEvalError)
+				ifTrue: [ sites := #() ]
+				ifFalse: [
+					sites := reply asList.
+					cachedHash := hash.
+					cachedSites := sites ] ].
 	sites do: [ :site |
 		| line col fnName absPos |
 		line := (site attributeAt: #line) asInteger.

@@ -77,7 +77,7 @@ GtElixirCoderModel >> contextModuleName: aString [
 
 { #category : 'private' }
 GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
-	| serverAddress url response raw result payload |
+	| serverAddress url response raw result payload deserializer |
 	application ifNil: [ ^ Dictionary new ].
 	serverAddress := application settings serverSocketAddress.
 	serverAddress ifNil: [ ^ Dictionary new ].
@@ -95,8 +95,11 @@ GtElixirCoderModel >> doFetchBindingsWithSessionId: sid [
 	response isSuccess ifFalse: [ ^ Dictionary new ].
 	raw := STONJSON fromString: response contents.
 	result := Dictionary new: raw size.
+	deserializer := BeamLinkDeserializer new
+		executionHandler: application executionHandler;
+		yourself.
 	raw keysAndValuesDo: [ :name :value |
-		result at: name put: (self reifyBindingValue: value) ].
+		result at: name put: (deserializer decodeWire: value) ].
 	^ result
 ]
 
@@ -231,30 +234,6 @@ GtElixirCoderModel >> primitiveEvaluate: aSourceString inContext: aContext onFai
 		viewBindings ifNotNil: [
 			(viewBindings bindingOf: assoc key asSymbol) value: assoc value ] ].
 	^ result
-]
-
-{ #category : 'private' }
-GtElixirCoderModel >> reifyBindingValue: aValue [
-	"Proxy references carry exid+exclass; reify as BeamProxyObject.
-	Base64-tagged arrays carry non-UTF-8 binaries; decode as ByteArray.
-	Recurses into collections to handle nested values."
-	(aValue isDictionary and: [ aValue includesKey: 'exid' ])
-		ifTrue: [
-			^ (BeamProxyObject elixirClass: (aValue at: 'exclass'))
-				elixirVar: (aValue at: 'exid');
-				application: application ].
-	(aValue isArray and: [ aValue size = 2 and: [ aValue first = '__base64__' ] ])
-		ifTrue: [ ^ (ZnBase64Encoder new decode: aValue second) asByteArray ].
-	aValue isDictionary
-		ifTrue: [
-			| result |
-			result := Dictionary new: aValue size.
-			aValue keysAndValuesDo: [ :k :v |
-				result at: k put: (self reifyBindingValue: v) ].
-			^ result ].
-	aValue isArray
-		ifTrue: [ ^ aValue collect: [ :elem | self reifyBindingValue: elem ] ].
-	^ aValue
 ]
 
 { #category : 'private' }
