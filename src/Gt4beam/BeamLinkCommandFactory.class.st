@@ -29,17 +29,9 @@ BeamLinkCommandFactory >> sessionId: aString [
 
 { #category : 'initalization' }
 BeamLinkCommandFactory >> setNotifyToInstruction: anInstruction [
-	"Single-line instructions skip the parse — wrap-the-whole-compound
-	 gives the same notify-of-result as parse-and-wrap-last-expression."
-	| trimmed trimmedSource parsed last |
-	anInstruction ifNil: [ ^ anInstruction ].
-	trimmed := anInstruction trimRight.
-	(trimmed includes: Character lf) ifFalse: [
-		^ 'GtBridge.Eval.notify((' , trimmed , '), command_id, port)' ].
-	trimmedSource := SmaCCString on: trimmed.
-	parsed := ElixirParser parse: trimmedSource.
-	last := parsed expressions expressions last.
-	trimmedSource insert: '), command_id, port)' at: last stopPosition + 1.
-	trimmedSource insert: 'GtBridge.Eval.notify((' at: last startPosition.
-	^ trimmedSource asString
+	"I deliberately do not wrap.  Upstream wraps the last expression in a
+	 notify call because it expects the result to arrive as a second HTTP
+	 request; ours rides back in the ENQUEUE reply instead.  Finding the
+	 expression to wrap cost a full SmaCC parse of every instruction."
+	^ anInstruction
 ]

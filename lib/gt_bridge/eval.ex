@@ -83,6 +83,38 @@ defmodule GtBridge.Eval do
   end
 
   @doc """
+  I encode an evaluation result for the wire.
+
+  I register complex values in `GtBridge.ObjectRegistry` and send an
+  `%{exid, exclass}` reference, so GT receives a proxy it can inspect
+  lazily rather than a fully materialised copy.  Primitives travel by
+  value.
+  """
+  @spec encode_result(term()) :: String.t()
+  def encode_result(obj) do
+    {:ok, json} =
+      case register_value(obj) do
+        registered = %{exid: _} -> Jason.encode(registered)
+        primitive -> GtBridge.Serializer.to_json(primitive)
+      end
+
+    json
+  end
+
+  @doc """
+  I evaluate in the calling process and return the value, so the answer
+  can travel back in the HTTP response rather than as a second message.
+
+  The Task in `eval_stateless/3` existed to keep concurrent queries off
+  one shared mailbox; a Cowboy request already has its own process, so
+  running inline gives the same isolation.
+  """
+  @spec eval_stateless_sync(String.t(), String.t() | nil, pos_integer() | nil) :: term()
+  def eval_stateless_sync(code, command_id, port) do
+    do_eval_stateless(code, command_id, port)
+  end
+
+  @doc """
   I evaluate `code` in a fresh process with no per-page bindings.
 
   GT-side `evaluateAndWait` calls that don't pass a `sessionId` (view-
@@ -96,25 +128,14 @@ defmodule GtBridge.Eval do
   path is for everything else — parallelism is bounded only by the
   BEAM scheduler, not by a shared GenServer.
 
-  The eval string is expected to call `GtBridge.Eval.notify/3` itself
-  (same protocol as the session path) to deliver its result back to
-  GT via `/EVAL`. Registered objects in ObjectRegistry live until GT
-  GCs the corresponding proxy and fires `Eval.remove/1`.
+  Registered objects in ObjectRegistry live until GT GCs the
+  corresponding proxy and fires `Eval.remove/1`.
   """
   @spec eval_stateless(String.t(), String.t() | nil, pos_integer() | nil) :: :ok
   def eval_stateless(code, command_id, port) do
     Task.start(fn -> do_eval_stateless(code, command_id, port) end)
 
     :ok
-  end
-
-  @doc """
-  I evaluate in the calling process and return the value, so a caller
-  can send the answer back in its own response rather than via `/EVAL`.
-  """
-  @spec eval_stateless_sync(String.t(), String.t() | nil, pos_integer() | nil) :: term()
-  def eval_stateless_sync(code, command_id, port) do
-    do_eval_stateless(code, command_id, port)
   end
 
   @spec do_eval_stateless(String.t(), String.t() | nil, pos_integer() | nil) :: term()
@@ -137,9 +158,7 @@ defmodule GtBridge.Eval do
       value
     catch
       kind, e ->
-        error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
-        if port, do: notify(error, command_id, port)
-        error
+        %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
     end
   end
 
@@ -192,38 +211,8 @@ defmodule GtBridge.Eval do
     catch
       kind, e ->
         error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
-        notify(error, command_id, state.bindings[:port])
-
-        {:reply, e, collect_registered(state)}
+        {:reply, error, collect_registered(state)}
     end
-  end
-
-  @spec notify(term(), String.t(), pos_integer()) :: term()
-  def notify(obj, id, port) do
-    data = %{type: "EVAL", id: id, value: encode_result(obj), __sync: "_"}
-    url = "http://localhost:" <> to_string(port) <> "/EVAL"
-    Req.post!(url, json: data)
-
-    obj
-  end
-
-  @doc """
-  I encode an evaluation result for the wire.
-
-  I register complex values in `GtBridge.ObjectRegistry` and return an
-  `%{exid, exclass}` reference, so GT receives a proxy it can inspect
-  lazily rather than a fully materialised copy.  Primitives travel by
-  value.
-  """
-  @spec encode_result(term()) :: String.t()
-  def encode_result(obj) do
-    {:ok, json} =
-      case register_value(obj) do
-        registered = %{exid: _} -> Jason.encode(registered)
-        primitive -> GtBridge.Serializer.to_json(primitive)
-      end
-
-    json
   end
 
   @impl true
