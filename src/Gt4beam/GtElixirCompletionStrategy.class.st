@@ -78,37 +78,28 @@ GtElixirCompletionStrategy >> ensureSessionImports [
 
 { #category : 'private' }
 GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
-	"I read the application via #application — both GtElixirCoderModel
+	"Completion goes over the framed transport as a COMPLETE request the
+	 reader resolves by id; the result is the completion list itself.
+
+	 I read the application via #application -- both GtElixirCoderModel
 	 (snippets, lazy-inits) and ElixirFunctionCoder (delegates to
-	 moduleCoder, already running) implement it.  An earlier version
-	 called #initializeApplication which only exists on GtElixirCoderModel,
-	 so completion silently returned [] for function-coder rows because
-	 the DNU was caught by the on:Error guard around fetchCompletionsFor:."
-	| application serverAddress url response payload |
+	 moduleCoder, already running) implement it."
+	| application payload |
 	coderModel ifNil: [ ^ #() ].
 	self ensureSessionImports.
 	application := coderModel application.
 	application ifNil: [ ^ #() ].
-	serverAddress := application settings serverSocketAddress.
-	url := 'http://' , serverAddress ipOrName , ':'
-		, serverAddress port asString , '/COMPLETE'.
-	payload := { 'code' -> aString } asDictionary.
-	self sessionId ifNotNil: [ :sid |
-		payload at: #sessionId put: sid ].
+	payload := Dictionary new.
+	payload at: 'type' put: 'COMPLETE'.
+	payload at: 'code' put: aString.
+	self sessionId ifNotNil: [ :sid | payload at: 'sessionId' put: sid ].
 	coderViewModel sourceText ifNotNil: [ :src |
 		| srcString sepIdx |
 		srcString := src asString.
 		sepIdx := srcString findLast: [ :c | self isSeparatorCharacter: c ].
 		payload at: 'source' put: (srcString first: sepIdx) , aString ].
-	response := ZnClient new
-		url: url;
-		entity: (ZnEntity
-				with: (STONJSON toString: payload)
-				type: ZnMimeType applicationJson);
-		post;
-		response.
-	response isSuccess ifFalse: [ ^ #() ].
-	^ STONJSON fromString: response contents
+	^ [ application executionHandler requestAndWait: payload ]
+		on: Error do: [ #() ]
 ]
 
 { #category : 'testing' }

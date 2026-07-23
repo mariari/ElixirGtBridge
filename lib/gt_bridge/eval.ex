@@ -48,8 +48,8 @@ defmodule GtBridge.Eval do
   ############################################################
 
   # User code under eval can legitimately take arbitrarily long. The
-  # OTP default 5s GenServer.call timeout cascades any slow call into
-  # a Cowboy worker crash + log spam + queueing of subsequent calls.
+  # OTP default 5s GenServer.call timeout would cascade any slow call
+  # into a caller crash + log spam + queueing of subsequent calls.
   # Wait as long as the work needs.
   @call_timeout :infinity
 
@@ -106,7 +106,7 @@ defmodule GtBridge.Eval do
   can travel back in the HTTP response rather than as a second message.
 
   The Task in `eval_stateless/3` existed to keep concurrent queries off
-  one shared mailbox; a Cowboy request already has its own process, so
+  one shared mailbox; a request already runs in its own process, so
   running inline gives the same isolation.
   """
   @spec eval_stateless_sync(String.t(), String.t() | nil, pos_integer() | nil) :: term()
@@ -121,7 +121,7 @@ defmodule GtBridge.Eval do
   block fetches, proxy-GC finalizers, browser fan-out queries) used
   to land on a single shared "default" Eval GenServer, which
   serialized them through one mailbox and cascaded any slow call
-  into a Cowboy worker timeout storm.
+  into a caller timeout storm.
 
   Per-page snippet evals still use the session-bound `eval/3` path so
   bindings persist across snippets on the same page. This stateless

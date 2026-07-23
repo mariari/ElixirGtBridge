@@ -50,6 +50,26 @@ ElixirExecutionHandler >> primitiveSendCommand: command [
 	^ response
 ]
 
+{ #category : 'requesting' }
+ElixirExecutionHandler >> requestAndWait: aDict [
+	"Send a typed request over the transport and block on the promise the
+	 reader resolves by commandId.  Completion and bindings need an answer
+	 but are not evals, so they bypass the command factory; I still
+	 register a command and a promise so the reader's resolution path
+	 (finishCommandId: then signal) finds both."
+	| id command promise |
+	id := UUID new asString36.
+	aDict at: 'commandId' put: id.
+	command := ElixirLinkCommand new.
+	command instVarNamed: 'id' put: id.
+	commandQueue addCommand: command.
+	promise := LanguageLinkPromise new id: id; yourself.
+	promiseRegistry addPromise: promise.
+	self application settings messageBroker primSendMessage: aDict.
+	promise wait.
+	^ promise value
+]
+
 { #category : 'as yet unclassified' }
 ElixirExecutionHandler >> registerObject: aProxyObject [
 	"Don't register the object. Gets a new proxy every time"
