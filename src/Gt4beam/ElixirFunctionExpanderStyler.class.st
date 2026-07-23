@@ -5,8 +5,6 @@ Class {
 		'application',
 		'cachedHash',
 		'cachedSites',
-		'cachedAstHash',
-		'cachedAst',
 		'lastIndex',
 		'cachedModuleAliasesFor',
 		'cachedModuleAliases'
@@ -15,18 +13,6 @@ Class {
 	#package : 'Gt4beam',
 	#tag : 'Styler'
 }
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> absolutePositionForLine: line column: col in: source [
-	"I convert a 1-based line:column pair to a 1-based absolute
-	 character position in source."
-	| lines pos |
-	lines := source lines.
-	line > lines size ifTrue: [ ^ nil ].
-	pos := 0.
-	1 to: line - 1 do: [ :i | pos := pos + (lines at: i) size + 1 ].
-	^ pos + col
-]
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> aliasMapFor: source [
@@ -58,14 +44,15 @@ ElixirFunctionExpanderStyler >> application: anApp [
 ]
 
 { #category : 'styling' }
-ElixirFunctionExpanderStyler >> attachUnknownModuleWrenchesIn: aText source: source [
+ElixirFunctionExpanderStyler >> attachUnknownModuleWrenchesIn: aText source: source ast: theAst [
 	"I attach a wrench dropdown after every Elixir module reference
-	 whose module isn't loaded."
-	| resolution ast aliases entries |
-	ast := self parsedAstFor: source.
-	ast ifNil: [ ^ self ].
+	 whose module isn't loaded.  I reuse the AST the framework already
+	 parsed for `style:ast:` rather than re-parsing the whole source a
+	 second time (the dominant cold cost on a large file)."
+	| resolution aliases entries |
+	theAst ifNil: [ ^ self ].
 	resolution := BeamModuleResolution default.
-	aliases := self outermostAliasReferencesIn: ast source: source.
+	aliases := self outermostAliasReferencesIn: theAst source: source.
 	entries := self wrenchEntriesFor: aliases source: source.
 	self learnClassificationsFor: (entries collect: [ :e | e key value ]) asSet on: resolution.
 	entries do: [ :entry |
@@ -181,6 +168,23 @@ ElixirFunctionExpanderStyler >> learnClassificationsFor: resolvedNames on: resol
 		loaded == true ifTrue: [ resolved add: name ].
 		loaded == false ifTrue: [ unresolved add: name ] ].
 	resolution recordResolved: resolved unresolved: unresolved
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> lineStartOffsetsFor: source [
+	"I return an Array whose element `line` is the 0-based absolute
+	 character offset of that line's start.  Building it once lets every
+	 call site convert its line:column to a position with a single
+	 lookup, instead of re-splitting the whole source per site — which
+	 made styling a large file O(sites * length)."
+	| lines starts acc |
+	lines := source lines.
+	starts := Array new: lines size.
+	acc := 0.
+	1 to: lines size do: [ :i |
+		starts at: i put: acc.
+		acc := acc + (lines at: i) size + 1 ].
+	^ starts
 ]
 
 { #category : 'private' }
@@ -328,19 +332,6 @@ ElixirFunctionExpanderStyler >> parseSingleAlias: body into: aliases [
 ]
 
 { #category : 'private' }
-ElixirFunctionExpanderStyler >> parsedAstFor: source [
-	"Cached SmaCC parse of `source`.  Cache key is the source hash so
-	 back-to-back styles of the same buffer don't reparse."
-	| hash |
-	hash := source hash.
-	hash = cachedAstHash ifTrue: [ ^ cachedAst ].
-	cachedAst := [ ElixirParser parseStream: source readStream ]
-		on: Error do: [ nil ].
-	cachedAstHash := hash.
-	^ cachedAst
-]
-
-{ #category : 'private' }
 ElixirFunctionExpanderStyler >> resolveAlias: aName with: anAliasMap [
 	"I replace `aName`'s head segment via the alias map.  Examples
 	 with `{ 'Text' -> 'GtBridge.Phlow.Text' }`:
@@ -372,7 +363,7 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	 A bridge error yields no triangles for this pass and is
 	 deliberately not cached, so the next restyle retries instead of
 	 staying blank until the source changes."
-	| source effectiveSource pageSrc hash sites reply b64 query |
+	| source effectiveSource pageSrc hash sites reply b64 query lineStarts |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
@@ -403,12 +394,15 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 					sites := reply asList.
 					cachedHash := hash.
 					cachedSites := sites ] ].
+	lineStarts := self lineStartOffsetsFor: source.
 	sites do: [ :site |
 		| line col fnName absPos |
 		line := (site attributeAt: #line) asInteger.
 		col := (site attributeAt: #column) asInteger.
 		fnName := (site attributeAt: #function) asString.
-		absPos := self absolutePositionForLine: line column: col in: source.
+		absPos := (line between: 1 and: lineStarts size)
+			ifTrue: [ (lineStarts at: line) + col ]
+			ifFalse: [ nil ].
 		(absPos isNotNil and: [ absPos + fnName size - 1 <= aText size ])
 			ifTrue: [
 				| endPos attr |
@@ -421,7 +415,7 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 				attr id: ('elixir-expander--', self nextIndex asString) asSymbol.
 				self attribute: attr from: endPos to: endPos ] ].
 
-	self attachUnknownModuleWrenchesIn: aText source: source
+	self attachUnknownModuleWrenchesIn: aText source: source ast: theAst
 ]
 
 { #category : 'private' }
