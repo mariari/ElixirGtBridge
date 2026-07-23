@@ -23,15 +23,23 @@ BeamLinkDeserializer >> buildProxyFor: rawObject [
 ]
 
 { #category : 'wire decoding' }
+BeamLinkDeserializer >> charsFrom: aSentinelArray [
+	"The pid, ref and port sentinels carry their printed form as
+	 character codes after the tag."
+	^ String withAll: (aSentinelArray allButFirst collect: [ :c | c asCharacter ])
+]
+
+{ #category : 'wire decoding' }
 BeamLinkDeserializer >> decodeWire: aValue [
 	"I turn `GtBridge.Serializer.to_json`'s wire form into GT values,
-	 recursively.  Sentinel arrays become their objects, `__atom__:`
-	 keys lose their prefix, and a map carrying exid reifies as a
-	 proxy.
+	 recursively.  I am the GT counterpart of `desanitize/1`, and I am
+	 total over the format: every sentinel it emits has a case here.
 
-	 Tuples and pids arrive as values, so they become an Array and the
-	 printed pid string.  Anything needing live identity must come
-	 across as a proxy instead."
+	 A pid crosses as its printed form, which names the process exactly,
+	 so I rebuild a live BeamPIDObject: it costs nothing, needs no
+	 registry slot, and keeps every view the object carries.  Refs and
+	 ports are equally reconstructible but have no proxy class, so they
+	 stay as their printed text rather than a list of character codes."
 	| decoded |
 	aValue isArray ifTrue: [
 		aValue isEmpty ifTrue: [ ^ aValue ].
@@ -39,8 +47,14 @@ BeamLinkDeserializer >> decodeWire: aValue [
 			^ BeamAtomObject new: (aValue at: 2) asSymbol ].
 		aValue first = '__base64__' ifTrue: [
 			^ ZnBase64Encoder new decode: (aValue at: 2) ].
+		aValue first = '__fun__' ifTrue: [ ^ aValue at: 2 ].
 		aValue first = '__pid__' ifTrue: [
-			^ String withAll: (aValue allButFirst collect: [ :c | c asCharacter ]) ].
+			^ BeamPIDObject new
+				elixirVar: (self charsFrom: aValue);
+				application: self application;
+				yourself ].
+		(#('__ref__' '__port__') includes: aValue first) ifTrue: [
+			^ self charsFrom: aValue ].
 		aValue first = '__tuple__' ifTrue: [
 			^ aValue allButFirst collect: [ :e | self decodeWire: e ] ].
 		^ aValue collect: [ :e | self decodeWire: e ] ].
@@ -55,11 +69,10 @@ BeamLinkDeserializer >> decodeWire: aValue [
 
 { #category : 'as yet unclassified' }
 BeamLinkDeserializer >> privateDeserialize: rawObj [
-
-	rawObj isCollection ifFalse: [ ^ rawObj ].
-	rawObj isDictionary
-		and: [ (rawObj includesKey: #exid) ifTrue: [ ^ self reifyProxyFor: rawObj ] ].
-	^ rawObj collect: [ :elem | self privateDeserialize: elem ]
+	"The LanguageLink hook for turning a decoded response into GT
+	 objects.  `decodeWire:` is that, and total over the wire format,
+	 so there is one implementation rather than two that drift."
+	^ self decodeWire: rawObj
 ]
 
 { #category : 'as yet unclassified' }

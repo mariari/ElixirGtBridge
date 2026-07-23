@@ -939,21 +939,6 @@ defmodule GtBridge.Analysis do
     )
   end
 
-  @doc """
-  I return `call_sites/2` encoded as a JSON relation, every field a value.
-
-  The styler reads all five fields of every site on each restyle. Handed
-  object references it pays one bridge round trip per field read; handed
-  the relation it pays one for the lot.
-  """
-  @spec call_sites_relation(String.t(), module() | nil) :: String.t()
-  def call_sites_relation(source, context_module \\ nil) do
-    source
-    |> call_sites(context_module)
-    |> Enum.map(&Map.take(&1, [:line, :column, :function, :arity, :target_module]))
-    |> JSON.encode!()
-  end
-
   defp compute_call_sites(source, context_module) do
     with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
       aliases =
