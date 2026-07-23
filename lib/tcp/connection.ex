@@ -1,23 +1,25 @@
 defmodule Tcp.Connection do
   @moduledoc """
-  I am the TCP Connection for MsgPack messages
+  I serve one GT connection over a length-framed socket.
 
-  If you are looking for HTTP messages please use someone else.
+  Requests and module events share my mailbox, which is the point: a
+  reply is a frame carrying the `id` GT sent, an event is a frame with
+  none, and GT tells them apart on arrival.  One socket carries both
+  directions, so there is no second connection for GT to lose.
+
+  I evaluate in a spawned task rather than inline: an eval may take as
+  long as user code takes, and events queued behind a `Process.sleep/1`
+  would arrive late.  Replies carry their `id`, so they may return in
+  any order.
   """
   require Logger
 
   use GenServer
   use TypedStruct
 
-  @typedoc """
-  Shorthand type for socket.
-  """
-  @type hostname :: :inet.socket_address() | :inet.hostname()
-
-  @typedoc """
-  Shorthand type for port number.
-  """
-  @type port_number :: :inet.port_number()
+  alias EventBroker.Event
+  alias GtBridge.Events
+  alias GtBridge.Events.ModuleEvent
 
   ############################################################
   #                    State                                 #
@@ -27,13 +29,10 @@ defmodule Tcp.Connection do
     @typedoc """
     I am the state of a TCP connection.
 
-    My fields contain information to facilitate the TCP connection with a remote node.
-
     ### Fields
-    - `:socket`         - The socket of the connection.
+    - `:socket` - The socket of the connection.
     """
     field(:socket, port())
-    field(:inferior, pid())
   end
 
   ############################################################
@@ -59,81 +58,64 @@ defmodule Tcp.Connection do
   ############################################################
 
   @impl true
-  # @doc """
-  # I don't do anything useful.
-  # """
   def init(args) do
     Process.set_label(__MODULE__)
-
-    Logger.debug("#{inspect(self())} starting tcp connection")
-    args = Keyword.validate!(args, [:socket, :existing_inferior_shell])
-    state = struct(__MODULE__, Enum.into(args, %{}))
-
-    {:ok, state, {:continue, :announce}}
+    args = Keyword.validate!(args, [:socket])
+    EventBroker.subscribe_me([%Events.AnyModuleEvent{}])
+    {:ok, struct(__MODULE__, Enum.into(args, %{}))}
   end
 
   @impl true
-  def handle_continue(:announce, state) do
-    GenServer.cast(self(), {:tcp_out, []})
-    {:ok, pid} = DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, []})
-    {:noreply, %__MODULE__{state | inferior: pid}}
-  end
+  def handle_info({:tcp, _socket, frame}, state) do
+    case Jason.decode(frame) do
+      {:ok, request} -> serve(request, state.socket)
+      {:error, _} -> :ok
+    end
 
-  @impl true
-  # @doc """
-  # I send the given bytes over the socket and do not reply.
-  # """
-  def handle_cast({:tcp_out, message}, state) do
-    handle_tcp_out(message, state.socket)
     {:noreply, state}
   end
 
   @impl true
-  def handle_info({:tcp, _port, msg}, state) do
-    IO.puts("#{Msgpax.unpack(msg)}")
+  def handle_info({:tcp_closed, _port}, state), do: {:stop, :normal, state}
+
+  @impl true
+  def handle_info({:tcp_error, _port, _reason}, state), do: {:stop, :normal, state}
+
+  @impl true
+  def handle_info(%Event{body: %ModuleEvent{} = event}, state) do
+    send_frame(state.socket, encode_event(event))
     {:noreply, state}
   end
 
-  def handle_info({:tcp_closed, _port}, state) do
-    {:stop, :normal, state}
+  @impl true
+  def handle_info(_other, state), do: {:noreply, state}
+
+  @impl true
+  def terminate(_reason, _state) do
+    EventBroker.unsubscribe_me([%Events.AnyModuleEvent{}])
+    :ok
   end
 
   ############################################################
   #                           Helpers                        #
   ############################################################
 
-  # @doc """
-  # I handle a bunch of incoming bytes over the TCP socket.
-
-  # I decode them into a protobuf message and handle them accordingly.
-  # """
-  @spec handle_tcp_in(any(), String.t()) :: :ok
-  def handle_tcp_in(bytes, _local_node_id) do
-    Logger.debug("tcp in :: #{inspect(self())} :: #{inspect(bytes)}")
-
-    case decode(bytes) do
-      {:ok, message} ->
-        Logger.debug("tcp in :: #{inspect(self())} :: #{inspect(message)}")
-
-      # handle_message_in(message, local_node_id)
-
-      {:error, _} ->
-        Logger.error("invalid message")
-    end
+  defp serve(request, socket) do
+    Task.start(fn -> send_frame(socket, Tcp.Dispatch.reply_to(request)) end)
   end
 
-  # @doc """
-  # I handle a protobuf message that has to be sent over the wire.
+  defp send_frame(socket, message), do: :gen_tcp.send(socket, Jason.encode!(message))
 
-  # I encode the message into byts and push them onto the socket.
-  # """
-  @spec handle_tcp_out(any(), port()) :: :ok
-  defp handle_tcp_out(message, socket) do
-    Logger.debug("tcp out :: #{inspect(self())} :: #{inspect(message)}")
-    bytes = encode(message)
-    :gen_tcp.send(socket, bytes)
+  # Same shape `GtBridge.Http.SseStream` puts on the wire, so GT reads
+  # an event identically whichever transport delivered it.
+  defp encode_event(%ModuleEvent{} = event) do
+    event
+    |> Map.from_struct()
+    |> Map.update!(:mod, &module_name/1)
   end
 
-  def encode(x), do: x
-  def decode(x), do: x
+  defp module_name(nil), do: nil
+
+  defp module_name(mod) when is_atom(mod),
+    do: mod |> to_string() |> String.replace_prefix("Elixir.", "")
 end

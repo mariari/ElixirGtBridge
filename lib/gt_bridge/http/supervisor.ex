@@ -10,6 +10,13 @@ defmodule GtBridge.Http.Supervisor do
     # Bridge is coming up: begin xref indexing now (deferred from VM boot).
     GtBridge.Xref.start_indexing()
 
+    # The framed transport sits one port above the HTTP one while both
+    # are live; it takes over once the GT side stops using HTTP.
+    DynamicSupervisor.start_child(
+      Tcp.Supervisor,
+      {Tcp.Listener, host: {0, 0, 0, 0}, port: port_server + 1}
+    )
+
     DynamicSupervisor.start_child(
       __MODULE__,
       {Plug.Cowboy, listener_opts(port_server, port_client)}
