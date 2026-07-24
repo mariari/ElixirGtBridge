@@ -220,7 +220,12 @@ defmodule Examples.EAnalysis do
   example implementors_with_arity do
     results = Analysis.implementors(:start_link, 1)
     assert length(results) > 0
-    assert Enum.all?(results, &(&1.arity == 1))
+
+    # Exact arity, or the default-arg def that generates it.
+    assert Enum.all?(results, fn e ->
+             e.arity == 1 or (e.arity > 1 and e.arity - Map.get(e, :defaults, 0) <= 1)
+           end)
+
     results
   end
 
@@ -527,4 +532,34 @@ defmodule Examples.EAnalysis do
 
     by_kind
   end
+
+  @spec default_arg_head_resolves_to_its_def() :: map()
+  example default_arg_head_resolves_to_its_def do
+    # Eval.complete(pid, code, source \\ nil) exports complete/2 with no
+    # def of its own; asking for it must land on the complete/3 def, not
+    # a source-less stub.
+    definition =
+      Analysis.all_functions(GtBridge.Eval)
+      |> Enum.find(&(&1.name == "complete" and &1.arity == 3))
+
+    assert definition.defaults == 1
+
+    entry =
+      Analysis.implementors(:complete, 2)
+      |> Enum.find(&(&1.module == "GtBridge.Eval"))
+
+    assert entry.arity == 3
+    assert entry.start > 0
+
+    # A private default head is neither exported nor in the AST;
+    # it still resolves to the def that generates it.
+    assert priv_default(1) == {1, :x}
+
+    [p] = Analysis.implementors(:priv_default, 1)
+    assert {p.module, p.arity, p.kind} == {"Examples.EAnalysis", 2, "defp"}
+
+    entry
+  end
+
+  defp priv_default(a, b \\ :x), do: {a, b}
 end

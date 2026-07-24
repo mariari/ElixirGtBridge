@@ -25,10 +25,8 @@ ElixirFunctionExpanderAttribute >> buildExpandedElement [
 		application: application;
 		sourcePath: ((path isString and: [ path asFileReference exists ])
 			ifTrue: [ path ] ifFalse: [ nil ]).
-	entry := mc functionEntries
-		detect: [ :e | (e attributeAt: #name) asString = functionName asString
-			and: [ (e attributeAt: #arity) = arity ] ]
-		ifNone: [ ^ self buildHeader ].
+	entry := self resolvedEntryIn: mc functionEntries.
+	entry ifNil: [ ^ self buildHeader ].
 	^ BlElement new
 		layout: BlLinearLayout vertical;
 		constraintsDo: [ :c | c horizontal matchParent. c vertical fitContent ];
@@ -69,6 +67,32 @@ ElixirFunctionExpanderAttribute >> printOn: aStream [
 		nextPutAll: targetModule asString;
 		nextPut: $.;
 		nextPutAll: functionName asString
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderAttribute >> resolvedEntryIn: entries [
+	"I pick the entry to expand: the exact def when it has source; a
+	 default-arg head resolves to the def that generates it; an arity
+	 that exists nowhere (mid-edit) resolves to the nearest greater
+	 def; a source-less export with no covering def keeps its
+	 synthesized stub."
+	| exact candidates |
+	exact := entries
+		detect: [ :e | (e attributeAt: #name) asString = functionName asString
+			and: [ (e attributeAt: #arity) = arity ] ]
+		ifNone: [ nil ].
+	(exact isNotNil and: [ (exact attributeAt: #start) > 0 ]) ifTrue: [ ^ exact ].
+	candidates := (entries select: [ :e |
+		(e attributeAt: #name) asString = functionName asString
+			and: [ ((e attributeAt: #kind) asString beginsWith: 'def')
+			and: [ (e attributeAt: #arity) > arity
+			and: [ (e attributeAt: #start) > 0 ] ] ] ])
+		asSortedCollection: [ :x :y | (x attributeAt: #arity) < (y attributeAt: #arity) ].
+	candidates do: [ :c |
+		arity >= ((c attributeAt: #arity) - ((c attributeAt: #defaults) ifNil: [ 0 ]))
+			ifTrue: [ ^ c ] ].
+	exact ifNotNil: [ ^ exact ].
+	^ candidates isEmpty ifTrue: [ nil ] ifFalse: [ candidates first ]
 ]
 
 { #category : 'accessing' }

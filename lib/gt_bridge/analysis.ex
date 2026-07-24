@@ -354,7 +354,8 @@ defmodule GtBridge.Analysis do
                 sig: "#{name}/#{arity}",
                 start: walked_start,
                 end_line: end_line,
-                source: full_slice
+                source: full_slice,
+                defaults: 0
               }
 
               {:halt, {:ok, entry}}
@@ -870,13 +871,14 @@ defmodule GtBridge.Analysis do
   defp module_implementors(mod, name_str, arity) do
     name_atom = String.to_atom(name_str)
     mod_str = inspect(mod)
+    funs = all_functions(mod)
 
     ast_entries =
-      all_functions(mod)
+      funs
       |> Enum.filter(&(&1.name == name_str and (arity == nil or &1.arity == arity)))
       |> Enum.map(&Map.put(&1, :module, mod_str))
 
-    ast_arities = ast_entries |> Enum.map(& &1.arity) |> MapSet.new()
+    ast_arities = for e <- funs, e.name == name_str, into: MapSet.new(), do: e.arity
 
     exported_arities =
       for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
@@ -899,7 +901,37 @@ defmodule GtBridge.Analysis do
         }
       end
 
-    ast_entries ++ extra
+    entries =
+      (ast_entries ++ extra)
+      |> Enum.map(fn e ->
+        case e.start == 0 && covering_def(funs, name_str, e.arity) do
+          %{} = c -> Map.put(c, :module, mod_str)
+          _ -> e
+        end
+      end)
+      |> Enum.uniq()
+
+    # A private default-arg head is neither exported nor in the AST;
+    # it still resolves to the def that generates it.
+    case {entries, arity} do
+      {[], a} when is_integer(a) ->
+        covering_def(funs, name_str, a) |> List.wrap() |> Enum.map(&Map.put(&1, :module, mod_str))
+
+      _ ->
+        entries
+    end
+  end
+
+  # `def foo(a, b \\ :x)` generates foo/1 with no def of its own;
+  # resolve such an arity to the def that generates it.
+  defp covering_def(funs, name_str, a) do
+    funs
+    |> Enum.filter(
+      &(&1.name == name_str and &1.arity > a and &1.start > 0 and
+          String.starts_with?(to_string(&1.kind), "def"))
+    )
+    |> Enum.sort_by(& &1.arity)
+    |> Enum.find(&(a >= &1.arity - Map.get(&1, :defaults, 0)))
   end
 
   @doc """
@@ -1309,14 +1341,14 @@ defmodule GtBridge.Analysis do
   defp function_entry_for(kind_str, head, meta) do
     case function_head(head) do
       {name, arity} when is_atom(name) and is_integer(arity) ->
-        function_record(kind_str, name, arity, meta)
+        function_record(kind_str, name, arity, default_count(head), meta)
 
       _ ->
         []
     end
   end
 
-  defp function_record(kind_str, name, arity, meta) do
+  defp function_record(kind_str, name, arity, defaults, meta) do
     end_line = meta[:end][:line] || meta[:end_of_expression][:line] || meta[:line]
 
     [
@@ -1326,10 +1358,20 @@ defmodule GtBridge.Analysis do
         kind: kind_str,
         start: meta[:line],
         end_line: end_line,
-        sig: "#{name}/#{arity}"
+        sig: "#{name}/#{arity}",
+        defaults: defaults
       }
     ]
   end
+
+  # Arities `arity - defaults` .. `arity - 1` are generated heads
+  # with no def of their own.
+  defp default_count({:when, _, [head | _]}), do: default_count(head)
+
+  defp default_count({_, _, args}) when is_list(args),
+    do: Enum.count(args, &match?({:\\, _, _}, &1))
+
+  defp default_count(_), do: 0
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
 
