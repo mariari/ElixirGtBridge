@@ -16,7 +16,7 @@ BeamDocumentationObject >> applicationAnalysis [
 	"I return the ElixirApplicationAnalysis for my owning application."
 	| appAtom sys |
 	appAtom := self evaluateAndWait:
-		'Application.get_application(elem(', self resolve, '.query, 1))'.
+		'GtBridge.Analysis.LoadedModules.app_of(elem(', self resolve, '.query, 1))'.
 	appAtom ifNil: [ ^ nil ].
 	sys := ElixirSystemAnalysis onApplication: self application.
 	^ sys applications
@@ -122,7 +122,7 @@ BeamDocumentationObject >> gtDependenciesFor: aView [
 		on: Error do: [ nil ].
 	modName isString ifFalse: [ ^ aView empty ].
 	appName := [ (self evaluateAndWait:
-		'Application.get_application(elem(', self resolve, '.query, 1))') symbol asString ]
+		'GtBridge.Analysis.LoadedModules.app_of(elem(', self resolve, '.query, 1))') symbol asString ]
 		on: Error do: [ nil ].
 	appName ifNil: [ ^ aView empty ].
 	^ aView mondrian

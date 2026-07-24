@@ -29,11 +29,14 @@ BeamAtomObject >> = aSymbol [
 
 { #category : 'accessing' }
 BeamAtomObject >> applicationAnalysis [
-	"I return the ElixirApplicationAnalysis for my module, or nil."
+	"I return the ElixirApplicationAnalysis for my module, or nil.
+	 I resolve through `LoadedModules.app_of`, not the raw
+	 `Application.get_application`, so a brand-new module (absent from
+	 every frozen app spec) still lands on its application."
 	| appAtom sys |
 	self isModuleAtom ifFalse: [ ^ nil ].
 	appAtom := [ self evaluateAndWait:
-		'Application.get_application(', self resolve, ')' ]
+		'GtBridge.Analysis.LoadedModules.app_of(', self resolve, ')' ]
 		on: Error do: [ nil ].
 	appAtom ifNil: [ ^ nil ].
 	sys := ElixirSystemAnalysis onApplication: BeamLinkApplication uniqueInstance.
