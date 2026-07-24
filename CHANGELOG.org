@@ -1,4 +1,59 @@
 * Changelog
+** v0.19.1
+
+*** Features
+
+- Interfaces as queried facts :: ~GtBridge.Analysis.Interfaces~
+  lists an application's behaviours and protocols with their
+  implementors (~@callback~ specs from the beam chunk, protocol
+  impls from consolidation or the ~__impl__~ markers).  GT renders
+  them three ways: an interface -> implementors tree and a UML-style
+  Interface map on the application (callback-compartment boxes,
+  hollow-triangle implements arrows, orange call arcs, in
+  ~UmlClassDiagram~'s vocabulary), and a per-module Interfaces
+  drawing on its documentation (~7 ms, computed only when the tab
+  opens.  Module names spawn module docs; signature rows spawn the
+  function's own docs.
+
+*** Bug Fixes
+
+- Cross-module type references resolve :: ~Foo.t()~, ~Range.check()~
+  and other type calls get their expander triangle again.  0.19's
+  cheap cross-module resolution read ~__info__~, which carries no type
+  names (they live in the beam type chunk); it now fetches them via
+  ~Code.Typespec.fetch_types/1~.
+- Local calls resolve without a context module :: a bare local call,
+  ~defp~ included, resolves against the source's own definitions even
+  when the coder passes no module name.  0.19 zeroed the local name set
+  and fell through to the foreign export path, which hides privates.
+- Wrenches land on the right characters :: unknown-module wrench
+  triangles no longer drift into identifiers on CR/CRLF buffers.  The
+  framework AST is LF-normalised while the buffer may use CR or CRLF,
+  so wrench end positions are remapped between the two;
+  ~lineStartOffsetsFor:~ now counts real line-ending widths, which
+  hardens the call-site loop against CRLF as well.  No re-parse, so the
+  styler speedups are kept.
+- A new module's Application button resolves :: the button resolves a
+  module's app through ~LoadedModules.app_of~ (falling back beam, then
+  source location, then the current app) instead of the raw
+  ~Application.get_application~, which returns nil for a module absent
+  from every frozen app spec.  A brand-new module now lands on its app.
+- Module coders complete their own functions :: the Source tab
+  completed nothing module-local (its coder has no snippet element and
+  no self object, so no imports were ever loaded) and the Functions
+  view offered publics only.  The completion strategy now derives the
+  eval session from the coder's context module, and the session
+  records the module's ~defp~ names for completion to offer alongside
+  the imported publics, so both views complete the whole module.
+- Default-argument arities expand to their definition :: expanding
+  ~foo(a)~ when the def is ~foo(a, b \\ :x)~ showed a red source-less
+  stub (the generated head has no def of its own), and an arity still
+  being typed (~foo()~ before its arguments) showed nothing.  Function
+  entries now carry their default count; the expander and C-m resolve
+  a source-less arity to the def that generates it, a mid-edit arity
+  to the nearest greater def, and only genuinely source-less exports
+  keep their synthesized stub.
+
 ** v0.19.0
 
 *** Features
