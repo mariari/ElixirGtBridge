@@ -244,16 +244,24 @@ defmodule GtBridge.Analysis.LoadedModules do
     MapSet.new(loaded ++ spec_listed)
   end
 
-  # `Application.get_application/1` reads the app spec's module list,
-  # frozen at load, so a live-recompiled new module comes back nil.
-  # `app_from_beam/1` matches `:code.which` against ebin dirs, but a
-  # `Code.compile_file`'d module reports its source path (or ""), never
-  # an ebin beam.  `app_from_source/1` places a new file in a path dep
-  # by its source location.  Anything still unplaced (Erlang internals,
-  # eval-only modules) falls back to the current application rather than
-  # nil, so it surfaces under the project being worked on instead of
-  # vanishing from every app's view.
-  defp app_of(mod) do
+  @doc """
+  I resolve the application a module belongs to, falling back where the
+  raw `Application.get_application/1` returns nil.
+
+  `get_application/1` reads the app spec's module list, frozen at load,
+  so a live-recompiled new module comes back nil.  `app_from_beam/1`
+  matches `:code.which` against ebin dirs, but a `Code.compile_file`'d
+  module reports its source path (or ""), never an ebin beam.
+  `app_from_source/1` places a new file in a path dep by its source
+  location.  Anything still unplaced (Erlang internals, eval-only
+  modules) falls back to the current application rather than nil, so it
+  surfaces under the project being worked on instead of vanishing.
+
+  This is what the GT-side Application button resolves through, so a
+  brand-new module lands on its app instead of nowhere.
+  """
+  @spec app_of(module()) :: atom() | nil
+  def app_of(mod) do
     case Application.get_application(mod) do
       app when is_atom(app) and not is_nil(app) -> app
       _ -> app_from_beam(mod) || app_from_source(mod) || current_app()
