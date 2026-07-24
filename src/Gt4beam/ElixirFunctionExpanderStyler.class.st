@@ -46,32 +46,47 @@ ElixirFunctionExpanderStyler >> application: anApp [
 { #category : 'styling' }
 ElixirFunctionExpanderStyler >> attachUnknownModuleWrenchesIn: aText source: source ast: theAst [
 	"I attach a wrench dropdown after every Elixir module reference
-	 whose module isn't loaded.  I reuse the AST the framework already
-	 parsed for `style:ast:` rather than re-parsing the whole source a
-	 second time (the dominant cold cost on a large file)."
-	| resolution aliases entries |
+	 whose module isn't loaded.  I reuse the framework AST (coderModel
+	 astSync) rather than re-parsing the source a second time (the
+	 dominant cold cost on a large file).  Its node positions are in the
+	 AST's own LF-normalised source, so I extract names and end positions
+	 in that space, then remap each end position to the buffer (which may
+	 use CR/CRLF) via lineStartOffsetsFor: on both."
+	| resolution astSrc aliases entries astStarts bufStarts |
 	theAst ifNil: [ ^ self ].
+	astSrc := theAst completeSource asString.
 	resolution := BeamModuleResolution default.
-	aliases := self outermostAliasReferencesIn: theAst source: source.
-	entries := self wrenchEntriesFor: aliases source: source.
+	aliases := self outermostAliasReferencesIn: theAst source: astSrc.
+	entries := self wrenchEntriesFor: aliases source: astSrc.
 	self learnClassificationsFor: (entries collect: [ :e | e key value ]) asSet on: resolution.
+	astStarts := self lineStartOffsetsFor: astSrc.
+	bufStarts := self lineStartOffsetsFor: source.
 	entries do: [ :entry |
-		self attachWrenchEntry: entry in: aText resolution: resolution ]
+		self
+			attachWrenchEntry: entry
+			in: aText
+			resolution: resolution
+			astLineStarts: astStarts
+			bufferLineStarts: bufStarts ]
 ]
 
 { #category : 'private' }
-ElixirFunctionExpanderStyler >> attachWrenchEntry: entry in: aText resolution: resolution [
-	"Attach a wrench attribute at the entry's end position iff its
-	 resolved name is known-unresolved by the cache."
-	| resolved endPos attr |
+ElixirFunctionExpanderStyler >> attachWrenchEntry: entry in: aText resolution: resolution astLineStarts: astStarts bufferLineStarts: bufStarts [
+	"Attach a wrench at the entry's end position iff its resolved name is
+	 known-unresolved by the cache.  The end position is in the AST's LF
+	 source, so I remap it to the buffer before styling."
+	| resolved bufPos attr |
 	resolved := entry key value.
-	endPos := entry value.
 	(resolution classify: resolved) = #unresolved ifFalse: [ ^ self ].
-	endPos > aText size ifTrue: [ ^ self ].
+	bufPos := self
+		bufferOffsetFor: entry value
+		astLineStarts: astStarts
+		bufferLineStarts: bufStarts.
+	bufPos > aText size ifTrue: [ ^ self ].
 	attr := ElixirUnknownModuleAttribute
 		forModule: resolved
 		application: self application.
-	self attribute: attr from: endPos to: endPos
+	self attribute: attr from: bufPos to: bufPos
 ]
 
 { #category : 'private' }
@@ -79,6 +94,20 @@ ElixirFunctionExpanderStyler >> attachedCoder [
 	"I return the coderModel my view model wraps, or nil if I'm not
 	 yet attached."
 	^ self coderViewModel ifNotNil: [ :vm | vm coderModel ]
+]
+
+{ #category : 'private' }
+ElixirFunctionExpanderStyler >> bufferOffsetFor: astOffset astLineStarts: astStarts bufferLineStarts: bufStarts [
+	"Map a character offset in the AST's LF source to the buffer by
+	 preserving its within-line offset: line content is identical, only
+	 line-ending width differs, so I find the offset's line in the AST
+	 table and re-apply the column at the buffer's line start."
+	| line |
+	line := 1.
+	[ line < astStarts size and: [ (astStarts at: line + 1) < astOffset ] ]
+		whileTrue: [ line := line + 1 ].
+	line := line min: bufStarts size.
+	^ (bufStarts at: line) + (astOffset - (astStarts at: line))
 ]
 
 { #category : 'accessing' }
@@ -174,17 +203,15 @@ ElixirFunctionExpanderStyler >> learnClassificationsFor: resolvedNames on: resol
 ElixirFunctionExpanderStyler >> lineStartOffsetsFor: source [
 	"I return an Array whose element `line` is the 0-based absolute
 	 character offset of that line's start.  Building it once lets every
-	 call site convert its line:column to a position with a single
-	 lookup, instead of re-splitting the whole source per site — which
-	 made styling a large file O(sites * length)."
-	| lines starts acc |
-	lines := source lines.
-	starts := Array new: lines size.
-	acc := 0.
-	1 to: lines size do: [ :i |
-		starts at: i put: acc.
-		acc := acc + (lines at: i) size + 1 ].
-	^ starts
+	 call site convert its line:column to a position with a single lookup
+	 instead of re-splitting the whole source per site (O(sites * length)).
+	 lineIndicesDo: counts actual line-ending widths (LF, CR, or CRLF), so
+	 offsets don't drift on CRLF buffers the way a fixed +1 per line does."
+	| starts |
+	starts := OrderedCollection new.
+	source lineIndicesDo: [ :start :endWithoutDelimiters :endWithDelimiters |
+		starts add: start - 1 ].
+	^ starts asArray
 ]
 
 { #category : 'private' }
