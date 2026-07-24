@@ -24,6 +24,8 @@ defmodule GtBridge.Eval do
   typedstruct do
     field(:bindings, Code.binding())
     field(:env, Macro.Env.t())
+    # The session module's own functions, defps included, for completion
+    field(:locals, [{atom(), arity()}], default: [])
     field(:port, non_neg_integer(), default: nil)
     field(:registered_ids, MapSet.t(non_neg_integer()), default: MapSet.new())
   end
@@ -182,7 +184,9 @@ defmodule GtBridge.Eval do
 
   @impl true
   def handle_call({:complete, code_prefix, source}, _from, state = %__MODULE__{}) do
-    results = GtBridge.Completion.complete(code_prefix, state.bindings, source, state.env)
+    results =
+      GtBridge.Completion.complete(code_prefix, state.bindings, source, state.env, state.locals)
+
     {:reply, results, state}
   end
 

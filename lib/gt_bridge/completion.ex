@@ -27,10 +27,14 @@ defmodule GtBridge.Completion do
   The optional third argument `source` is the full source text up to
   the cursor. When provided, it is passed through to sub-completers
   that may need surrounding context (e.g. struct field completion).
+
+  `locals` are the session module's own functions (defps included),
+  offered alongside the imported ones.
   """
-  @spec complete(String.t(), Code.binding(), String.t() | nil, Macro.Env.t()) ::
-          [String.t()]
-  def complete(code_prefix, bindings \\ [], source \\ nil, env \\ %Macro.Env{}) do
+  @spec complete(String.t(), Code.binding(), String.t() | nil, Macro.Env.t(), [
+          {atom(), arity()}
+        ]) :: [String.t()]
+  def complete(code_prefix, bindings \\ [], source \\ nil, env \\ %Macro.Env{}, locals \\ []) do
     aliases = env.aliases
 
     case Code.Fragment.cursor_context(code_prefix) do
@@ -47,13 +51,13 @@ defmodule GtBridge.Completion do
         complete_erlang_module(List.to_string(hint))
 
       {:local_or_var, hint} ->
-        complete_local_or_var(source, List.to_string(hint), bindings, aliases, env)
+        complete_local_or_var(source, List.to_string(hint), bindings, aliases, env, locals)
 
       {:struct, hint} ->
         complete_struct(struct_prefix(hint))
 
       :expr ->
-        complete_local_or_var(source, "", bindings, aliases, env)
+        complete_local_or_var(source, "", bindings, aliases, env, locals)
 
       _ ->
         []
@@ -155,7 +159,7 @@ defmodule GtBridge.Completion do
     |> Enum.sort()
   end
 
-  defp complete_local_or_var(source, hint, bindings, aliases, env) do
+  defp complete_local_or_var(source, hint, bindings, aliases, env, locals) do
     struct_fields = struct_fields_for(source, hint)
 
     if struct_fields != [] do
@@ -188,9 +192,17 @@ defmodule GtBridge.Completion do
           name <> "/" <> Integer.to_string(arity)
         end
 
+      local_funs =
+        for {fun, arity} <- locals,
+            name = Atom.to_string(fun),
+            String.starts_with?(name, hint),
+            not String.starts_with?(name, "__") do
+          name <> "/" <> Integer.to_string(arity)
+        end
+
       root_modules = complete_alias(hint, aliases)
 
-      (vars ++ kernel_funs ++ imported_funs ++ root_modules)
+      (vars ++ kernel_funs ++ imported_funs ++ local_funs ++ root_modules)
       |> Enum.uniq()
       |> Enum.sort()
     end
