@@ -62,7 +62,8 @@ BeamProxyObject >> applicationAnalysis [
 	| appAtom sys |
 	elixirClass ifNil: [ ^ nil ].
 	appAtom := self
-			evaluateAndWait: 'Application.get_application(' , elixirClass , ')'.
+			evaluateAndWait:
+				'GtBridge.Analysis.LoadedModules.app_of(' , elixirClass , ')'.
 	appAtom ifNil: [ ^ nil ].
 	sys := ElixirSystemAnalysis onApplication: self application.
 	^ sys applications
