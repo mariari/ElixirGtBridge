@@ -999,14 +999,24 @@ defmodule GtBridge.Analysis do
       modules_in_calls = calls |> Enum.map(& &1.target_module) |> Enum.uniq()
       context_str = context_module && inspect(context_module)
 
+      # Bare local calls resolve against the source's own defs (defp too)
+      # whether or not a context module was given.  collect_calls/2 tags
+      # them with the context name, or "" when none was passed, so the
+      # local set is keyed under whichever it used.
+      local_key = context_str || ""
+
       local_names =
-        if context_str,
-          do: MapSet.union(source_function_names(source, ast), exported_names(context_str)),
-          else: MapSet.new()
+        MapSet.union(
+          source_function_names(source, ast),
+          if(context_module,
+            do: MapSet.union(exported_names(context_str), module_local_names(context_module)),
+            else: MapSet.new()
+          )
+        )
 
       defined =
         Map.new(modules_in_calls, fn mod_str ->
-          names = if mod_str == context_str, do: local_names, else: exported_names(mod_str)
+          names = if mod_str == local_key, do: local_names, else: exported_names(mod_str)
           {mod_str, names}
         end)
 
@@ -1043,8 +1053,8 @@ defmodule GtBridge.Analysis do
     end)
   end
 
-  # A module's exported functions + macros — the names a cross-module
-  # call can reach.
+  # A module's exported functions, macros, and public types — the names
+  # a cross-module call or type reference can reach.
   defp exported_names(nil), do: MapSet.new()
 
   defp exported_names(mod_str) do
@@ -1053,10 +1063,26 @@ defmodule GtBridge.Analysis do
     if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
       (safe_module_info(mod, :functions) ++ safe_module_info(mod, :macros))
       |> Enum.map(fn {name, _arity} -> Atom.to_string(name) end)
+      |> Enum.concat(exported_type_names(mod))
       |> MapSet.new()
     else
       MapSet.new()
     end
+  end
+
+  # Public type names (`.t()`, `.check()`, ...) live in the beam's type
+  # chunk, not `__info__`, so a cross-module type reference resolves as
+  # unknown without them.
+  defp exported_type_names(mod) do
+    case Code.Typespec.fetch_types(mod) do
+      {:ok, types} ->
+        for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
   end
 
   defp source_function_names(source, ast) do
@@ -1108,6 +1134,18 @@ defmodule GtBridge.Analysis do
 
   defp module_import_map(mod) do
     GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
+  end
+
+  # source_function_names on the module's saved source (the same
+  # extraction the source view runs on the live buffer), so a
+  # single-function view resolves calls to the module's own defs.
+  defp module_local_names(mod) do
+    GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
+      case Code.string_to_quoted(src, columns: true, token_metadata: true) do
+        {:ok, ast} -> source_function_names(src, ast)
+        _ -> MapSet.new()
+      end
+    end)
   end
 
   @doc """

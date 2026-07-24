@@ -364,6 +364,44 @@ defmodule Examples.EAnalysis do
     sites
   end
 
+  # A local `defp` called within the same source resolves even with no
+  # context module — nil context used to zero the local set, dropping
+  # local calls to the foreign path that (correctly) hides privates.
+  @spec call_sites_local_defp_without_context() :: [map()]
+  example call_sites_local_defp_without_context do
+    source = ~s'''
+    defmodule Example do
+      defmacro defrel(a, b), do: store(a, b)
+      defp store(a, b), do: a + b
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    assert Enum.any?(sites, &(&1.function == "store"))
+    sites
+  end
+
+  # A cross-module public type reference (`.t()`) resolves — type names
+  # live in the beam type chunk, not `__info__`, so exports alone missed
+  # them.
+  @spec call_sites_cross_module_type() :: [map()]
+  example call_sites_cross_module_type do
+    source = ~s'''
+    defmodule Example do
+      @type stage :: GtBridge.Events.ModuleEvent.t()
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+
+    assert Enum.any?(
+             sites,
+             &(&1.function == "t" and &1.target_module == "GtBridge.Events.ModuleEvent")
+           )
+
+    sites
+  end
+
   ############################################################
   #                  Source Edit Examples                     #
   ############################################################
