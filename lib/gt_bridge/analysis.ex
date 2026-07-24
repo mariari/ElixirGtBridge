@@ -1070,17 +1070,18 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  # Public type names (`.t()`, `.check()`, ...) live in the beam's type
-  # chunk, not `__info__`, so a cross-module type reference resolves as
-  # unknown without them.
+  # Type names come from the beam chunk, not __info__; cache by md5 so
+  # referenced modules stay warm across edits.
   defp exported_type_names(mod) do
-    case Code.Typespec.fetch_types(mod) do
-      {:ok, types} ->
-        for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
+    GtBridge.CacheReaper.cached({:exported_types, mod, safe_module_info(mod, :md5)}, fn ->
+      case Code.Typespec.fetch_types(mod) do
+        {:ok, types} ->
+          for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
 
-      _ ->
-        []
-    end
+        _ ->
+          []
+      end
+    end)
   rescue
     _ -> []
   end
@@ -1128,23 +1129,31 @@ defmodule GtBridge.Analysis do
     end
   end
 
+  # Parsing the saved source for aliases/imports is ~3ms each; cache by
+  # md5, same as the type names.
   defp module_alias_map(mod) do
-    GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
+    GtBridge.CacheReaper.cached({:module_alias_map, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
+    end)
   end
 
   defp module_import_map(mod) do
-    GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
+    GtBridge.CacheReaper.cached({:module_import_map, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
+    end)
   end
 
   # source_function_names on the module's saved source (the same
   # extraction the source view runs on the live buffer), so a
   # single-function view resolves calls to the module's own defs.
   defp module_local_names(mod) do
-    GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
-      case Code.string_to_quoted(src, columns: true, token_metadata: true) do
-        {:ok, ast} -> source_function_names(src, ast)
-        _ -> MapSet.new()
-      end
+    GtBridge.CacheReaper.cached({:module_local_names, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
+        case Code.string_to_quoted(src, columns: true, token_metadata: true) do
+          {:ok, ast} -> source_function_names(src, ast)
+          _ -> MapSet.new()
+        end
+      end)
     end)
   end
 
