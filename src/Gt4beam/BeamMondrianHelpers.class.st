@@ -176,6 +176,58 @@ BeamMondrianHelpers class >> implementsEdgeStencil [
 ]
 
 { #category : 'uml' }
+BeamMondrianHelpers class >> interfacesDrawingFor: aView moduleExpr: exprString eval: evalBlock [
+	"I build the per-module Interfaces mondrian shared by every proxy
+	 that can name a module: what it implements above it, its
+	 implementors below when it is itself an interface. exprString
+	 evaluates to the module on the bridge; everything computes inside
+	 the painting block so the tab stays instant until opened."
+	^ aView mondrian
+		title: 'Interfaces';
+		priority: 40;
+		painting: [ :m |
+			| facts modName defines kinds sigsByName edges |
+			facts := [ evalBlock value:
+				'GtBridge.Analysis.Interfaces.of_module(', exprString, ')' ]
+				on: Error do: [ nil ].
+			facts ifNotNil: [
+				modName := (facts attributeAt: #module) asString.
+				defines := facts attributeAt: #defines.
+				kinds := Dictionary new.
+				sigsByName := Dictionary new.
+				edges := OrderedCollection new.
+				kinds at: modName put: (defines isNil ifTrue: [ #module ] ifFalse: [ #interface ]).
+				defines ifNotNil: [
+					sigsByName at: modName put:
+						((defines attributeAt: #callback_names)
+							ifNil: [ defines attributeAt: #functions ]) ].
+				(facts attributeAt: #implements) asList do: [ :i |
+					| iname |
+					iname := (i attributeAt: #name) asString.
+					kinds at: iname ifAbsentPut: [ #interface ].
+					sigsByName at: iname ifAbsentPut: [
+						(i attributeAt: #callback_names) ifNil: [ i attributeAt: #functions ] ].
+					edges add: iname -> modName ].
+				defines ifNotNil: [
+					| kids |
+					kids := (defines attributeAt: #implementors)
+						ifNil: [ defines attributeAt: #impls ].
+					kids asList do: [ :k |
+						| mname |
+						mname := (k attributeAt: #module) asString.
+						mname = modName ifFalse: [
+							kinds at: mname ifAbsentPut: [ #module ].
+							edges add: modName -> mname ] ] ].
+				self
+					paintInterfaceGraphOn: m
+					kinds: kinds
+					sigs: sigsByName
+					edges: edges
+					assocEdges: #()
+					eval: evalBlock ] ]
+]
+
+{ #category : 'uml' }
 BeamMondrianHelpers class >> moduleLabelNamed: aName onClick: aBlock [
 	"UmlClassDiagram's plain class box: a bordered label."
 	^ BrLabel new

@@ -126,6 +126,22 @@ BeamAtomObject >> gtDefaultInspectorTool [
 ]
 
 { #category : 'views' }
+BeamAtomObject >> gtInterfacesFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I draw the module's interfaces when my atom names an Elixir
+	 module. Gated on the local uppercase check, not isModuleAtom:
+	 its lowercase (Erlang) branch round-trips the bridge, which
+	 would lag the tab bar of every plain atom."
+	(symbol notEmpty and: [ symbol first isUppercase ]) ifFalse: [ ^ aView empty ].
+	^ BeamMondrianHelpers
+		interfacesDrawingFor: aView
+		moduleExpr: ((symbol beginsWith: 'Elixir.')
+			ifTrue: [ symbol ] ifFalse: [ 'Elixir.' , symbol ])
+		eval: [ :expr | self evaluateAndWait: expr ]
+]
+
+{ #category : 'views' }
 BeamAtomObject >> gtModuleDocsView: aView [
 	<gtView>
 	<gtBeamView>
