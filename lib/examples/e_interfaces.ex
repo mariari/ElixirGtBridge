@@ -58,6 +58,10 @@ defmodule Examples.EInterfaces do
     assert Interfaces.interface?(Enumerable)
     refute Interfaces.interface?(GtBridge.Eval)
 
+    assert Interfaces.has_interfaces?(GtBridge.Eval)
+    assert Interfaces.has_interfaces?(List)
+    refute Interfaces.has_interfaces?(GtBridge.Serializer)
+
     facts
   end
 end

@@ -1,6 +1,9 @@
 Class {
 	#name : 'BeamDocumentationObject',
 	#superclass : 'BeamProxyObject',
+	#instVars : [
+		'hasInterfaces'
+	],
 	#category : 'Gt4beam-Documentation',
 	#package : 'Gt4beam',
 	#tag : 'Documentation'
@@ -50,6 +53,15 @@ BeamDocumentationObject >> functionTarget [
 	^ ElixirFunctionScrollTarget new
 		functionName: (result itemAt: 0) asString
 		arity: (result itemAt: 1) asInteger
+]
+
+{ #category : 'accessing' }
+BeamDocumentationObject >> hasInterfaces [
+	"Memoized eager guard for the Interfaces tab."
+	^ hasInterfaces ifNil: [
+		hasInterfaces := [ (self evaluateAndWait:
+			'GtBridge.Analysis.Interfaces.has_interfaces?(elem(', self resolve, '.query, 1))') == true ]
+			on: Error do: [ false ] ]
 ]
 
 { #category : 'gt-actions' }
@@ -236,6 +248,7 @@ BeamDocumentationObject >> gtInterfacesFor: aView [
 	<gtBeamView>
 	"I draw this module's interfaces UmlClassDiagram-style; the body
 	 is shared with BeamAtomObject via BeamMondrianHelpers."
+	self hasInterfaces ifFalse: [ ^ aView empty ].
 	^ BeamMondrianHelpers
 		interfacesDrawingFor: aView
 		moduleExpr: 'elem(', self resolve, '.query, 1)'

@@ -10,6 +10,7 @@ defmodule GtBridge.Analysis.Interfaces do
 
   ### Public API
 
+  - `has_interfaces?/1`
   - `in_app/1`
   - `interface?/1`
   - `of_module/1`
@@ -48,6 +49,18 @@ defmodule GtBridge.Analysis.Interfaces do
   def interface?(mod) do
     Code.ensure_loaded?(mod) and
       (function_exported?(mod, :__protocol__, 1) or function_exported?(mod, :behaviour_info, 1))
+  end
+
+  @doc """
+  I return true when `mod` has anything to draw: it defines an
+  interface, declares behaviours, or a loaded impl module targets it.
+
+  Cheap enough for an eager tab guard; the impl check matches module
+  names before touching exports.
+  """
+  @spec has_interfaces?(module()) :: boolean()
+  def has_interfaces?(mod) do
+    interface?(mod) or module_behaviours(mod) != [] or has_impl_for?(mod)
   end
 
   @doc """
@@ -190,6 +203,15 @@ defmodule GtBridge.Analysis.Interfaces do
     m.module_info(:attributes) |> Keyword.get_values(:behaviour) |> List.flatten()
   rescue
     _ -> []
+  end
+
+  defp has_impl_for?(mod) do
+    suffix = "." <> inspect(mod)
+
+    Enum.any?(:code.all_loaded(), fn {m, _} ->
+      String.ends_with?(Atom.to_string(m), suffix) and
+        function_exported?(m, :__impl__, 1) and m.__impl__(:for) == mod
+    end)
   end
 
   defp source(m) do

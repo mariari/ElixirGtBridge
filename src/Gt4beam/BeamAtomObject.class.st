@@ -2,7 +2,8 @@ Class {
 	#name : 'BeamAtomObject',
 	#superclass : 'Object',
 	#instVars : [
-		'symbol'
+		'symbol',
+		'hasInterfaces'
 	],
 	#category : 'Gt4beam-Serialization',
 	#package : 'Gt4beam',
@@ -133,11 +134,11 @@ BeamAtomObject >> gtInterfacesFor: aView [
 	 module. Gated on the local uppercase check, not isModuleAtom:
 	 its lowercase (Erlang) branch round-trips the bridge, which
 	 would lag the tab bar of every plain atom."
-	(symbol notEmpty and: [ symbol first isUppercase ]) ifFalse: [ ^ aView empty ].
+	((symbol notEmpty and: [ symbol first isUppercase ])
+		and: [ self hasInterfaces ]) ifFalse: [ ^ aView empty ].
 	^ BeamMondrianHelpers
 		interfacesDrawingFor: aView
-		moduleExpr: ((symbol beginsWith: 'Elixir.')
-			ifTrue: [ symbol ] ifFalse: [ 'Elixir.' , symbol ])
+		moduleExpr: self moduleExprString
 		eval: [ :expr | self evaluateAndWait: expr ]
 ]
 
@@ -269,6 +270,16 @@ BeamAtomObject >> inspectorModeName [
 	^ 'Atom'
 ]
 
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> hasInterfaces [
+	"Memoized eager guard for the Interfaces tab: cheap fact, one
+	 eval per inspected module atom."
+	^ hasInterfaces ifNil: [
+		hasInterfaces := [ (self evaluateAndWait:
+			'GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleExprString, ')') == true ]
+			on: Error do: [ false ] ]
+]
+
 { #category : 'testing' }
 BeamAtomObject >> isModuleAtom [
 	"I return true for Elixir modules (uppercase) and Erlang
@@ -281,6 +292,13 @@ BeamAtomObject >> isModuleAtom [
 	^ [ self evaluateAndWait: 'Code.ensure_loaded?(' , self resolve , ')' ]
 		on: Error
 		do: [ false ]
+]
+
+{ #category : 'as yet unclassified' }
+BeamAtomObject >> moduleExprString [
+	"My atom as an Elixir module expression."
+	^ (symbol beginsWith: 'Elixir.')
+		ifTrue: [ symbol ] ifFalse: [ 'Elixir.' , symbol ]
 ]
 
 { #category : 'as yet unclassified' }
