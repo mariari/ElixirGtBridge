@@ -11,6 +11,7 @@ defmodule GtBridge.Analysis.Interfaces do
   ### Public API
 
   - `in_app/1`
+  - `of_module/1`
   """
 
   alias GtBridge.Analysis.LoadedModules
@@ -37,6 +38,56 @@ defmodule GtBridge.Analysis.Interfaces do
     Enum.sort_by(rows, & &1.name)
   end
 
+  @doc """
+  I return one module's interface facts: the behaviours and protocols
+  it implements, and its own row (with implementors) when it is
+  itself one.
+
+  One pass over the code server, so a documentation tab can call me
+  on demand without lag.
+  """
+  @spec of_module(module()) :: map()
+  def of_module(mod) do
+    Code.ensure_loaded(mod)
+
+    {implementor_mods, protos_for} =
+      Enum.reduce(:code.all_loaded(), {[], []}, fn {m, _}, {ims, pfs} ->
+        ims = if mod in module_behaviours(m), do: [m | ims], else: ims
+
+        pfs =
+          if function_exported?(m, :__impl__, 1) and m.__impl__(:for) == mod,
+            do: [m.__impl__(:protocol) | pfs],
+            else: pfs
+
+        {ims, pfs}
+      end)
+
+    implements =
+      for b <- module_behaviours(mod), Code.ensure_loaded?(b) do
+        callbacks = b.behaviour_info(:callbacks)
+
+        %{
+          kind: :behaviour,
+          name: inspect(b),
+          callback_names: sigs(callbacks),
+          implements: implemented_sigs(mod, callbacks)
+        }
+      end ++
+        for proto <- Enum.sort(Enum.uniq(protos_for)), Code.ensure_loaded?(proto) do
+          %{
+            kind: :protocol,
+            name: inspect(proto),
+            functions: sigs(proto.__protocol__(:functions))
+          }
+        end
+
+    %{
+      module: inspect(mod),
+      implements: implements,
+      defines: describe(mod, %{mod => implementor_mods})
+    }
+  end
+
   ############################################################
   #                   Private Implementation                 #
   ############################################################
@@ -55,18 +106,14 @@ defmodule GtBridge.Analysis.Interfaces do
 
     implementors =
       for m <- Map.get(index, mod, []) do
-        %{
-          module: inspect(m),
-          source: source(m),
-          implements:
-            for({n, a} <- Enum.sort(callbacks), function_exported?(m, n, a), do: "#{n}/#{a}")
-        }
+        %{module: inspect(m), source: source(m), implements: implemented_sigs(m, callbacks)}
       end
 
     %{
       kind: :behaviour,
       name: inspect(mod),
       callbacks: callback_specs(mod, callbacks),
+      callback_names: sigs(callbacks),
       implementors: Enum.sort_by(implementors, & &1.module)
     }
   end
@@ -75,10 +122,15 @@ defmodule GtBridge.Analysis.Interfaces do
     %{
       kind: :protocol,
       name: inspect(mod),
-      functions: for({n, a} <- Enum.sort(mod.__protocol__(:functions)), do: "#{n}/#{a}"),
+      functions: sigs(mod.__protocol__(:functions)),
       impls: Enum.sort_by(impls(mod), & &1.for)
     }
   end
+
+  defp sigs(pairs), do: for({n, a} <- Enum.sort(pairs), do: "#{n}/#{a}")
+
+  defp implemented_sigs(m, callbacks),
+    do: for({n, a} <- Enum.sort(callbacks), function_exported?(m, n, a), do: "#{n}/#{a}")
 
   # A consolidated protocol knows its types; an unconsolidated one is
   # reconstructed from the __impl__ marker on loaded impl modules.

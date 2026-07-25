@@ -204,6 +204,57 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 ]
 
 { #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtInterfaceMapFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I draw the app's interfaces the way GT draws class diagrams
+	 (UmlClassDiagram): each interface is a UML box with its
+	 callbacks, implementors point at it with hollow triangles, and
+	 calls between the drawn modules are its orange association arcs."
+	^ aView mondrian
+		title: 'Interface map';
+		priority: 8;
+		painting: [ :m |
+			| rows kinds sigsByName edges assocEdges |
+			rows := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.in_app(', self name resolve, ')') asList ]
+				on: Error do: [ #() ].
+			kinds := Dictionary new.
+			sigsByName := Dictionary new.
+			edges := OrderedCollection new.
+			rows do: [ :r |
+				| iname kids |
+				iname := (r attributeAt: #name) asString.
+				kinds at: iname put: #interface.
+				sigsByName at: iname put:
+					((r attributeAt: #callback_names) ifNil: [ r attributeAt: #functions ]).
+				kids := (r attributeAt: #implementors) ifNil: [ r attributeAt: #impls ].
+				kids asList do: [ :k |
+					| mname |
+					mname := (k attributeAt: #module) asString.
+					kinds at: mname ifAbsentPut: [ #impl ].
+					edges add: iname -> mname ] ].
+			assocEdges := ([ (self application evaluateAndWait:
+				'GtBridge.Analysis.module_graph(', self name resolve, ')
+				 |> Enum.map(fn {a, b} -> [inspect(a), inspect(b)] end)') asList
+				collect: [ :pair | (pair itemAt: 0) asString -> (pair itemAt: 1) asString ] ]
+				on: Error do: [ #() ])
+				select: [ :assoc |
+					(kinds includesKey: assoc key)
+						and: [ (kinds includesKey: assoc value)
+						and: [ assoc key ~= assoc value
+						and: [ (edges includes: assoc key -> assoc value) not
+						and: [ (edges includes: assoc value -> assoc key) not ] ] ] ] ].
+			BeamMondrianHelpers
+				paintInterfaceGraphOn: m
+				kinds: kinds
+				sigs: sigsByName
+				edges: edges
+				assocEdges: assocEdges
+				eval: [ :expr | self application evaluateAndWait: expr ] ]
+]
+
+{ #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtInterfacesFor: aView [
 	<gtView>
 	<gtBeamView>
