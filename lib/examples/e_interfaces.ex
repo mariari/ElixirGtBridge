@@ -54,6 +54,10 @@ defmodule Examples.EInterfaces do
     list = Interfaces.of_module(List)
     assert Enum.any?(list.implements, &(&1.name == "Enumerable"))
 
+    assert Interfaces.interface?(GenServer)
+    assert Interfaces.interface?(Enumerable)
+    refute Interfaces.interface?(GtBridge.Eval)
+
     facts
   end
 end

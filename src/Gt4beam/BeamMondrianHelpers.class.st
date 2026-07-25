@@ -190,6 +190,11 @@ BeamMondrianHelpers class >> interfacesDrawingFor: aView moduleExpr: exprString 
 			facts := [ evalBlock value:
 				'GtBridge.Analysis.Interfaces.of_module(', exprString, ')' ]
 				on: Error do: [ nil ].
+			facts := facts ifNotNil: [
+				"Nothing to draw for a plain module: no lonely self node."
+				((facts attributeAt: #defines) isNil
+					and: [ (facts attributeAt: #implements) asList isEmpty ])
+					ifTrue: [ nil ] ifFalse: [ facts ] ].
 			facts ifNotNil: [
 				modName := (facts attributeAt: #module) asString.
 				defines := facts attributeAt: #defines.

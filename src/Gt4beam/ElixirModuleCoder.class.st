@@ -13,7 +13,8 @@ Class {
 		'selfObject',
 		'saving',
 		'sourceCache',
-		'functionStreamingModel'
+		'functionStreamingModel',
+		'definesInterface'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -331,6 +332,16 @@ ElixirModuleCoder >> editorSessionId [
 		sessionId ]
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> definesInterface [
+	"Cheap eager guard like hasFunctions, memoized because both the
+	 Users and Callbacks tabs ask while the tab bar builds."
+	^ definesInterface ifNil: [
+		definesInterface := [ self application evaluateAndWait:
+			'GtBridge.Analysis.Interfaces.interface?(', self moduleName, ')' ]
+			on: Error do: [ false ] ]
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> focusFunctionTarget: aTarget [
 	"I take an ElixirFunctionScrollTarget directly so callers that
@@ -391,7 +402,8 @@ ElixirModuleCoder >> gtCallbacksViewFor: aView context: aContext [
 	<gtElixirModuleView>
 	"The interface's own contract: each callback with its full
 	 @callback spec (a protocol shows its function list). Empty for
-	 a module that defines neither; items compute lazily."
+	 a module that defines neither."
+	self definesInterface ifFalse: [ ^ aView empty ].
 	^ aView columnedList
 		title: 'Callbacks';
 		priority: 44;
@@ -501,8 +513,8 @@ ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
 	<gtElixirModuleView>
 	"GT's coder calls an interface's consumers Users; for a module
 	 that defines a behaviour or protocol I list its implementors.
-	 Items compute lazily, so a plain module just shows an empty
-	 list instead of costing the tab bar a bridge call."
+	 Gated on the same memoized guard as the Callbacks tab."
+	self definesInterface ifFalse: [ ^ aView empty ].
 	^ aView columnedList
 		title: 'Users';
 		priority: 45;

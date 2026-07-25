@@ -11,6 +11,7 @@ defmodule GtBridge.Analysis.Interfaces do
   ### Public API
 
   - `in_app/1`
+  - `interface?/1`
   - `of_module/1`
   """
 
@@ -36,6 +37,17 @@ defmodule GtBridge.Analysis.Interfaces do
           do: row
 
     Enum.sort_by(rows, & &1.name)
+  end
+
+  @doc """
+  I return true when `mod` defines a behaviour or a protocol.
+
+  Cheap enough for an eager tab-bar guard: two export checks.
+  """
+  @spec interface?(module()) :: boolean()
+  def interface?(mod) do
+    Code.ensure_loaded?(mod) and
+      (function_exported?(mod, :__protocol__, 1) or function_exported?(mod, :behaviour_info, 1))
   end
 
   @doc """
