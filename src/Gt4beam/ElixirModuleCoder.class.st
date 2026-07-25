@@ -425,7 +425,13 @@ ElixirModuleCoder >> gtCallbacksViewFor: aView context: aContext [
 						  (specs at: i ifAbsent: [ '' ]) asString } ] ] ];
 		column: 'Callback' text: [ :each | each first ] width: 140;
 		column: 'Spec' text: [ :each |
-			' ' join: (each second lines collect: [ :l | l trimBoth ]) ]
+			' ' join: (each second lines collect: [ :l | l trimBoth ]) ];
+		send: [ :each |
+			| parts |
+			parts := $/ split: each first.
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_function(', self moduleName,
+				', :"', parts first, '", ', parts last, ')' ]
 ]
 
 { #category : 'as yet unclassified' }
