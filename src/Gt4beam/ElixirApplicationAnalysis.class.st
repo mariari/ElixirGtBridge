@@ -204,6 +204,48 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 ]
 
 { #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtInterfacesFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the behaviours and protocols this application defines as
+	 an interface -> implementors tree. Any row spawns its module's
+	 documentation."
+	^ aView columnedTree
+		title: 'Interfaces';
+		priority: 7;
+		items: [ [ (self application evaluateAndWait:
+			'GtBridge.Analysis.Interfaces.in_app(', self name resolve, ')') asList ]
+			on: Error do: [ #() ] ];
+		children: [ :each |
+			((each attributeAt: #implementors) ifNil: [ each attributeAt: #impls ])
+				ifNil: [ #() ] ifNotNil: [ :kids | kids asList ] ];
+		column: 'Interface' text: [ :each |
+			((each attributeAt: #name) ifNil: [ each attributeAt: #module ])
+				asString withoutPrefix: 'Elixir.' ];
+		column: 'Kind' text: [ :each |
+			(each attributeAt: #implementors) notNil
+				ifTrue: [ 'behaviour' ]
+				ifFalse: [ (each attributeAt: #impls) notNil
+					ifTrue: [ 'protocol' ]
+					ifFalse: [ (each attributeAt: #for)
+						ifNil: [ '' ]
+						ifNotNil: [ :t | 'for ' , t asString ] ] ] ];
+		column: 'Implements' text: [ :each |
+			(each attributeAt: #implements)
+				ifNil: [
+					(each attributeAt: #callbacks)
+						ifNil: [ (each attributeAt: #functions)
+							ifNil: [ '' ]
+							ifNotNil: [ :fns | fns asList size asString , ' functions' ] ]
+						ifNotNil: [ :cbs | cbs asList size asString , ' callbacks' ] ]
+				ifNotNil: [ :l | ', ' join: (l asList collect: [ :s | s asString ]) ] ];
+		send: [ :each |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(',
+				((each attributeAt: #module) ifNil: [ each attributeAt: #name ]) asString, ')' ]
+]
+
+{ #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtModuleTreeFor: aView [
 	<gtView>
 	<gtBeamView>
