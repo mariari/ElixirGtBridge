@@ -466,6 +466,40 @@ ElixirModuleCoder >> hasLocalSource [
 	^ sourcePath asFileReference exists
 ]
 
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"GT's coder calls an interface's consumers Users; for a module
+	 that defines a behaviour or protocol I list its implementors.
+	 Items compute lazily, so a plain module just shows an empty
+	 list instead of costing the tab bar a bridge call."
+	^ aView columnedList
+		title: 'Users';
+		priority: 45;
+		items: [
+			| defines |
+			defines := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.of_module(', self moduleName, ')')
+				attributeAt: #defines ] on: Error do: [ nil ].
+			defines
+				ifNil: [ #() ]
+				ifNotNil: [
+					((defines attributeAt: #implementors)
+						ifNil: [ defines attributeAt: #impls ])
+						ifNil: [ #() ] ifNotNil: [ :kids | kids asList ] ] ];
+		column: 'Module' text: [ :each |
+			(each attributeAt: #module) asString withoutPrefix: 'Elixir.' ];
+		column: 'Implements' text: [ :each |
+			(each attributeAt: #implements)
+				ifNil: [ (each attributeAt: #for)
+					ifNil: [ '' ] ifNotNil: [ :t | 'for ' , t asString ] ]
+				ifNotNil: [ :l | ', ' join: (l asList collect: [ :s | s asString ]) ] ];
+		send: [ :each |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(',
+				(each attributeAt: #module) asString, ')' ]
+]
+
 { #category : 'initialization' }
 ElixirModuleCoder >> initialize [
 	"Subscription to BeamEventAnnouncer is deferred to my `moduleName:`
