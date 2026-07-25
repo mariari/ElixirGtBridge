@@ -531,7 +531,10 @@ ElixirModuleCoder >> interfaceFlags [
 		interfaceFlags := [ self application evaluateAndWait:
 			'{GtBridge.Analysis.Interfaces.interface?(', self moduleName,
 			'), GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleName, ')}' ]
-			on: Error do: [ nil ] ]
+			on: Error do: [ nil ].
+		(interfaceFlags isKindOf: BeamBridgeEvalError)
+			ifTrue: [ interfaceFlags := nil ].
+		interfaceFlags ]
 ]
 
 { #category : 'as yet unclassified' }
