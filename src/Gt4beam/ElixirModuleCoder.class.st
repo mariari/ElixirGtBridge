@@ -386,6 +386,36 @@ ElixirModuleCoder >> functionStreamingModel: aModel [
 	functionStreamingModel := aModel
 ]
 
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtCallbacksViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"The interface's own contract: each callback with its full
+	 @callback spec (a protocol shows its function list). Empty for
+	 a module that defines neither; items compute lazily."
+	^ aView columnedList
+		title: 'Callbacks';
+		priority: 44;
+		items: [
+			| defines names specs |
+			defines := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.of_module(', self moduleName, ')')
+				attributeAt: #defines ] on: Error do: [ nil ].
+			defines
+				ifNil: [ #() ]
+				ifNotNil: [
+					names := ((defines attributeAt: #callback_names)
+						ifNil: [ defines attributeAt: #functions ])
+						ifNil: [ #() ] ifNotNil: [ :l | l asList ].
+					specs := (defines attributeAt: #callbacks)
+						ifNil: [ #() ] ifNotNil: [ :l | l asList ].
+					names withIndexCollect: [ :n :i |
+						{ n asString.
+						  (specs at: i ifAbsent: [ '' ]) asString } ] ] ];
+		column: 'Callback' text: [ :each | each first ] width: 140;
+		column: 'Spec' text: [ :each |
+			' ' join: (each second lines collect: [ :l | l trimBoth ]) ]
+]
+
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> gtDependenciesViewFor: aView context: aContext [
 	<gtElixirModuleView>
