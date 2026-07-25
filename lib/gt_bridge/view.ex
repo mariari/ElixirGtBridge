@@ -187,9 +187,11 @@ defmodule GtBridge.View do
     match_arg(arg, caller)
   end
 
-  # TODO Make this more robust
+  # A variable is {name, meta, context} with an ATOM context; special
+  # forms like %Foo{} carry a list there, so `%Foo{} = foo` must keep
+  # the struct side rather than mistaking :% for a variable name.
   @spec determine_constraining_arg(Macro.t(), Macro.t()) :: Macro.t()
-  def determine_constraining_arg({atom, _, _}, arg2) when is_atom(atom) do
+  def determine_constraining_arg({name, _, ctx}, arg2) when is_atom(name) and is_atom(ctx) do
     arg2
   end
 

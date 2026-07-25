@@ -1,3 +1,12 @@
+defmodule Examples.EViews.Bound do
+  @moduledoc false
+  use TypedStruct
+
+  typedstruct do
+    field(:v, integer(), default: 1)
+  end
+end
+
 defmodule Examples.EViews do
   @moduledoc """
   I am examples for the Phlow view system. I also define a sample
@@ -49,6 +58,13 @@ defmodule Examples.EViews do
     |> Text.priority(2)
     |> Text.title("Name")
     |> Text.string(fn -> "Name: #{self.name}" end)
+  end
+
+  @spec bound_pattern_view(Examples.EViews.Bound.t(), GtBridge.Phlow.Builder) :: Text.t()
+  defview bound_pattern_view(%Examples.EViews.Bound{} = item, builder) do
+    builder.text()
+    |> Text.title("Bound")
+    |> Text.string(fn -> "v: #{item.v}" end)
   end
 
   ############################################################
@@ -106,5 +122,16 @@ defmodule Examples.EViews do
     end)
 
     :ok
+  end
+
+  @spec struct_binding_pattern_registers() :: [tuple()]
+  example struct_binding_pattern_registers do
+    # `%Struct{} = var` heads register for the struct, not __MODULE__;
+    # :% used to be mistaken for a variable name and dropped the match.
+    views = Examples.EViews.__views__()
+
+    assert {Examples.EViews.Bound, {__MODULE__, :bound_pattern_view}} in views
+
+    views
   end
 end
