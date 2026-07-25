@@ -38,7 +38,7 @@ BeamAtomObject >> applicationAnalysis [
 	appAtom := [ self evaluateAndWait:
 		'GtBridge.Analysis.LoadedModules.app_of(', self resolve, ')' ]
 		on: Error do: [ nil ].
-	appAtom ifNil: [ ^ nil ].
+	(appAtom isNil or: [ appAtom isKindOf: BeamBridgeEvalError ]) ifTrue: [ ^ nil ].
 	sys := ElixirSystemAnalysis onApplication: BeamLinkApplication uniqueInstance.
 	^ sys applications
 		detect: [ :each | each name symbol = appAtom symbol ]
