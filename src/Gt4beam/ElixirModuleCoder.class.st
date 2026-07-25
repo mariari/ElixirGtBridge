@@ -14,7 +14,7 @@ Class {
 		'saving',
 		'sourceCache',
 		'functionStreamingModel',
-		'definesInterface'
+		'interfaceFlags'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -334,12 +334,9 @@ ElixirModuleCoder >> editorSessionId [
 
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> definesInterface [
-	"Cheap eager guard like hasFunctions, memoized because both the
-	 Users and Callbacks tabs ask while the tab bar builds."
-	^ definesInterface ifNil: [
-		definesInterface := [ self application evaluateAndWait:
-			'GtBridge.Analysis.Interfaces.interface?(', self moduleName, ')' ]
-			on: Error do: [ false ] ]
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 0) == true ]
 ]
 
 { #category : 'accessing' }
@@ -481,6 +478,20 @@ ElixirModuleCoder >> gtHelpViewFor: aView context: aContext [
 ]
 
 { #category : 'gt-extensions' }
+ElixirModuleCoder >> gtInterfacesViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"The module's interface drawing lives with the rest of its
+	 static views; the atom and documentation proxies reach it
+	 through their embedded coder."
+	self hasInterfaces ifFalse: [ ^ aView empty ].
+	^ (BeamMondrianHelpers
+		interfacesDrawingFor: aView
+		moduleExpr: self moduleName
+		eval: [ :expr | self application evaluateAndWait: expr ])
+		priority: 43
+]
+
+{ #category : 'gt-extensions' }
 ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 	<gtElixirModuleView>
 	self hasLocalSource ifFalse: [ ^ aView empty ].
@@ -501,6 +512,26 @@ ElixirModuleCoder >> hasFunctions [
 	^ [ self application evaluateAndWait:
 		'GtBridge.Analysis.has_functions?(', self moduleName, ')' ]
 		on: Error do: [ false ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> hasInterfaces [
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 1) == true ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> interfaceFlags [
+	"One cheap eager eval gating the Interfaces, Callbacks and Users
+	 tabs: {defines an interface, has any interface facts}. Memoized
+	 like hasFunctions; nil on bridge error, which readers take as
+	 false."
+	^ interfaceFlags ifNil: [
+		interfaceFlags := [ self application evaluateAndWait:
+			'{GtBridge.Analysis.Interfaces.interface?(', self moduleName,
+			'), GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleName, ')}' ]
+			on: Error do: [ nil ] ]
 ]
 
 { #category : 'as yet unclassified' }
