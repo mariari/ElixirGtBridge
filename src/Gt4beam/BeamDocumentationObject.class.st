@@ -231,6 +231,59 @@ BeamDocumentationObject >> gtSearchFunctionsFor: aSearch [
 ]
 
 { #category : 'gt-views' }
+BeamDocumentationObject >> gtInterfacesFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I draw this module's interfaces UmlClassDiagram-style: the
+	 interfaces it implements above it, its implementors below when
+	 it is itself a behaviour or protocol. Everything computes inside
+	 the painting block, so the tab stays instant until opened."
+	^ aView mondrian
+		title: 'Interfaces';
+		priority: 40;
+		painting: [ :m |
+			| facts modName defines kinds sigsByName edges |
+			facts := [ self evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.of_module(elem(', self resolve, '.query, 1))' ]
+				on: Error do: [ nil ].
+			facts ifNotNil: [
+				modName := (facts attributeAt: #module) asString.
+				defines := facts attributeAt: #defines.
+				kinds := Dictionary new.
+				sigsByName := Dictionary new.
+				edges := OrderedCollection new.
+				kinds at: modName put: (defines isNil ifTrue: [ #module ] ifFalse: [ #interface ]).
+				defines ifNotNil: [
+					sigsByName at: modName put:
+						((defines attributeAt: #callback_names)
+							ifNil: [ defines attributeAt: #functions ]) ].
+				(facts attributeAt: #implements) asList do: [ :i |
+					| iname |
+					iname := (i attributeAt: #name) asString.
+					kinds at: iname ifAbsentPut: [ #interface ].
+					sigsByName at: iname ifAbsentPut: [
+						(i attributeAt: #callback_names) ifNil: [ i attributeAt: #functions ] ].
+					edges add: iname -> modName ].
+				defines ifNotNil: [
+					| kids |
+					kids := (defines attributeAt: #implementors)
+						ifNil: [ defines attributeAt: #impls ].
+					kids asList do: [ :k |
+						| mname |
+						mname := (k attributeAt: #module) asString.
+						mname = modName ifFalse: [
+							kinds at: mname ifAbsentPut: [ #module ].
+							edges add: modName -> mname ] ] ].
+				BeamMondrianHelpers
+					paintInterfaceGraphOn: m
+					kinds: kinds
+					sigs: sigsByName
+					edges: edges
+					assocEdges: #()
+					eval: [ :expr | self evaluateAndWait: expr ] ] ]
+]
+
+{ #category : 'gt-views' }
 BeamDocumentationObject >> gtSourceFor: aView [
 	"I override to hide the Source tab — the Coder tab already
 	 has Source as an internal tab."
