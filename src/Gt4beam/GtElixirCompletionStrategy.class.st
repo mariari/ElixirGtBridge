@@ -55,23 +55,33 @@ GtElixirCompletionStrategy >> completionActionStreamFor: aText at: positionInteg
 ]
 
 { #category : 'private' }
+GtElixirCompletionStrategy >> contextModuleName [
+	"I answer the module whose namespace completion runs in: the
+	 coder's context module (module/function/source coders all set
+	 one), else the inspected object's class."
+	(coderModel respondsTo: #contextModuleName) ifTrue: [
+		coderModel contextModuleName ifNotNil: [ :mod | ^ mod ] ].
+	^ (coderViewModel respondsTo: #selfObject)
+		ifTrue: [
+			coderViewModel selfObject ifNotNil: [ :selfObj |
+				(selfObj respondsTo: #elixirClass)
+					ifTrue: [ selfObj elixirClass ] ifFalse: [ nil ] ] ]
+		ifFalse: [ nil ]
+]
+
+{ #category : 'private' }
 GtElixirCompletionStrategy >> ensureSessionImports [
 	"I preload module imports into the eval session. Fallback for
-	 cases where the snippet element didn't preload (e.g. no self
-	 object at element creation time)."
+	 cases where nothing else preloaded (e.g. the Source tab, which
+	 has no snippet element and no self object). Without a session
+	 I derive a per-module one so #fetchCompletionsFor: sends it."
 	sessionImportsLoaded == true ifTrue: [ ^ self ].
-	[ | selfObj modName sid |
-		selfObj := (coderViewModel respondsTo: #selfObject)
-			ifTrue: [ coderViewModel selfObject ]
-			ifFalse: [ nil ].
-		selfObj ifNil: [ ^ self ].
-		modName := (selfObj respondsTo: #elixirClass)
-			ifTrue: [ selfObj elixirClass ]
-			ifFalse: [ nil ].
+	[ | modName |
+		modName := self contextModuleName.
 		modName ifNil: [ ^ self ].
-		sid := sessionId ifNil: [ 'default' ].
+		self sessionId ifNil: [ sessionId := 'editor_' , modName ].
 		BeamLinkApplication uniqueInstance evaluateAndWait:
-			'GtBridge.Eval.Preamble.editor_session(' , modName , ', "' , sid , '")'.
+			'GtBridge.Eval.Preamble.editor_session(' , modName , ', "' , self sessionId , '")'.
 		sessionImportsLoaded := true ]
 		on: Error do: [ "retry next time" ]
 ]

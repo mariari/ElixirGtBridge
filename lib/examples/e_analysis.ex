@@ -220,7 +220,12 @@ defmodule Examples.EAnalysis do
   example implementors_with_arity do
     results = Analysis.implementors(:start_link, 1)
     assert length(results) > 0
-    assert Enum.all?(results, &(&1.arity == 1))
+
+    # Exact arity, or the default-arg def that generates it.
+    assert Enum.all?(results, fn e ->
+             e.arity == 1 or (e.arity > 1 and e.arity - Map.get(e, :defaults, 0) <= 1)
+           end)
+
     results
   end
 
@@ -364,6 +369,44 @@ defmodule Examples.EAnalysis do
     sites
   end
 
+  # A local `defp` called within the same source resolves even with no
+  # context module — nil context used to zero the local set, dropping
+  # local calls to the foreign path that (correctly) hides privates.
+  @spec call_sites_local_defp_without_context() :: [map()]
+  example call_sites_local_defp_without_context do
+    source = ~s'''
+    defmodule Example do
+      defmacro defrel(a, b), do: store(a, b)
+      defp store(a, b), do: a + b
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    assert Enum.any?(sites, &(&1.function == "store"))
+    sites
+  end
+
+  # A cross-module public type reference (`.t()`) resolves — type names
+  # live in the beam type chunk, not `__info__`, so exports alone missed
+  # them.
+  @spec call_sites_cross_module_type() :: [map()]
+  example call_sites_cross_module_type do
+    source = ~s'''
+    defmodule Example do
+      @type stage :: GtBridge.Events.ModuleEvent.t()
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+
+    assert Enum.any?(
+             sites,
+             &(&1.function == "t" and &1.target_module == "GtBridge.Events.ModuleEvent")
+           )
+
+    sites
+  end
+
   ############################################################
   #                  Source Edit Examples                     #
   ############################################################
@@ -489,4 +532,34 @@ defmodule Examples.EAnalysis do
 
     by_kind
   end
+
+  @spec default_arg_head_resolves_to_its_def() :: map()
+  example default_arg_head_resolves_to_its_def do
+    # Eval.complete(pid, code, source \\ nil) exports complete/2 with no
+    # def of its own; asking for it must land on the complete/3 def, not
+    # a source-less stub.
+    definition =
+      Analysis.all_functions(GtBridge.Eval)
+      |> Enum.find(&(&1.name == "complete" and &1.arity == 3))
+
+    assert definition.defaults == 1
+
+    entry =
+      Analysis.implementors(:complete, 2)
+      |> Enum.find(&(&1.module == "GtBridge.Eval"))
+
+    assert entry.arity == 3
+    assert entry.start > 0
+
+    # A private default head is neither exported nor in the AST;
+    # it still resolves to the def that generates it.
+    assert priv_default(1) == {1, :x}
+
+    [p] = Analysis.implementors(:priv_default, 1)
+    assert {p.module, p.arity, p.kind} == {"Examples.EAnalysis", 2, "defp"}
+
+    entry
+  end
+
+  defp priv_default(a, b \\ :x), do: {a, b}
 end

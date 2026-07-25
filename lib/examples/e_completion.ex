@@ -104,4 +104,17 @@ defmodule Examples.ECompletion do
 
     results
   end
+
+  @spec complete_module_locals() :: [String.t()]
+  example complete_module_locals do
+    # An editor session primed on a module completes its publics
+    # (via import) and its defps (injected by the preamble).
+    sid = GtBridge.Eval.Preamble.editor_session(Completion, "e_completion_locals")
+    results = GtBridge.Eval.complete(GtBridge.EvalRegistry.get_or_create(sid), "complete")
+
+    assert Enum.any?(results, &String.starts_with?(&1, "complete/"))
+    assert Enum.any?(results, &String.starts_with?(&1, "complete_local_or_var/"))
+
+    results
+  end
 end

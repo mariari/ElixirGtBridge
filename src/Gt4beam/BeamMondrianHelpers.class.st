@@ -31,6 +31,19 @@ BeamMondrianHelpers class >> appDepGraphOn: aMondrian trees: trees apps: appsByN
 	aMondrian layout horizontalDominanceTree
 ]
 
+{ #category : 'uml' }
+BeamMondrianHelpers class >> associationEdgeStencil [
+	"UmlClassDiagram's association arc: orange, curved, behind nodes."
+	| color |
+	color := Color orange alpha: 0.4.
+	^ [ :e |
+		BlParabollaArcElement new
+			zIndex: -1;
+			curvatureFraction: 0.2;
+			border: (BlBorder paint: color);
+			toHead: (BlArrowheadSimpleArrow new border: (BlBorder paint: color)) ]
+]
+
 { #category : 'labeled-graph' }
 BeamMondrianHelpers class >> colorFor: aNode [
 	"I return the role-based background color for `aNode`:
@@ -150,6 +163,82 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 		edges add: entry -> childEntry ]
 ]
 
+{ #category : 'uml' }
+BeamMondrianHelpers class >> implementsEdgeStencil [
+	"UmlClassDiagram's realization arrow: gray line, hollow triangle
+	 at the interface (from) end."
+	^ [ :e |
+		BlLineElement new
+			border: (BlBorder paint: Color gray);
+			fromHead: (BlArrowheadTriangle new
+				scale: 4;
+				border: (BlBorder paint: Color gray)) ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> implementorsOf: aRow [
+	"A behaviour row carries implementors, a protocol row impls."
+	^ ((aRow attributeAt: #implementors) ifNil: [ aRow attributeAt: #impls ])
+		ifNil: [ #() ] ifNotNil: [ :kids | kids asList ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> interfaceSigs: aRow [
+	"A behaviour row carries callback_names, a protocol row functions."
+	^ (aRow attributeAt: #callback_names) ifNil: [ aRow attributeAt: #functions ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> interfacesDrawingFor: aView moduleExpr: exprString eval: evalBlock [
+	"The per-module Interfaces mondrian: what it implements above it,
+	 its implementors below when it is itself an interface. Lazy; a
+	 module with no interface facts paints nothing."
+	^ aView mondrian
+		title: 'Interfaces';
+		priority: 40;
+		painting: [ :m |
+			| facts modName defines kinds sigs edges |
+			facts := [ evalBlock value: 'GtBridge.Analysis.Interfaces.of_module(', exprString, ')' ]
+				on: Error do: [ nil ].
+			kinds := Dictionary new.
+			sigs := Dictionary new.
+			edges := OrderedCollection new.
+			facts ifNotNil: [
+				modName := (facts attributeAt: #module) asString.
+				defines := facts attributeAt: #defines.
+				(facts attributeAt: #implements) asList do: [ :i |
+					| iname |
+					iname := (i attributeAt: #name) asString.
+					kinds at: iname put: #interface.
+					sigs at: iname put: (self interfaceSigs: i).
+					edges add: iname -> modName ].
+				defines ifNotNil: [
+					sigs at: modName put: (self interfaceSigs: defines).
+					(self implementorsOf: defines) do: [ :k |
+						| mname |
+						mname := (k attributeAt: #module) asString.
+						mname = modName ifFalse: [
+							kinds at: mname ifAbsentPut: [ #module ].
+							edges add: modName -> mname ] ] ].
+				(kinds notEmpty or: [ defines notNil ]) ifTrue: [
+					kinds at: modName put: (defines isNil ifTrue: [ #module ] ifFalse: [ #interface ]).
+					self paintInterfaceGraphOn: m kinds: kinds sigs: sigs
+						edges: edges assocEdges: #() eval: evalBlock ] ] ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> moduleLabelNamed: aName onClick: aBlock [
+	"UmlClassDiagram's plain class box: a bordered label."
+	^ BrLabel new
+		aptitude: BrGlamorousLabelAptitude new;
+		text: (aName withoutPrefix: 'Elixir.');
+		border: (BlBorder paint: Color lightGray);
+		background: Color white;
+		padding: (BlInsets all: 5);
+		addEventHandlerOn: BlClickEvent do: aBlock;
+		yourself
+]
+
 { #category : 'stencils' }
 BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock [
 	^ BrHorizontalPane new
@@ -166,6 +255,37 @@ BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock 
 		constraintsDo: [ :c |
 			c horizontal fitContent.
 			c vertical fitContent ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> paintInterfaceGraphOn: m kinds: kinds sigs: sigsByName edges: edges assocEdges: assocEdges eval: evalBlock [
+	"Interface -> implementor UML graph: boxes, labels, implements
+	 triangles, orange call arcs. Clicks spawn module or function docs."
+	| open |
+	open := [ :evt :expr |
+		evt consumed: true.
+		evt currentTarget phlow spawnObject: (evalBlock value: expr) ].
+	m nodes
+		shape: [ :name |
+			| toModule |
+			toModule := [ :evt | open value: evt value: 'GtBridge.Documentation.for_module(', name, ')' ].
+			(kinds at: name) = #interface
+				ifTrue: [
+					self umlBoxNamed: name
+						signatures: ((sigsByName at: name ifAbsent: [ nil ])
+							ifNil: [ #() ] ifNotNil: [ :l | l asList collect: [ :s | s asString ] ])
+						onClick: toModule
+						onSignatureClick: [ :sig :evt |
+							| parts |
+							parts := $/ split: sig.
+							open value: evt value: ('GtBridge.Documentation.for_function(',
+								name, ', :"', parts first, '", ', parts last, ')') ] ]
+				ifFalse: [ self moduleLabelNamed: name onClick: toModule ] ];
+		with: kinds keys asArray sorted.
+	m edges stencil: self implementsEdgeStencil; connect: edges from: #key to: #value.
+	assocEdges isEmpty ifFalse: [
+		m edges passive; stencil: self associationEdgeStencil; connect: assocEdges from: #key to: #value ].
+	m layout tree levelDistance: 40; nodeDistance: 15
 ]
 
 { #category : 'labeled-graph' }
@@ -239,4 +359,43 @@ BeamMondrianHelpers class >> supervisionTreeOn: aMondrian from: tree poolThresho
 	aMondrian edges stencil: [ self edgeStencil ];
 		connect: allEdges from: #key to: #value.
 	aMondrian layout horizontalTree
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> umlBoxNamed: aName signatures: sigLines onClick: aBlock onSignatureClick: aSigBlock [
+	"GT's UML class box (UmlClassDiagram style): bold name
+	 compartment over a signature compartment. The box itself fires
+	 aBlock; each signature line fires aSigBlock (sig, event) and
+	 consumes, so a row click doesn't also spawn the module."
+	| uml nameText methodsText |
+	uml := BrUmlClassElement withContainers: #(label methods).
+	nameText := (aName withoutPrefix: 'Elixir.') asRopedText bold.
+	nameText attributes: { BrTextClickAttribute new
+		action: [ :aPiece :anElement :anEditor :anEvent |
+			anEvent consumed: true.
+			aBlock value: anEvent ] }.
+	uml text: nameText in: #label.
+	methodsText := '' asRopedText.
+	sigLines doWithIndex: [ :sig :i |
+		| line |
+		line := sig asRopedText.
+		line attributes: { BrTextClickAttribute new
+			action: [ :aPiece :anElement :anEditor :anEvent |
+				anEvent consumed: true.
+				aSigBlock value: sig value: anEvent ] }.
+		i > 1 ifTrue: [ methodsText append: String cr asRopedText ].
+		methodsText append: line ].
+	uml text: methodsText in: #methods.
+	"The compartments are editors; a diagram must not be typeable.
+	 Read-only keeps selection (copyable sigs) and still fires the
+	 click attributes."
+	#(label methods) do: [ :c |
+		uml editorIn: c do: [ :el | el editor beReadOnlyWithSelection ] ].
+	^ uml
+		background: Color white;
+		constraintsDo: [ :c |
+			c horizontal fitContent.
+			c vertical fitContent ];
+		addEventHandlerOn: BlClickEvent do: aBlock;
+		yourself
 ]

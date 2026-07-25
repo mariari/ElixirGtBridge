@@ -204,6 +204,97 @@ ElixirApplicationAnalysis >> gtDocCoverageFor: aView [
 ]
 
 { #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtInterfaceMapFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I draw the app's interfaces the way GT draws class diagrams
+	 (UmlClassDiagram): each interface is a UML box with its
+	 callbacks, implementors point at it with hollow triangles, and
+	 calls between the drawn modules are its orange association arcs."
+	^ aView mondrian
+		title: 'Interface map';
+		priority: 10;
+		painting: [ :m |
+			| rows kinds sigsByName edges assocEdges |
+			rows := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.in_app(', self name resolve, ')') asList ]
+				on: Error do: [ #() ].
+			kinds := Dictionary new.
+			sigsByName := Dictionary new.
+			edges := OrderedCollection new.
+			rows do: [ :r |
+				| iname |
+				iname := (r attributeAt: #name) asString.
+				kinds at: iname put: #interface.
+				sigsByName at: iname put: (BeamMondrianHelpers interfaceSigs: r).
+				(BeamMondrianHelpers implementorsOf: r) do: [ :k |
+					| mname |
+					mname := (k attributeAt: #module) asString.
+					kinds at: mname ifAbsentPut: [ #impl ].
+					edges add: iname -> mname ] ].
+			assocEdges := ([ (self application evaluateAndWait:
+				'GtBridge.Analysis.module_graph(', self name resolve, ')
+				 |> Enum.map(fn {a, b} -> [inspect(a), inspect(b)] end)') asList
+				collect: [ :pair | (pair itemAt: 0) asString -> (pair itemAt: 1) asString ] ]
+				on: Error do: [ #() ])
+				select: [ :assoc |
+					(kinds includesKey: assoc key)
+						and: [ (kinds includesKey: assoc value)
+						and: [ assoc key ~= assoc value
+						and: [ (edges includes: assoc key -> assoc value) not
+						and: [ (edges includes: assoc value -> assoc key) not ] ] ] ] ].
+			BeamMondrianHelpers
+				paintInterfaceGraphOn: m
+				kinds: kinds
+				sigs: sigsByName
+				edges: edges
+				assocEdges: assocEdges
+				eval: [ :expr | self application evaluateAndWait: expr ] ]
+]
+
+{ #category : 'gt-views' }
+ElixirApplicationAnalysis >> gtInterfacesFor: aView [
+	<gtView>
+	<gtBeamView>
+	"I show the behaviours and protocols this application defines as
+	 an interface -> implementors tree. Any row spawns its module's
+	 documentation."
+	^ aView columnedTree
+		title: 'Interfaces';
+		priority: 11;
+		items: [ [ (self application evaluateAndWait:
+			'GtBridge.Analysis.Interfaces.in_app(', self name resolve, ')') asList ]
+			on: Error do: [ #() ] ];
+		children: [ :each |
+			((each attributeAt: #implementors) ifNil: [ each attributeAt: #impls ])
+				ifNil: [ #() ] ifNotNil: [ :kids | kids asList ] ];
+		column: 'Interface' text: [ :each |
+			((each attributeAt: #name) ifNil: [ each attributeAt: #module ])
+				asString withoutPrefix: 'Elixir.' ];
+		column: 'Kind' text: [ :each |
+			(each attributeAt: #implementors) notNil
+				ifTrue: [ 'behaviour' ]
+				ifFalse: [ (each attributeAt: #impls) notNil
+					ifTrue: [ 'protocol' ]
+					ifFalse: [ (each attributeAt: #for)
+						ifNil: [ '' ]
+						ifNotNil: [ :t | 'for ' , t asString ] ] ] ];
+		column: 'Implements' text: [ :each |
+			(each attributeAt: #implements)
+				ifNil: [
+					(each attributeAt: #callbacks)
+						ifNil: [ (each attributeAt: #functions)
+							ifNil: [ '' ]
+							ifNotNil: [ :fns | fns asList size asString , ' functions' ] ]
+						ifNotNil: [ :cbs | cbs asList size asString , ' callbacks' ] ]
+				ifNotNil: [ :l | ', ' join: (l asList collect: [ :s | s asString ]) ] ];
+		send: [ :each |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(',
+				((each attributeAt: #module) ifNil: [ each attributeAt: #name ]) asString, ')' ]
+]
+
+{ #category : 'gt-views' }
 ElixirApplicationAnalysis >> gtModuleTreeFor: aView [
 	<gtView>
 	<gtBeamView>

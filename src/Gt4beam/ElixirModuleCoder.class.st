@@ -13,7 +13,8 @@ Class {
 		'selfObject',
 		'saving',
 		'sourceCache',
-		'functionStreamingModel'
+		'functionStreamingModel',
+		'interfaceFlags'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -331,6 +332,13 @@ ElixirModuleCoder >> editorSessionId [
 		sessionId ]
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> definesInterface [
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 0) == true ]
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> focusFunctionTarget: aTarget [
 	"I take an ElixirFunctionScrollTarget directly so callers that
@@ -386,6 +394,43 @@ ElixirModuleCoder >> functionStreamingModel: aModel [
 	functionStreamingModel := aModel
 ]
 
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtCallbacksViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"The interface's own contract: each callback with its full
+	 @callback spec (a protocol shows its function list). Empty for
+	 a module that defines neither."
+	self definesInterface ifFalse: [ ^ aView empty ].
+	^ aView columnedList
+		title: 'Callbacks';
+		priority: 44;
+		items: [
+			| defines names specs |
+			defines := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.of_module(', self moduleName, ')')
+				attributeAt: #defines ] on: Error do: [ nil ].
+			defines
+				ifNil: [ #() ]
+				ifNotNil: [
+					names := ((defines attributeAt: #callback_names)
+						ifNil: [ defines attributeAt: #functions ])
+						ifNil: [ #() ] ifNotNil: [ :l | l asList ].
+					specs := (defines attributeAt: #callbacks)
+						ifNil: [ #() ] ifNotNil: [ :l | l asList ].
+					names withIndexCollect: [ :n :i |
+						{ n asString.
+						  (specs at: i ifAbsent: [ '' ]) asString } ] ] ];
+		column: 'Callback' text: [ :each | each first ] width: 140;
+		column: 'Spec' text: [ :each |
+			' ' join: (each second lines collect: [ :l | l trimBoth ]) ];
+		send: [ :each |
+			| parts |
+			parts := $/ split: each first.
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_function(', self moduleName,
+				', :"', parts first, '", ', parts last, ')' ]
+]
+
 { #category : 'as yet unclassified' }
 ElixirModuleCoder >> gtDependenciesViewFor: aView context: aContext [
 	<gtElixirModuleView>
@@ -433,6 +478,20 @@ ElixirModuleCoder >> gtHelpViewFor: aView context: aContext [
 ]
 
 { #category : 'gt-extensions' }
+ElixirModuleCoder >> gtInterfacesViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"The module's interface drawing lives with the rest of its
+	 static views; the atom and documentation proxies reach it
+	 through their embedded coder."
+	self hasInterfaces ifFalse: [ ^ aView empty ].
+	^ (BeamMondrianHelpers
+		interfacesDrawingFor: aView
+		moduleExpr: self moduleName
+		eval: [ :expr | self application evaluateAndWait: expr ])
+		priority: 22
+]
+
+{ #category : 'gt-extensions' }
 ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 	<gtElixirModuleView>
 	self hasLocalSource ifFalse: [ ^ aView empty ].
@@ -456,6 +515,29 @@ ElixirModuleCoder >> hasFunctions [
 ]
 
 { #category : 'as yet unclassified' }
+ElixirModuleCoder >> hasInterfaces [
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 1) == true ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> interfaceFlags [
+	"One cheap eager eval gating the Interfaces, Callbacks and Users
+	 tabs: {defines an interface, has any interface facts}. Memoized
+	 like hasFunctions; nil on bridge error, which readers take as
+	 false."
+	^ interfaceFlags ifNil: [
+		interfaceFlags := [ self application evaluateAndWait:
+			'{GtBridge.Analysis.Interfaces.interface?(', self moduleName,
+			'), GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleName, ')}' ]
+			on: Error do: [ nil ].
+		(interfaceFlags isKindOf: BeamBridgeEvalError)
+			ifTrue: [ interfaceFlags := nil ].
+		interfaceFlags ]
+]
+
+{ #category : 'as yet unclassified' }
 ElixirModuleCoder >> hasLocalSource [
 	"I return true if my sourcePath is a String pointing to an
 	 existing file on this machine. Guarding on isKindOf: String
@@ -464,6 +546,37 @@ ElixirModuleCoder >> hasLocalSource [
 	 crashing on #asFileReference."
 	(sourcePath isKindOf: String) ifFalse: [ ^ false ].
 	^ sourcePath asFileReference exists
+]
+
+{ #category : 'gt-extensions' }
+ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
+	<gtElixirModuleView>
+	"GT's coder calls an interface's consumers Users; for a module
+	 that defines a behaviour or protocol I list its implementors.
+	 Gated on the same memoized guard as the Callbacks tab."
+	self definesInterface ifFalse: [ ^ aView empty ].
+	^ aView columnedList
+		title: 'Users';
+		priority: 45;
+		items: [
+			| defines |
+			defines := [ (self application evaluateAndWait:
+				'GtBridge.Analysis.Interfaces.of_module(', self moduleName, ')')
+				attributeAt: #defines ] on: Error do: [ nil ].
+			defines
+				ifNil: [ #() ]
+				ifNotNil: [ BeamMondrianHelpers implementorsOf: defines ] ];
+		column: 'Module' text: [ :each |
+			(each attributeAt: #module) asString withoutPrefix: 'Elixir.' ];
+		column: 'Implements' text: [ :each |
+			(each attributeAt: #implements)
+				ifNil: [ (each attributeAt: #for)
+					ifNil: [ '' ] ifNotNil: [ :t | 'for ' , t asString ] ]
+				ifNotNil: [ :l | ', ' join: (l asList collect: [ :s | s asString ]) ] ];
+		send: [ :each |
+			self application evaluateAndWait:
+				'GtBridge.Documentation.for_module(',
+				(each attributeAt: #module) asString, ')' ]
 ]
 
 { #category : 'initialization' }

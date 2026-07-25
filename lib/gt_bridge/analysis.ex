@@ -354,7 +354,8 @@ defmodule GtBridge.Analysis do
                 sig: "#{name}/#{arity}",
                 start: walked_start,
                 end_line: end_line,
-                source: full_slice
+                source: full_slice,
+                defaults: 0
               }
 
               {:halt, {:ok, entry}}
@@ -870,13 +871,14 @@ defmodule GtBridge.Analysis do
   defp module_implementors(mod, name_str, arity) do
     name_atom = String.to_atom(name_str)
     mod_str = inspect(mod)
+    funs = all_functions(mod)
 
     ast_entries =
-      all_functions(mod)
+      funs
       |> Enum.filter(&(&1.name == name_str and (arity == nil or &1.arity == arity)))
       |> Enum.map(&Map.put(&1, :module, mod_str))
 
-    ast_arities = ast_entries |> Enum.map(& &1.arity) |> MapSet.new()
+    ast_arities = for e <- funs, e.name == name_str, into: MapSet.new(), do: e.arity
 
     exported_arities =
       for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
@@ -899,7 +901,37 @@ defmodule GtBridge.Analysis do
         }
       end
 
-    ast_entries ++ extra
+    entries =
+      (ast_entries ++ extra)
+      |> Enum.map(fn e ->
+        case e.start == 0 && covering_def(funs, name_str, e.arity) do
+          %{} = c -> Map.put(c, :module, mod_str)
+          _ -> e
+        end
+      end)
+      |> Enum.uniq()
+
+    # A private default-arg head is neither exported nor in the AST;
+    # it still resolves to the def that generates it.
+    case {entries, arity} do
+      {[], a} when is_integer(a) ->
+        covering_def(funs, name_str, a) |> List.wrap() |> Enum.map(&Map.put(&1, :module, mod_str))
+
+      _ ->
+        entries
+    end
+  end
+
+  # `def foo(a, b \\ :x)` generates foo/1 with no def of its own;
+  # resolve such an arity to the def that generates it.
+  defp covering_def(funs, name_str, a) do
+    funs
+    |> Enum.filter(
+      &(&1.name == name_str and &1.arity > a and &1.start > 0 and
+          String.starts_with?(to_string(&1.kind), "def"))
+    )
+    |> Enum.sort_by(& &1.arity)
+    |> Enum.find(&(a >= &1.arity - Map.get(&1, :defaults, 0)))
   end
 
   @doc """
@@ -999,14 +1031,24 @@ defmodule GtBridge.Analysis do
       modules_in_calls = calls |> Enum.map(& &1.target_module) |> Enum.uniq()
       context_str = context_module && inspect(context_module)
 
+      # Bare local calls resolve against the source's own defs (defp too)
+      # whether or not a context module was given.  collect_calls/2 tags
+      # them with the context name, or "" when none was passed, so the
+      # local set is keyed under whichever it used.
+      local_key = context_str || ""
+
       local_names =
-        if context_str,
-          do: MapSet.union(source_function_names(source, ast), exported_names(context_str)),
-          else: MapSet.new()
+        MapSet.union(
+          source_function_names(source, ast),
+          if(context_module,
+            do: MapSet.union(exported_names(context_str), module_local_names(context_module)),
+            else: MapSet.new()
+          )
+        )
 
       defined =
         Map.new(modules_in_calls, fn mod_str ->
-          names = if mod_str == context_str, do: local_names, else: exported_names(mod_str)
+          names = if mod_str == local_key, do: local_names, else: exported_names(mod_str)
           {mod_str, names}
         end)
 
@@ -1043,8 +1085,8 @@ defmodule GtBridge.Analysis do
     end)
   end
 
-  # A module's exported functions + macros — the names a cross-module
-  # call can reach.
+  # A module's exported functions, macros, and public types — the names
+  # a cross-module call or type reference can reach.
   defp exported_names(nil), do: MapSet.new()
 
   defp exported_names(mod_str) do
@@ -1053,10 +1095,27 @@ defmodule GtBridge.Analysis do
     if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
       (safe_module_info(mod, :functions) ++ safe_module_info(mod, :macros))
       |> Enum.map(fn {name, _arity} -> Atom.to_string(name) end)
+      |> Enum.concat(exported_type_names(mod))
       |> MapSet.new()
     else
       MapSet.new()
     end
+  end
+
+  # Type names come from the beam chunk, not __info__; cache by md5 so
+  # referenced modules stay warm across edits.
+  defp exported_type_names(mod) do
+    GtBridge.CacheReaper.cached({:exported_types, mod, safe_module_info(mod, :md5)}, fn ->
+      case Code.Typespec.fetch_types(mod) do
+        {:ok, types} ->
+          for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
+
+        _ ->
+          []
+      end
+    end)
+  rescue
+    _ -> []
   end
 
   defp source_function_names(source, ast) do
@@ -1102,12 +1161,32 @@ defmodule GtBridge.Analysis do
     end
   end
 
+  # Parsing the saved source for aliases/imports is ~3ms each; cache by
+  # md5, same as the type names.
   defp module_alias_map(mod) do
-    GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
+    GtBridge.CacheReaper.cached({:module_alias_map, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
+    end)
   end
 
   defp module_import_map(mod) do
-    GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
+    GtBridge.CacheReaper.cached({:module_import_map, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
+    end)
+  end
+
+  # source_function_names on the module's saved source (the same
+  # extraction the source view runs on the live buffer), so a
+  # single-function view resolves calls to the module's own defs.
+  defp module_local_names(mod) do
+    GtBridge.CacheReaper.cached({:module_local_names, mod, safe_module_info(mod, :md5)}, fn ->
+      GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
+        case Code.string_to_quoted(src, columns: true, token_metadata: true) do
+          {:ok, ast} -> source_function_names(src, ast)
+          _ -> MapSet.new()
+        end
+      end)
+    end)
   end
 
   @doc """
@@ -1262,14 +1341,14 @@ defmodule GtBridge.Analysis do
   defp function_entry_for(kind_str, head, meta) do
     case function_head(head) do
       {name, arity} when is_atom(name) and is_integer(arity) ->
-        function_record(kind_str, name, arity, meta)
+        function_record(kind_str, name, arity, default_count(head), meta)
 
       _ ->
         []
     end
   end
 
-  defp function_record(kind_str, name, arity, meta) do
+  defp function_record(kind_str, name, arity, defaults, meta) do
     end_line = meta[:end][:line] || meta[:end_of_expression][:line] || meta[:line]
 
     [
@@ -1279,10 +1358,20 @@ defmodule GtBridge.Analysis do
         kind: kind_str,
         start: meta[:line],
         end_line: end_line,
-        sig: "#{name}/#{arity}"
+        sig: "#{name}/#{arity}",
+        defaults: defaults
       }
     ]
   end
+
+  # Arities `arity - defaults` .. `arity - 1` are generated heads
+  # with no def of their own.
+  defp default_count({:when, _, [head | _]}), do: default_count(head)
+
+  defp default_count({_, _, args}) when is_list(args),
+    do: Enum.count(args, &match?({:\\, _, _}, &1))
+
+  defp default_count(_), do: 0
 
   defp function_head({:when, _, [head | _]}), do: function_head(head)
 

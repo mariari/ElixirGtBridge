@@ -59,7 +59,28 @@ defmodule GtBridge.Eval.Preamble do
         |> Enum.reduce(base_env, &eval_into_env/2)
       end)
 
-    :sys.replace_state(pid, fn s -> %{s | env: new_env} end)
+    :sys.replace_state(pid, fn s ->
+      %{s | env: new_env, locals: private_functions(mod)}
+    end)
+  end
+
+  # import only brings publics into the env; the session records the
+  # defps separately so completion can offer them too.
+  defp private_functions(mod) do
+    exports = mod.module_info(:exports)
+
+    for {name, arity} <- mod.module_info(:functions),
+        {name, arity} not in exports,
+        str = Atom.to_string(name),
+        not String.starts_with?(str, "-") do
+      case str do
+        # defmacrop compiles to MACRO-name with an extra env argument
+        "MACRO-" <> macro -> {String.to_atom(macro), arity - 1}
+        _ -> {name, arity}
+      end
+    end
+  rescue
+    _ -> []
   end
 
   defp eval_into_env(line, env) do
