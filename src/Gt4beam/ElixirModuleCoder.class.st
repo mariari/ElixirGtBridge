@@ -562,10 +562,7 @@ ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
 				attributeAt: #defines ] on: Error do: [ nil ].
 			defines
 				ifNil: [ #() ]
-				ifNotNil: [
-					((defines attributeAt: #implementors)
-						ifNil: [ defines attributeAt: #impls ])
-						ifNil: [ #() ] ifNotNil: [ :kids | kids asList ] ] ];
+				ifNotNil: [ BeamMondrianHelpers implementorsOf: defines ] ];
 		column: 'Module' text: [ :each |
 			(each attributeAt: #module) asString withoutPrefix: 'Elixir.' ];
 		column: 'Implements' text: [ :each |

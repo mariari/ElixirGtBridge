@@ -223,13 +223,11 @@ ElixirApplicationAnalysis >> gtInterfaceMapFor: aView [
 			sigsByName := Dictionary new.
 			edges := OrderedCollection new.
 			rows do: [ :r |
-				| iname kids |
+				| iname |
 				iname := (r attributeAt: #name) asString.
 				kinds at: iname put: #interface.
-				sigsByName at: iname put:
-					((r attributeAt: #callback_names) ifNil: [ r attributeAt: #functions ]).
-				kids := (r attributeAt: #implementors) ifNil: [ r attributeAt: #impls ].
-				kids asList do: [ :k |
+				sigsByName at: iname put: (BeamMondrianHelpers interfaceSigs: r).
+				(BeamMondrianHelpers implementorsOf: r) do: [ :k |
 					| mname |
 					mname := (k attributeAt: #module) asString.
 					kinds at: mname ifAbsentPut: [ #impl ].

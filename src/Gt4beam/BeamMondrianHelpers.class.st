@@ -176,60 +176,54 @@ BeamMondrianHelpers class >> implementsEdgeStencil [
 ]
 
 { #category : 'uml' }
+BeamMondrianHelpers class >> implementorsOf: aRow [
+	"A behaviour row carries implementors, a protocol row impls."
+	^ ((aRow attributeAt: #implementors) ifNil: [ aRow attributeAt: #impls ])
+		ifNil: [ #() ] ifNotNil: [ :kids | kids asList ]
+]
+
+{ #category : 'uml' }
+BeamMondrianHelpers class >> interfaceSigs: aRow [
+	"A behaviour row carries callback_names, a protocol row functions."
+	^ (aRow attributeAt: #callback_names) ifNil: [ aRow attributeAt: #functions ]
+]
+
+{ #category : 'uml' }
 BeamMondrianHelpers class >> interfacesDrawingFor: aView moduleExpr: exprString eval: evalBlock [
-	"I build the per-module Interfaces mondrian shared by every proxy
-	 that can name a module: what it implements above it, its
-	 implementors below when it is itself an interface. exprString
-	 evaluates to the module on the bridge; everything computes inside
-	 the painting block so the tab stays instant until opened."
+	"The per-module Interfaces mondrian: what it implements above it,
+	 its implementors below when it is itself an interface. Lazy; a
+	 module with no interface facts paints nothing."
 	^ aView mondrian
 		title: 'Interfaces';
 		priority: 40;
 		painting: [ :m |
-			| facts modName defines kinds sigsByName edges |
-			facts := [ evalBlock value:
-				'GtBridge.Analysis.Interfaces.of_module(', exprString, ')' ]
+			| facts modName defines kinds sigs edges |
+			facts := [ evalBlock value: 'GtBridge.Analysis.Interfaces.of_module(', exprString, ')' ]
 				on: Error do: [ nil ].
-			facts := facts ifNotNil: [
-				"Nothing to draw for a plain module: no lonely self node."
-				((facts attributeAt: #defines) isNil
-					and: [ (facts attributeAt: #implements) asList isEmpty ])
-					ifTrue: [ nil ] ifFalse: [ facts ] ].
+			kinds := Dictionary new.
+			sigs := Dictionary new.
+			edges := OrderedCollection new.
 			facts ifNotNil: [
 				modName := (facts attributeAt: #module) asString.
 				defines := facts attributeAt: #defines.
-				kinds := Dictionary new.
-				sigsByName := Dictionary new.
-				edges := OrderedCollection new.
-				kinds at: modName put: (defines isNil ifTrue: [ #module ] ifFalse: [ #interface ]).
-				defines ifNotNil: [
-					sigsByName at: modName put:
-						((defines attributeAt: #callback_names)
-							ifNil: [ defines attributeAt: #functions ]) ].
 				(facts attributeAt: #implements) asList do: [ :i |
 					| iname |
 					iname := (i attributeAt: #name) asString.
-					kinds at: iname ifAbsentPut: [ #interface ].
-					sigsByName at: iname ifAbsentPut: [
-						(i attributeAt: #callback_names) ifNil: [ i attributeAt: #functions ] ].
+					kinds at: iname put: #interface.
+					sigs at: iname put: (self interfaceSigs: i).
 					edges add: iname -> modName ].
 				defines ifNotNil: [
-					| kids |
-					kids := (defines attributeAt: #implementors)
-						ifNil: [ defines attributeAt: #impls ].
-					kids asList do: [ :k |
+					sigs at: modName put: (self interfaceSigs: defines).
+					(self implementorsOf: defines) do: [ :k |
 						| mname |
 						mname := (k attributeAt: #module) asString.
 						mname = modName ifFalse: [
 							kinds at: mname ifAbsentPut: [ #module ].
 							edges add: modName -> mname ] ] ].
-				self
-					paintInterfaceGraphOn: m
-					kinds: kinds
-					sigs: sigsByName
-					edges: edges
-					assocEdges: #()
-					eval: evalBlock ] ]
+				(kinds notEmpty or: [ defines notNil ]) ifTrue: [
+					kinds at: modName put: (defines isNil ifTrue: [ #module ] ifFalse: [ #interface ]).
+					self paintInterfaceGraphOn: m kinds: kinds sigs: sigs
+						edges: edges assocEdges: #() eval: evalBlock ] ] ]
 ]
 
 { #category : 'uml' }
@@ -265,46 +259,32 @@ BeamMondrianHelpers class >> nodeLabeled: aString color: aColor onClick: aBlock 
 
 { #category : 'uml' }
 BeamMondrianHelpers class >> paintInterfaceGraphOn: m kinds: kinds sigs: sigsByName edges: edges assocEdges: assocEdges eval: evalBlock [
-	"I paint an interface -> implementor UML graph: boxes for
-	 interfaces, labels for modules, implements triangles, orange
-	 call arcs (passive, so the tree layout stays put). evalBlock
-	 runs an expression on the bridge; module names spawn module
-	 docs, signature rows spawn their function's docs."
-	| spawn |
-	spawn := [ :evt :name |
+	"Interface -> implementor UML graph: boxes, labels, implements
+	 triangles, orange call arcs. Clicks spawn module or function docs."
+	| open |
+	open := [ :evt :expr |
 		evt consumed: true.
-		evt currentTarget phlow spawnObject:
-			(evalBlock value: 'GtBridge.Documentation.for_module(', name, ')') ].
+		evt currentTarget phlow spawnObject: (evalBlock value: expr) ].
 	m nodes
 		shape: [ :name |
+			| toModule |
+			toModule := [ :evt | open value: evt value: 'GtBridge.Documentation.for_module(', name, ')' ].
 			(kinds at: name) = #interface
 				ifTrue: [
-					| sigs |
-					sigs := sigsByName at: name ifAbsent: [ nil ].
-					self
-						umlBoxNamed: name
-						signatures: (sigs isNil
-							ifTrue: [ #() ]
-							ifFalse: [ sigs asList collect: [ :s | s asString ] ])
-						onClick: [ :evt | spawn value: evt value: name ]
+					self umlBoxNamed: name
+						signatures: ((sigsByName at: name ifAbsent: [ nil ])
+							ifNil: [ #() ] ifNotNil: [ :l | l asList collect: [ :s | s asString ] ])
+						onClick: toModule
 						onSignatureClick: [ :sig :evt |
 							| parts |
 							parts := $/ split: sig.
-							evt currentTarget phlow spawnObject:
-								(evalBlock value: 'GtBridge.Documentation.for_function(',
-									name, ', :"', parts first, '", ', parts last, ')') ] ]
-				ifFalse: [
-					self moduleLabelNamed: name
-						onClick: [ :evt | spawn value: evt value: name ] ] ];
+							open value: evt value: ('GtBridge.Documentation.for_function(',
+								name, ', :"', parts first, '", ', parts last, ')') ] ]
+				ifFalse: [ self moduleLabelNamed: name onClick: toModule ] ];
 		with: kinds keys asArray sorted.
-	m edges
-		stencil: self implementsEdgeStencil;
-		connect: edges from: #key to: #value.
+	m edges stencil: self implementsEdgeStencil; connect: edges from: #key to: #value.
 	assocEdges isEmpty ifFalse: [
-		m edges
-			passive;
-			stencil: self associationEdgeStencil;
-			connect: assocEdges from: #key to: #value ].
+		m edges passive; stencil: self associationEdgeStencil; connect: assocEdges from: #key to: #value ].
 	m layout tree levelDistance: 40; nodeDistance: 15
 ]
 
