@@ -401,6 +401,11 @@ BeamMondrianHelpers class >> umlBoxNamed: aName signatures: sigLines onClick: aB
 		i > 1 ifTrue: [ methodsText append: String cr asRopedText ].
 		methodsText append: line ].
 	uml text: methodsText in: #methods.
+	"The compartments are editors; a diagram must not be typeable.
+	 Read-only keeps selection (copyable sigs) and still fires the
+	 click attributes."
+	#(label methods) do: [ :c |
+		uml editorIn: c do: [ :el | el editor beReadOnlyWithSelection ] ].
 	^ uml
 		background: Color white;
 		constraintsDo: [ :c |
