@@ -213,7 +213,7 @@ ElixirApplicationAnalysis >> gtInterfaceMapFor: aView [
 	 calls between the drawn modules are its orange association arcs."
 	^ aView mondrian
 		title: 'Interface map';
-		priority: 7;
+		priority: 10;
 		painting: [ :m |
 			| rows kinds sigsByName edges assocEdges |
 			rows := [ (self application evaluateAndWait:
@@ -263,7 +263,7 @@ ElixirApplicationAnalysis >> gtInterfacesFor: aView [
 	 documentation."
 	^ aView columnedTree
 		title: 'Interfaces';
-		priority: 10;
+		priority: 11;
 		items: [ [ (self application evaluateAndWait:
 			'GtBridge.Analysis.Interfaces.in_app(', self name resolve, ')') asList ]
 			on: Error do: [ #() ] ];

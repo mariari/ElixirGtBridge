@@ -488,7 +488,7 @@ ElixirModuleCoder >> gtInterfacesViewFor: aView context: aContext [
 		interfacesDrawingFor: aView
 		moduleExpr: self moduleName
 		eval: [ :expr | self application evaluateAndWait: expr ])
-		priority: 43
+		priority: 22
 ]
 
 { #category : 'gt-extensions' }
