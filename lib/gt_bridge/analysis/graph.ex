@@ -55,8 +55,7 @@ defmodule GtBridge.Analysis.Graph do
   def implementors(name, arity \\ nil) do
     name_str = Atom.to_string(name)
 
-    Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} -> LoadedModules.modules_for_app(app) end)
+    LoadedModules.all_modules()
     |> Enum.filter(fn mod ->
       Code.ensure_loaded?(mod) and function_exported?(mod, :__info__, 1)
     end)

@@ -68,6 +68,10 @@ defmodule GtBridge.Analysis.LoadedModules do
   @spec modules_for_app(atom()) :: [module()]
   def modules_for_app(app), do: :ets.select(@table, [{{:_, :"$1", app}, [], [:"$1"]}])
 
+  @doc "I return every known module across all applications."
+  @spec all_modules() :: [module()]
+  def all_modules, do: :ets.select(@table, [{{:_, :"$1", :_}, [], [:"$1"]}])
+
   @doc """
   I diff the BEAM's loaded modules against my set and broadcast a
   `:recompiled` fact for each one that arrived outside the bridge's
