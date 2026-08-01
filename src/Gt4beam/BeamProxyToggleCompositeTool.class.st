@@ -2,7 +2,6 @@ Class {
 	#name : 'BeamProxyToggleCompositeTool',
 	#superclass : 'GtPhlowCompositeTool',
 	#instVars : [
-		'proxyObject',
 		'subState',
 		'currentToolName',
 		'cachedProxies',
@@ -20,7 +19,6 @@ BeamProxyToggleCompositeTool class >> fromModes: modes [
 	| composite |
 	composite := self new.
 	modes do: [ :mode | composite addTool: mode tool ].
-	composite proxyObject: modes first object.
 	^ composite
 ]
 
@@ -145,12 +143,3 @@ BeamProxyToggleCompositeTool >> onTabSelected [
 	self attachRpBoxToSelectedTab
 ]
 
-{ #category : 'accessing' }
-BeamProxyToggleCompositeTool >> proxyObject [
-	^ proxyObject
-]
-
-{ #category : 'accessing' }
-BeamProxyToggleCompositeTool >> proxyObject: anObject [
-	proxyObject := anObject
-]

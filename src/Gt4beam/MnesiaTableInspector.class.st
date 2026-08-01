@@ -11,11 +11,6 @@ Class {
 }
 
 { #category : 'accessing' }
-MnesiaTableInspector >> application [
-	^ application
-]
-
-{ #category : 'accessing' }
 MnesiaTableInspector >> application: anApp [
 	application := anApp
 ]
@@ -79,11 +74,6 @@ MnesiaTableInspector >> printOn: aStream [
 { #category : 'private' }
 MnesiaTableInspector >> quotedTableAtom [
 	^ ':"', tableName, '"'
-]
-
-{ #category : 'accessing' }
-MnesiaTableInspector >> tableName [
-	^ tableName
 ]
 
 { #category : 'accessing' }

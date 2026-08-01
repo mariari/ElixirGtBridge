@@ -153,13 +153,6 @@ BeamModuleResolution >> recordResolved: aResolvedSet unresolved: anUnresolvedSet
 		unresolved add: each asString ]
 ]
 
-{ #category : 'accessing' }
-BeamModuleResolution >> resolved [
-	"For testing / introspection.  Consumers should use #classify:
-	 instead of reading the set directly."
-	^ resolved
-]
-
 { #category : 'subscriptions' }
 BeamModuleResolution >> subscribe [
 	"I subscribe weakly to recompile events on the wildcard channel.

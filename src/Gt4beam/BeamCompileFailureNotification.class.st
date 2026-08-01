@@ -31,11 +31,6 @@ BeamCompileFailureNotification >> application: anApp [
 ]
 
 { #category : 'accessing' }
-BeamCompileFailureNotification >> arity [
-	^ arity
-]
-
-{ #category : 'accessing' }
 BeamCompileFailureNotification >> arity: anIntegerOrNil [
 	arity := anIntegerOrNil
 ]
@@ -72,11 +67,6 @@ BeamCompileFailureNotification >> functionLineLabel [
 ]
 
 { #category : 'accessing' }
-BeamCompileFailureNotification >> functionName [
-	^ functionName
-]
-
-{ #category : 'accessing' }
 BeamCompileFailureNotification >> functionName: aStringOrNil [
 	functionName := aStringOrNil
 ]
@@ -98,15 +88,6 @@ BeamCompileFailureNotification >> hasFunction [
 { #category : 'testing' }
 BeamCompileFailureNotification >> hasLine [
 	^ line isNotNil and: [ line > 0 ]
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> header [
-	| base |
-	base := 'Compile failed for ', moduleName asString.
-	^ self hasLine
-		ifTrue: [ base , ' (line ' , line asString , ')' ]
-		ifFalse: [ base ]
 ]
 
 { #category : 'accessing' }
@@ -153,11 +134,6 @@ BeamCompileFailureNotification >> sourcePath [
 { #category : 'accessing' }
 BeamCompileFailureNotification >> sourcePath: aStringOrNil [
 	sourcePath := aStringOrNil
-]
-
-{ #category : 'accessing' }
-BeamCompileFailureNotification >> summary [
-	^ self header , ': ' , (errorMessage ifNil: [ '(no message)' ])
 ]
 
 { #category : 'accessing' }

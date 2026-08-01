@@ -21,11 +21,6 @@ ElixirFunctionFiltersBuilder >> availableFilters [
 ]
 
 { #category : 'accessing' }
-ElixirFunctionFiltersBuilder >> coders [
-	^ coders
-]
-
-{ #category : 'accessing' }
 ElixirFunctionFiltersBuilder >> coders: aCoders [
 	coders := aCoders
 ]

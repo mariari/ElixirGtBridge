@@ -177,14 +177,6 @@ BeamProxyObject >> evaluateAndWait: string [
 		sendAndWait
 ]
 
-{ #category : 'gt-extensions' }
-BeamProxyObject >> filterLocalProxyViews: localViews [
-	"I remove views tagged <gtProxyView> from the Remote tab list so
-	 they appear only under Proxy mode."
-	^ localViews reject: [ :each |
-		each definingMethod compiledMethod hasPragmaNamed: #gtProxyView ]
-]
-
 { #category : 'accessing' }
 BeamProxyObject >> functionLines [
 	^ nil

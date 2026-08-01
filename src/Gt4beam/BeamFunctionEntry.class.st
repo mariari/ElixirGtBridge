@@ -24,11 +24,6 @@ BeamFunctionEntry >> attributeAt: aKey [
 ]
 
 { #category : 'accessing' }
-BeamFunctionEntry >> fields [
-	^ fields
-]
-
-{ #category : 'accessing' }
 BeamFunctionEntry >> fields: aDictionary [
 	fields := aDictionary
 ]
