@@ -53,8 +53,9 @@ BeamAtomObject >> determinePID [
 { #category : 'accessing' }
 BeamAtomObject >> elixirClass [
 	"I return the Elixir module name for module atoms, or nil otherwise.
-	 Used by GtElixirCoderModel's wrapSource:withSelf: to prepend
-	 `import <Module>` to snippets that reference a module atom as self."
+	 Used by GtElixirCoderModel's ensureSessionPrimed:sessionId: to load
+	 the module's context into the eval session for snippets that
+	 reference a module atom as self."
 	^ self isModuleAtom ifTrue: [ symbol ]
 ]
 

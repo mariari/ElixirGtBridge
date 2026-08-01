@@ -140,20 +140,22 @@ defmodule Examples.ECompletion do
     results
   end
 
-  @spec preamble_directives_parse_alone() :: [String.t()]
-  example preamble_directives_parse_alone do
-    # GT prepends these verbatim to inspector snippet evals; the old
-    # line scan handed over fragments of wrapped directives, killing
-    # the whole snippet with a syntax error the user never wrote. The
-    # fixture alias group is wide enough that the formatter keeps it
-    # wrapped, so this also pins the one-line render (Macro.to_string
-    # reproduces source line breaks unless told otherwise).
-    lines = GtBridge.Eval.Preamble.directives(Examples.ECompletion.Wrapped)
+  @spec editor_session_primes_wrapped_directives() :: Macro.Env.t()
+  example editor_session_primes_wrapped_directives do
+    # The session env is the single home of a module's eval context -
+    # GT primes it once instead of prepending directive text to every
+    # snippet. Formatter-wrapped directives must land in it whole.
+    sid =
+      GtBridge.Eval.Preamble.editor_session(
+        Examples.ECompletion.Wrapped,
+        "e_completion_wrapped"
+      )
 
-    assert length(lines) == 2
-    assert Enum.all?(lines, &match?({:ok, _}, Code.string_to_quoted(&1)))
-    assert Enum.any?(lines, &String.contains?(&1, "LoadedModules"))
+    env = :sys.get_state(GtBridge.EvalRegistry.get_or_create(sid)).env
 
-    lines
+    assert {Source, GtBridge.Analysis.Source} in env.aliases
+    assert {:map, 2} in (env.functions[Enum] || [])
+
+    env
   end
 end
