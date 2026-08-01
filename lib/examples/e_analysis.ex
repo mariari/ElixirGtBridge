@@ -369,6 +369,30 @@ defmodule Examples.EAnalysis do
     sites
   end
 
+  @spec call_sites_through_wrapped_directives() :: [map()]
+  example call_sites_through_wrapped_directives do
+    # The old regex directive scanners were line-based and went blind
+    # when the formatter wrapped an alias group or import: every call
+    # through them silently vanished from the expander.
+    source = ~s'''
+    alias GtBridge.Analysis.{
+      Source,
+      Walker
+    }
+    import Enum,
+      only: [map: 2]
+
+    Source.quoted("1") && Walker.collect_calls({:ok, 1}) && map([1], & &1)
+    '''
+
+    sites = Analysis.call_sites(source)
+
+    assert Enum.map(sites, & &1.target_module) |> Enum.sort() ==
+             ["Enum", "GtBridge.Analysis.Source", "GtBridge.Analysis.Walker"]
+
+    sites
+  end
+
   # A local `defp` called within the same source resolves even with no
   # context module — nil context used to zero the local set, dropping
   # local calls to the foreign path that (correctly) hides privates.

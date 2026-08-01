@@ -92,6 +92,36 @@ defmodule GtBridge.Analysis.Source do
   end
 
   @doc """
+  I return the alias/import/require statements `ast` declares — whole
+  statements, so formatter-wrapped directives arrive intact. With no
+  module I sweep the top level and every top-level module (buffer
+  semantics); given a dotted module name I scope to that module's own
+  body, so siblings in the same file don't leak theirs in.
+  """
+  @spec directives(Macro.t(), String.t() | nil) :: [Macro.t()]
+  def directives(ast, module \\ nil)
+
+  def directives(ast, nil) do
+    ast
+    |> body_statements()
+    |> Enum.flat_map(fn
+      {:defmodule, _, [_, [do: body]]} -> body_statements(body)
+      stmt -> [stmt]
+    end)
+    |> Enum.filter(&directive?/1)
+  end
+
+  def directives(ast, module) do
+    case module_scope(ast, module) do
+      {:defmodule, _, [_, [do: body]]} -> body |> body_statements() |> Enum.filter(&directive?/1)
+      _ -> []
+    end
+  end
+
+  defp directive?(stmt),
+    do: match?({kind, _, [_ | _]} when kind in [:alias, :import, :require], stmt)
+
+  @doc """
   I swap two functions (by `{name, arity}`) within `module` in `source`,
   taking ranges from `source` itself so the splice can't drift. Unknown
   name/arity returns `source` unchanged.

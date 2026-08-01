@@ -1,3 +1,25 @@
+defmodule Examples.ECompletion.Wrapped do
+  @moduledoc false
+
+  # Deliberately the brace-group form, wide enough to stay wrapped:
+  # this fixture guards multi-line directive parsing. Don't "fix" the
+  # style - one-alias-per-line would never wrap and the coverage dies.
+  alias GtBridge.Analysis.{
+    Source,
+    Walker,
+    CallSites,
+    Graph,
+    LoadedModules,
+    Interfaces
+  }
+
+  import Enum,
+    only: [map: 2]
+
+  @doc false
+  def touch, do: {Source, Walker, CallSites, Graph, LoadedModules, Interfaces, map([], & &1)}
+end
+
 defmodule Examples.ECompletion do
   @moduledoc """
   I am examples for the Elixir autocompletion system.
@@ -116,5 +138,22 @@ defmodule Examples.ECompletion do
     assert Enum.any?(results, &String.starts_with?(&1, "complete_local_or_var/"))
 
     results
+  end
+
+  @spec preamble_directives_parse_alone() :: [String.t()]
+  example preamble_directives_parse_alone do
+    # GT prepends these verbatim to inspector snippet evals; the old
+    # line scan handed over fragments of wrapped directives, killing
+    # the whole snippet with a syntax error the user never wrote. The
+    # fixture alias group is wide enough that the formatter keeps it
+    # wrapped, so this also pins the one-line render (Macro.to_string
+    # reproduces source line breaks unless told otherwise).
+    lines = GtBridge.Eval.Preamble.directives(Examples.ECompletion.Wrapped)
+
+    assert length(lines) == 2
+    assert Enum.all?(lines, &match?({:ok, _}, Code.string_to_quoted(&1)))
+    assert Enum.any?(lines, &String.contains?(&1, "LoadedModules"))
+
+    lines
   end
 end

@@ -10,8 +10,8 @@ defmodule GtBridge.Analysis.Walker do
   ### Public API
 
   - `collect_calls/2`: walk an AST and return raw call entries
-  - `extract_alias_map/1`: parse `alias` directives from source
-  - `extract_import_map/1`: parse `import` directives from source
+  - `alias_map/1`: fold alias directive statements into a lookup map
+  - `import_map/1`: fold import directive statements into a lookup map
   - `resolve_call_aliases/2`: rewrite call entries through an alias map
   - `resolve_import_targets/2`: rewrite local entries through an import map
   """
@@ -39,56 +39,93 @@ defmodule GtBridge.Analysis.Walker do
   end
 
   @doc """
-  I parse `alias` directives from `source` and return a map from
-  the short name to the fully qualified module string.
+  I fold `alias` directives (as AST statements) into a map from the
+  short name to the fully qualified module string.
   """
-  @spec extract_alias_map(String.t()) :: %{String.t() => String.t()}
-  def extract_alias_map(source) do
-    source
-    |> String.split("\n")
-    |> Enum.flat_map(fn line ->
-      trimmed = String.trim(line)
+  @spec alias_map([Macro.t()]) :: %{String.t() => String.t()}
+  def alias_map(directives) do
+    directives
+    |> Enum.flat_map(fn
+      {:alias, _, [{:__aliases__, _, parts}]} ->
+        alias_entry(parts, parts)
 
-      cond do
-        match = Regex.run(~r/^alias\s+(\S+),\s*as:\s*(\w+)/, trimmed) ->
-          [{Enum.at(match, 2), Enum.at(match, 1)}]
+      {:alias, _, [{:__aliases__, _, parts}, opts]} when is_list(opts) ->
+        case Keyword.get(opts, :as) do
+          {:__aliases__, _, [short]} when is_atom(short) ->
+            if full = dotted(parts), do: [{Atom.to_string(short), full}], else: []
 
-        match = Regex.run(~r/^alias\s+([\w.]+)\.\{([^}]+)\}/, trimmed) ->
-          prefix = Enum.at(match, 1)
+          _ ->
+            alias_entry(parts, parts)
+        end
 
-          Enum.at(match, 2)
-          |> String.split(",")
-          |> Enum.map(&String.trim/1)
-          |> Enum.reject(&(&1 == ""))
-          |> Enum.map(fn name -> {name, "#{prefix}.#{name}"} end)
+      {:alias, _, [{{:., _, [{:__aliases__, _, prefix}, :{}]}, _, group}]} ->
+        Enum.flat_map(group, fn
+          {:__aliases__, _, parts} -> alias_entry(parts, prefix ++ parts)
+          _ -> []
+        end)
 
-        match = Regex.run(~r/^alias\s+([\w.]+)$/, trimmed) ->
-          full = Enum.at(match, 1)
-          short = full |> String.split(".") |> List.last()
-          [{short, full}]
-
-        true ->
-          []
-      end
+      _ ->
+        []
     end)
     |> Map.new()
   end
 
-  @doc """
-  I parse `import` directives from `source` and return a map from
-  `{function_name, arity}` to the full module string.
+  defp alias_entry(short_parts, full_parts) do
+    with full when full != nil <- dotted(full_parts),
+         short when is_atom(short) <- List.last(short_parts) do
+      [{Atom.to_string(short), full}]
+    else
+      _ -> []
+    end
+  end
 
-  Three forms recognized at the module level:
-    import Foo                          all exported funs from Foo
-    import Foo, only: [bar: 1, baz: 2]  whitelist
-    import Foo.{A, B}                   all funs from each
+  # nil for non-literal segments (alias __MODULE__.Foo etc.)
+  defp dotted(parts) do
+    if Enum.all?(parts, &is_atom/1), do: Enum.map_join(parts, ".", &Atom.to_string/1)
+  end
+
+  @doc """
+  I fold `import` directives into a map from `{function_name, arity}`
+  to the full module string. `only:` lists narrow the set; every other
+  form imports the module's full export list.
   """
-  @spec extract_import_map(String.t()) :: %{{String.t(), non_neg_integer()} => String.t()}
-  def extract_import_map(source) do
-    source
-    |> String.split("\n")
-    |> Enum.flat_map(&parse_import_line/1)
+  @spec import_map([Macro.t()]) :: %{{String.t(), non_neg_integer()} => String.t()}
+  def import_map(directives) do
+    directives
+    |> Enum.flat_map(fn
+      {:import, _, [{:__aliases__, _, parts}]} ->
+        full_imports(dotted(parts))
+
+      {:import, _, [{:__aliases__, _, parts}, opts]} when is_list(opts) ->
+        only = Keyword.get(opts, :only)
+
+        cond do
+          dotted(parts) == nil ->
+            []
+
+          Keyword.keyword?(only) and only != [] ->
+            for {name, arity} <- only, do: {{Atom.to_string(name), arity}, dotted(parts)}
+
+          true ->
+            full_imports(dotted(parts))
+        end
+
+      {:import, _, [{{:., _, [{:__aliases__, _, prefix}, :{}]}, _, group}]} ->
+        Enum.flat_map(group, fn
+          {:__aliases__, _, parts} -> full_imports(dotted(prefix ++ parts))
+          _ -> []
+        end)
+
+      _ ->
+        []
+    end)
     |> Map.new()
+  end
+
+  defp full_imports(nil), do: []
+
+  defp full_imports(mod_str) do
+    for {fn_name, arity} <- exports_of(mod_str), do: {{fn_name, arity}, mod_str}
   end
 
   @doc """
@@ -234,58 +271,6 @@ defmodule GtBridge.Analysis.Walker do
       column: meta[:column],
       local: true
     }
-  end
-
-  defp parse_import_line(line) do
-    trimmed = String.trim(line)
-
-    cond do
-      # import Foo, only: [bar: 1, baz: 2]
-      match = Regex.run(~r/^import\s+([\w.]+),\s*only:\s*\[([^\]]+)\]/, trimmed) ->
-        mod_str = Enum.at(match, 1)
-
-        Enum.at(match, 2)
-        |> parse_only_list()
-        |> Enum.map(fn {name, arity} -> {{name, arity}, mod_str} end)
-
-      # import Foo.{A, B}
-      match = Regex.run(~r/^import\s+([\w.]+)\.\{([^}]+)\}/, trimmed) ->
-        prefix = Enum.at(match, 1)
-
-        Enum.at(match, 2)
-        |> String.split(",")
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.flat_map(fn name ->
-          full_str = "#{prefix}.#{name}"
-
-          for {fn_name, arity} <- exports_of(full_str) do
-            {{fn_name, arity}, full_str}
-          end
-        end)
-
-      # import Foo (catches `import Foo, except:`, `import Foo, only: :functions`, etc.)
-      match = Regex.run(~r/^import\s+([\w.]+)/, trimmed) ->
-        mod_str = Enum.at(match, 1)
-
-        for {fn_name, arity} <- exports_of(mod_str) do
-          {{fn_name, arity}, mod_str}
-        end
-
-      true ->
-        []
-    end
-  end
-
-  defp parse_only_list(str) do
-    str
-    |> String.split(",")
-    |> Enum.flat_map(fn entry ->
-      case Regex.run(~r/^\s*(\w+):\s*(\d+)\s*$/, entry) do
-        [_, name, arity] -> [{name, String.to_integer(arity)}]
-        _ -> []
-      end
-    end)
   end
 
   defp exports_of(mod_str) do
