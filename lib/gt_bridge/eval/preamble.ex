@@ -9,16 +9,11 @@ defmodule GtBridge.Eval.Preamble do
   same env state.
   """
 
-  # Skip "use " — it requires a module context and crashes in
-  # eval env (e.g. "use TypedStruct" triggers __meta__ errors)
-  @preamble_starts ["import ", "alias ", "require "]
-
   @doc """
   I create or return an eval session with a module's preamble loaded.
 
-  Walks the source file's use/import/alias/require lines and evals
-  them into the session's env, so completion works in context.
-  Returns the session ID.
+  Evals the source file's alias/import/require statements into the
+  session's env, so completion works in context. Returns the session ID.
   """
   @spec editor_session(module(), String.t()) :: String.t()
   def editor_session(mod, sid) do
@@ -29,34 +24,34 @@ defmodule GtBridge.Eval.Preamble do
     sid
   end
 
-  @doc "I return the alias/import/require lines from a module's source."
+  @doc """
+  I return the alias/import/require directives from a module's source,
+  each re-rendered on a single line. GT's snippet wrap prepends these
+  verbatim, so they must parse alone no matter how the source wrapped
+  them ("use" is excluded — it needs a module context to expand).
+  """
   @spec directives(module()) :: [String.t()]
   def directives(mod) when is_atom(mod) do
-    GtBridge.Resolve.with_source(mod, [], &directives/1)
+    GtBridge.Resolve.with_source(mod, [], fn source ->
+      Enum.map(directive_nodes(source), &Macro.to_string/1)
+    end)
   end
 
-  def directives(source) when is_binary(source) do
-    source
-    |> String.split("\n")
-    |> Stream.map(&String.trim/1)
-    |> Stream.take_while(fn line ->
-      not (String.starts_with?(line, "def ") or String.starts_with?(line, "defp "))
-    end)
-    |> Enum.filter(fn line ->
-      Enum.any?(@preamble_starts, &String.starts_with?(line, &1))
-    end)
+  defp directive_nodes(source) do
+    case GtBridge.Analysis.Source.quoted(source) do
+      {:ok, ast} -> GtBridge.Analysis.Source.directives(ast)
+      _ -> []
+    end
   end
 
   defp load_imports(mod, pid) do
     state = :sys.get_state(pid)
 
-    base_env = eval_into_env("import #{inspect(mod)}", state.env)
+    base_env = eval_into_env(quote(do: import(unquote(mod))), state.env)
 
     new_env =
       GtBridge.Resolve.with_source(mod, base_env, fn source ->
-        source
-        |> directives()
-        |> Enum.reduce(base_env, &eval_into_env/2)
+        Enum.reduce(directive_nodes(source), base_env, &eval_into_env/2)
       end)
 
     :sys.replace_state(pid, fn s ->
@@ -83,17 +78,17 @@ defmodule GtBridge.Eval.Preamble do
     _ -> []
   end
 
-  defp eval_into_env(line, env) do
+  defp eval_into_env(quoted, env) do
     # Suppress compiler diagnostics (e.g. Ecto's __meta__ warnings)
     # during preamble eval — they're harmless but noisy in the terminal
     old = Code.get_compiler_option(:no_warn_undefined)
     Code.put_compiler_option(:no_warn_undefined, :all)
 
     try do
-      {_, _, new_env} = Code.eval_quoted_with_env(Code.string_to_quoted!(line), [], env)
+      {_, _, new_env} = Code.eval_quoted_with_env(quoted, [], env)
       new_env
     rescue
-      e in [CompileError, SyntaxError, TokenMissingError, UndefinedFunctionError, ArgumentError] ->
+      e in [CompileError, UndefinedFunctionError, ArgumentError] ->
         _ = e
         env
     after

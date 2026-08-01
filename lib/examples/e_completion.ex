@@ -117,4 +117,17 @@ defmodule Examples.ECompletion do
 
     results
   end
+
+  @spec preamble_directives_parse_alone() :: [String.t()]
+  example preamble_directives_parse_alone do
+    # GT prepends these verbatim to inspector snippet evals; the old
+    # line scan handed over fragments of wrapped directives, killing
+    # the whole snippet with a syntax error the user never wrote.
+    lines = GtBridge.Eval.Preamble.directives(GtBridge.Analysis)
+
+    assert "alias GtBridge.Analysis.Source" in lines
+    assert Enum.all?(lines, &match?({:ok, _}, Code.string_to_quoted(&1)))
+
+    lines
+  end
 end

@@ -32,25 +32,11 @@ defmodule GtBridge.Analysis.CallSites do
 
   defp compute_call_sites(source, context_module) do
     with {:ok, ast} <- GtBridge.Analysis.Source.quoted(source) do
-      aliases =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_alias_map(source)
+      directives = GtBridge.Analysis.Source.directives(ast)
+      env = if context_module, do: module_env(context_module), else: empty_env()
 
-          mod ->
-            module_alias_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_alias_map(source))
-        end
-
-      imports =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_import_map(source)
-
-          mod ->
-            module_import_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_import_map(source))
-        end
+      aliases = Map.merge(env.aliases, GtBridge.Analysis.Walker.alias_map(directives))
+      imports = Map.merge(env.imports, GtBridge.Analysis.Walker.import_map(directives))
 
       calls =
         ast
@@ -74,7 +60,7 @@ defmodule GtBridge.Analysis.CallSites do
         MapSet.union(
           GtBridge.Analysis.Source.source_function_names(source, ast),
           if(context_module,
-            do: MapSet.union(exported_names(context_str), module_local_names(context_module)),
+            do: MapSet.union(exported_names(context_str), env.locals),
             else: MapSet.new()
           )
         )
@@ -154,7 +140,7 @@ defmodule GtBridge.Analysis.CallSites do
   @doc "I resolve an alias name using a context module's alias declarations."
   @spec resolve_alias(module(), String.t()) :: String.t()
   def resolve_alias(context_module, alias_name) do
-    aliases = module_alias_map(context_module)
+    aliases = module_env(context_module).aliases
     Map.get(aliases, alias_name, alias_name)
   end
 
@@ -172,33 +158,30 @@ defmodule GtBridge.Analysis.CallSites do
     GtBridge.Analysis.all_functions(mod) |> Enum.any?(&(&1.name == name))
   end
 
-  # Parsing the saved source for aliases/imports is ~3ms each; cache by
-  # md5, same as the type names.
-  defp module_alias_map(mod) do
-    cached_by_md5(:module_alias_map, mod, fn ->
-      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
-    end)
-  end
-
-  defp module_import_map(mod) do
-    cached_by_md5(:module_import_map, mod, fn ->
-      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
-    end)
-  end
-
-  # source_function_names on the module's saved source (the same
-  # extraction the source view runs on the live buffer), so a
-  # single-function view resolves calls to the module's own defs.
-  defp module_local_names(mod) do
-    cached_by_md5(:module_local_names, mod, fn ->
-      GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
+  # One md5-cached parse of the module's saved source answers the trio
+  # every resolution needs: its alias map, import map, and own def/type
+  # names (parsing is ~3ms; the key self-invalidates on recompile).
+  defp module_env(mod) do
+    cached_by_md5(:module_env, mod, fn ->
+      GtBridge.Resolve.with_source(mod, empty_env(), fn src ->
         case GtBridge.Analysis.Source.quoted(src) do
-          {:ok, ast} -> GtBridge.Analysis.Source.source_function_names(src, ast)
-          _ -> MapSet.new()
+          {:ok, ast} ->
+            directives = GtBridge.Analysis.Source.directives(ast)
+
+            %{
+              aliases: GtBridge.Analysis.Walker.alias_map(directives),
+              imports: GtBridge.Analysis.Walker.import_map(directives),
+              locals: GtBridge.Analysis.Source.source_function_names(src, ast)
+            }
+
+          _ ->
+            empty_env()
         end
       end)
     end)
   end
+
+  defp empty_env, do: %{aliases: %{}, imports: %{}, locals: MapSet.new()}
 
   @doc """
   I return `mod`'s `alias` declarations as a list of
@@ -217,7 +200,7 @@ defmodule GtBridge.Analysis.CallSites do
   """
   @spec module_aliases(module()) :: [[String.t()]]
   def module_aliases(mod) do
-    module_alias_map(mod) |> Enum.map(fn {short, full} -> [short, full] end)
+    module_env(mod).aliases |> Enum.map(fn {short, full} -> [short, full] end)
   end
 
   # I read the LoadedModules projection, not :application.get_key, so

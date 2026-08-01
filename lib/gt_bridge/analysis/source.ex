@@ -92,6 +92,22 @@ defmodule GtBridge.Analysis.Source do
   end
 
   @doc """
+  I return the alias/import/require statements `ast` declares at the
+  top level or directly inside a top-level module — whole statements,
+  so formatter-wrapped directives arrive intact.
+  """
+  @spec directives(Macro.t()) :: [Macro.t()]
+  def directives(ast) do
+    ast
+    |> body_statements()
+    |> Enum.flat_map(fn
+      {:defmodule, _, [_, [do: body]]} -> body_statements(body)
+      stmt -> [stmt]
+    end)
+    |> Enum.filter(&match?({kind, _, [_ | _]} when kind in [:alias, :import, :require], &1))
+  end
+
+  @doc """
   I swap two functions (by `{name, arity}`) within `module` in `source`,
   taking ranges from `source` itself so the splice can't drift. Unknown
   name/arity returns `source` unchanged.
