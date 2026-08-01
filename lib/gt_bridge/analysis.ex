@@ -4,7 +4,7 @@ defmodule GtBridge.Analysis do
   I provide static analysis data for GT visualization.
 
   I use `:xref` to extract module-level call graphs from compiled
-  BEAM files and `Code.fetch_docs/1` for documentation coverage.
+  BEAM files and `GtBridge.Beam.docs/1` for documentation coverage.
   I return raw data — GT builds the views.
 
   Sibling modules cover related subsystems split out from this one:
@@ -133,7 +133,7 @@ defmodule GtBridge.Analysis do
   end
 
   defp fun_docs(mod) do
-    case Code.fetch_docs(mod) do
+    case GtBridge.Beam.docs(mod) do
       {:docs_v1, _, _, _, _, _, docs} ->
         Enum.map(docs, fn {{kind, name, arity}, _, _, doc, _} ->
           has_doc = kind == :function and doc != :none and doc != :hidden
@@ -814,7 +814,7 @@ defmodule GtBridge.Analysis do
 
   defp module_doc_info(mod) do
     try do
-      case Code.fetch_docs(mod) do
+      case GtBridge.Beam.docs(mod) do
         {:docs_v1, _, _, _, %{"en" => d}, _, docs} when d != "" -> {length(docs), true}
         {:docs_v1, _, _, _, _, _, docs} -> {length(docs), false}
         _ -> {0, false}

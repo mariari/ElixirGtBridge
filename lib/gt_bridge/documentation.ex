@@ -2,7 +2,7 @@ defmodule GtBridge.Documentation do
   @moduledoc """
   I provide structured access to Elixir module and function documentation.
 
-  I extract docs via `Code.fetch_docs/1` and format them for rendering
+  I extract docs via `GtBridge.Beam.docs/1` and format them for rendering
   in GT's inspector — either as Phlow views (proxy inspection) or as a
   section-delimited string that GT splits into a `LePage`.
 
@@ -164,7 +164,7 @@ defmodule GtBridge.Documentation do
 
   @spec fetch_module_doc(module()) :: String.t()
   defp fetch_module_doc(module) do
-    case Code.fetch_docs(module) do
+    case GtBridge.Beam.docs(module) do
       {:docs_v1, _, _, _, %{"en" => doc}, _, _} ->
         "# #{inspect(module)}\n\n#{normalize_markdown(doc)}"
 
@@ -179,7 +179,7 @@ defmodule GtBridge.Documentation do
   @spec fetch_functions(module()) ::
           list({atom(), non_neg_integer(), String.t(), String.t()})
   defp fetch_functions(module) do
-    case Code.fetch_docs(module) do
+    case GtBridge.Beam.docs(module) do
       {:docs_v1, _, _, _, _, _, docs} ->
         for {{kind, name, arity}, _, signatures, doc_map, _} <- docs,
             kind in [:function, :macro] do
@@ -196,7 +196,7 @@ defmodule GtBridge.Documentation do
   @spec fetch_types(module()) ::
           list({atom(), non_neg_integer(), String.t(), String.t()})
   defp fetch_types(module) do
-    case Code.fetch_docs(module) do
+    case GtBridge.Beam.docs(module) do
       {:docs_v1, _, _, _, _, _, docs} ->
         for {{:type, name, arity}, _, signatures, doc_map, _} <- docs do
           sig = List.first(signatures) || "#{name}/#{arity}"
@@ -211,7 +211,7 @@ defmodule GtBridge.Documentation do
 
   @spec fetch_type_doc(type_query()) :: String.t()
   defp fetch_type_doc({:type, module, name, arity}) do
-    case Code.fetch_docs(module) do
+    case GtBridge.Beam.docs(module) do
       {:docs_v1, _, _, _, _, _, docs} ->
         matching =
           for {{:type, n, ar}, _, signatures, doc_map, _} <- docs,
@@ -252,7 +252,7 @@ defmodule GtBridge.Documentation do
           (non_neg_integer() -> boolean())
         ) :: String.t()
   defp fetch_matching_docs(module, function, arity_match?) do
-    case Code.fetch_docs(module) do
+    case GtBridge.Beam.docs(module) do
       {:docs_v1, _, _, _, _, _, docs} ->
         matching =
           for {{kind, name, ar}, _, signatures, doc_map, _} <- docs,
