@@ -65,15 +65,8 @@ defmodule GtBridge.Analysis.Source do
       {:ok, ast} ->
         lines = String.split(source, "\n")
 
-        funs =
-          extract_functions(ast)
-          |> merge_clauses()
-          |> Enum.map(fn f ->
-            start = walk_back_annotations(lines, f.start)
-            %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
-          end)
-
-        funs ++ types_in_source(ast, lines)
+        functions_from_statements(outer_statements(ast), lines) ++
+          types_in_source(ast, lines)
 
       _ ->
         lenient_function_entries(source)
@@ -491,20 +484,14 @@ defmodule GtBridge.Analysis.Source do
   def source_function_names(source, ast) do
     lines = String.split(source, "\n")
 
-    (extract_functions(ast) ++ types_in_source(ast, lines))
+    (Enum.flat_map(outer_statements(ast), &function_entry/1) ++ types_in_source(ast, lines))
     |> Enum.map(& &1.name)
     |> MapSet.new()
   end
 
-  defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
-    Enum.flat_map(body, &function_entry/1)
-  end
-
-  defp extract_functions({:defmodule, _, [_, [do: body]]}) do
-    Enum.flat_map([body], &function_entry/1)
-  end
-
-  defp extract_functions(_), do: []
+  # The outer module's direct statements; anything else has none.
+  defp outer_statements({:defmodule, _, [_, [do: body]]}), do: body_statements(body)
+  defp outer_statements(_), do: []
 
   defp function_entry({kind, meta, [head | _]}) when is_atom(kind) do
     kind_str = Atom.to_string(kind)
