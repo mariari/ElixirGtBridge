@@ -533,6 +533,28 @@ defmodule Examples.EAnalysis do
     by_kind
   end
 
+  @spec multiline_spec_stays_in_source() :: map()
+  example multiline_spec_stays_in_source do
+    # The line walker used to halt on a wrapped @spec's continuation line,
+    # dropping the whole @doc/@spec block from the displayed source.
+    source = """
+    defmodule M do
+      @doc "I swap."
+      @spec swap(String.t(), String.t(), String.t(), arity(), String.t(), arity()) ::
+              String.t()
+      def swap(a, _b, _c, _d, _e, _f), do: a
+    end
+    """
+
+    [swap] = Analysis.functions_in_source(source)
+
+    assert swap.start == 2
+    assert swap.source =~ "@doc"
+    assert swap.source =~ "@spec"
+
+    swap
+  end
+
   @spec default_arg_head_resolves_to_its_def() :: map()
   example default_arg_head_resolves_to_its_def do
     # Eval.complete(pid, code, source \\ nil) exports complete/2 with no

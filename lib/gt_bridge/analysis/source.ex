@@ -428,14 +428,45 @@ defmodule GtBridge.Analysis.Source do
   defp typedstruct_submodule(_), do: nil
   @spec functions_from_statements([Macro.t()], [String.t()]) :: [map()]
   defp functions_from_statements(stmts, lines) do
+    ann = annotation_starts(stmts)
+
     stmts
     |> Enum.flat_map(&function_entry/1)
     |> merge_clauses()
     |> Enum.map(fn f ->
-      start = walk_back_annotations(lines, f.start)
+      start = extend_over_comments(lines, Map.get(ann, f.start, f.start))
       %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
     end)
   end
+
+  # First line of the @doc/@spec/@impl run above each statement, keyed by the
+  # statement's line: an attribute spans lines freely where a line walk trips.
+  @spec annotation_starts([Macro.t()]) :: %{pos_integer() => pos_integer()}
+  defp annotation_starts(stmts) do
+    stmts
+    |> Enum.reduce({%{}, nil}, fn
+      {:@, meta, [{attr, _, _}]}, {map, run} when attr in [:doc, :spec, :impl] ->
+        {map, run || meta[:line]}
+
+      {_, meta, _}, {map, run} when run != nil and is_list(meta) ->
+        {Map.put(map, meta[:line], run), nil}
+
+      _, {map, _} ->
+        {map, nil}
+    end)
+    |> elem(0)
+  end
+
+  @spec extend_over_comments([String.t()], pos_integer()) :: pos_integer()
+  defp extend_over_comments(lines, start) when start > 1 do
+    if String.starts_with?(String.trim(Enum.at(lines, start - 2, "")), "#") do
+      extend_over_comments(lines, start - 1)
+    else
+      start
+    end
+  end
+
+  defp extend_over_comments(_lines, start), do: start
 
   # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
   # A `typedstruct module: X` is skipped; its `t` is the child's, not ours.
