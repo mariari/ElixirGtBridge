@@ -6,7 +6,7 @@ Class {
 	#instVars : [
 		'application',
 		'elixirLinkApplicationStrategy',
-		'preambleLines',
+		'primedSessions',
 		'contextModuleName',
 		'pageAliasSource'
 	],
@@ -31,11 +31,12 @@ GtElixirCoderModel >> asCoderViewModel [
 
 { #category : 'accessing' }
 GtElixirCoderModel >> bindAndExecute: sourceString inContext: aContext sessionId: sid [
-	"I prepend preamble, import, and self binding, then eval."
+	"I prime the session with self's module context once, prepend the
+	 self binding, then eval."
 	| selfObj |
 	selfObj := self selfObjectFor: aContext.
 	self initializeApplication.
-	self ensurePreambleLoaded: selfObj.
+	self ensureSessionPrimed: selfObj sessionId: sid.
 	^ self
 		bindAndExecuteRaw: (self wrapSource: sourceString withSelf: selfObj)
 		sessionId: sid
@@ -89,24 +90,6 @@ GtElixirCoderModel >> elixirLinkApplicationStrategy: anApplicationStrategy [
 ]
 
 { #category : 'private' }
-GtElixirCoderModel >> ensurePreambleLoaded: selfObj [
-	"I fetch and cache the module's preamble directives (aliases,
-	 requires) from the bridge. Called once, cached for the life
-	 of this coder instance."
-	| modName result |
-	preambleLines ifNotNil: [ ^ self ].
-	modName := (selfObj respondsTo: #elixirClass)
-		ifTrue: [ selfObj elixirClass ]
-		ifFalse: [ nil ].
-	modName ifNil: [ preambleLines := #(). ^ self ].
-	result := application evaluateAndWait:
-		'GtBridge.Eval.Preamble.directives(' , modName , ') |> Enum.join("\n")'.
-	preambleLines := result isEmpty
-		ifTrue: [ #() ]
-		ifFalse: [ result lines ]
-]
-
-{ #category : 'private' }
 GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid coderViewModel: aCoderVM [
 	aCoderVM ifNil: [ ^ self ].
 	aCoderVM sessionFinalizerRegistered ifTrue: [ ^ self ].
@@ -118,6 +101,27 @@ GtElixirCoderModel >> ensureSessionFinalizerFor: viewBindings sessionId: sid cod
 			sessionId: sid
 			application: application).
 	aCoderVM sessionFinalizerRegistered: true
+]
+
+{ #category : 'private' }
+GtElixirCoderModel >> ensureSessionPrimed: selfObj sessionId: sid [
+	"I load self's module context (its import plus alias/import/require
+	 directives) into the eval session env, server-side, once per
+	 session. Env persists across a session's evals, so snippets travel
+	 unwrapped. Session-less evals run stateless on the bridge
+	 (Tcp.Dispatch), where priming cannot stick; they go unprimed."
+	| modName key |
+	sid ifNil: [ ^ self ].
+	modName := (selfObj respondsTo: #elixirClass)
+		ifTrue: [ selfObj elixirClass ]
+		ifFalse: [ nil ].
+	modName ifNil: [ ^ self ].
+	key := sid , '|' , modName.
+	primedSessions ifNil: [ primedSessions := Set new ].
+	(primedSessions includes: key) ifTrue: [ ^ self ].
+	application evaluateAndWait:
+		'GtBridge.Eval.Preamble.editor_session(' , modName , ', "' , sid , '")'.
+	primedSessions add: key
 ]
 
 { #category : 'private' }
@@ -229,17 +233,10 @@ GtElixirCoderModel >> selfObjectFor: aContext [
 
 { #category : 'private' }
 GtElixirCoderModel >> wrapSource: sourceString withSelf: selfObj [
-	"I prepend preamble (aliases, requires), import, and self binding
-	 so snippets have the module's full environment from the first eval."
+	"I prepend only the self binding; module context lives in the
+	 session env (ensureSessionPrimed:sessionId:), so user code keeps
+	 its own line numbers, one line off."
 	(selfObj notNil and: [ selfObj respondsTo: #resolve ])
 		ifFalse: [ ^ sourceString ].
-	^ String streamContents: [ :s |
-		(preambleLines ifNil: [ #() ]) do: [ :line |
-			s nextPutAll: line; nextPut: Character lf ].
-		(selfObj respondsTo: #elixirClass) ifTrue: [
-			selfObj elixirClass ifNotNil: [ :modName |
-				s nextPutAll: 'import '; nextPutAll: modName; nextPut: Character lf ] ].
-		s
-			nextPutAll: 'self = '; nextPutAll: selfObj resolve; nextPut: Character lf;
-			nextPutAll: sourceString ]
+	^ 'self = ' , selfObj resolve , String lf , sourceString
 ]

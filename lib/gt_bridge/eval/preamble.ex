@@ -4,9 +4,9 @@ defmodule GtBridge.Eval.Preamble do
   import / require declarations) so completion + eval work in the
   module's namespace context.
 
-  GT-side editor coders call `editor_session/2` once on open;
-  subsequent completion + eval requests in that session see the
-  same env state.
+  GT-side coders (module editors, inspector snippets, completion)
+  all prime their session through `editor_session/2` once; subsequent
+  completion + eval requests in that session see the same env state.
   """
 
   @doc """
@@ -22,31 +22,6 @@ defmodule GtBridge.Eval.Preamble do
     pid = GtBridge.EvalRegistry.get_or_create(sid)
     load_imports(mod, pid)
     sid
-  end
-
-  @doc """
-  I return the alias/import/require directives from a module's source,
-  each re-rendered on a single line. GT's snippet wrap prepends these
-  verbatim, so they must parse alone no matter how the source wrapped
-  them ("use" is excluded — it needs a module context to expand).
-  """
-  @spec directives(module()) :: [String.t()]
-  def directives(mod) when is_atom(mod) do
-    GtBridge.Resolve.with_source(mod, [], fn source ->
-      Enum.map(directive_nodes(source, mod), &one_line/1)
-    end)
-  end
-
-  # token_metadata remembers the source's own line breaks and
-  # Macro.to_string honors them; drop :newlines so each directive
-  # renders on one line no matter how the file wrapped it.
-  defp one_line(node) do
-    node
-    |> Macro.prewalk(fn
-      {f, meta, args} when is_list(meta) -> {f, Keyword.drop(meta, [:newlines]), args}
-      other -> other
-    end)
-    |> Macro.to_string()
   end
 
   defp directive_nodes(source, mod) do
