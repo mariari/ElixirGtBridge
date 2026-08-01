@@ -82,9 +82,8 @@ defmodule GtBridge.Analysis.Source do
     case quoted(source) do
       {:ok, ast} ->
         lines = String.split(source, "\n")
-
-        functions_from_statements(outer_statements(ast), lines) ++
-          types_in_source(ast, lines)
+        stmts = outer_statements(ast)
+        functions_from_statements(stmts, lines) ++ types_from_statements(stmts, lines)
 
       _ ->
         lenient_function_entries(source)
@@ -274,38 +273,6 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
-  # Type rows located from the source itself: typedstruct's `t` plus each
-  # @type / @opaque / @typep. functions_in_source is the single source of both
-  # functions and types, so the source-written and recompiled cache primes
-  # agree — no separate fetch_types path. typedstruct's `t` wins a name clash
-  # since its block is more useful than a synthesized `@type t :: %Mod{...}`.
-  defp types_in_source(ast, lines) do
-    typedstruct =
-      case find_typedstruct_lines(ast) do
-        {s, e} -> [type_row("t", 0, :type, s, e, lines)]
-        _ -> []
-      end
-
-    (typedstruct ++ type_decls(ast, lines)) |> Enum.uniq_by(&{&1.name, &1.arity})
-  end
-
-  defp type_decls(ast, lines) do
-    {_, rows} =
-      Macro.prewalk(ast, [], fn
-        {:@, meta, [{kind, _, [{:"::", _, [{name, _, args} | _]}]}]} = node, acc
-        when kind in [:type, :opaque, :typep] and is_atom(name) ->
-          arity = if(is_list(args), do: length(args), else: 0)
-          s = Keyword.get(meta, :line)
-          e = get_in(meta, [:end_of_expression, :line]) || s
-          {node, [type_row(Atom.to_string(name), arity, kind, s, e, lines) | acc]}
-
-        node, acc ->
-          {node, acc}
-      end)
-
-    Enum.reverse(rows)
-  end
-
   defp type_row(name, arity, kind, start, end_line, lines) do
     %{
       name: name,
@@ -316,25 +283,6 @@ defmodule GtBridge.Analysis.Source do
       sig: "#{name}/#{arity}",
       source: slice_lines(lines, start, end_line)
     }
-  end
-
-  defp find_typedstruct_lines(ast) do
-    {_, found} =
-      Macro.prewalk(ast, nil, fn
-        {:typedstruct, meta, args} = node, nil when is_list(args) ->
-          if typedstruct_do?(args) do
-            s = Keyword.get(meta, :line)
-            e = get_in(meta, [:end, :line]) || s
-            {node, {s, e}}
-          else
-            {node, nil}
-          end
-
-        node, acc ->
-          {node, acc}
-      end)
-
-    found
   end
 
   # typedstruct carries its block as the `:do` of the last arg, whether
@@ -439,6 +387,8 @@ defmodule GtBridge.Analysis.Source do
 
   # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
   # A `typedstruct module: X` is skipped; its `t` is the child's, not ours.
+  # Single source of type rows for both the source-written and recompiled
+  # cache primes; typedstruct's `t` wins a name clash (listed first, uniq_by).
   @spec types_from_statements([Macro.t()], [String.t()]) :: [map()]
   defp types_from_statements(stmts, lines) do
     typedstruct =
@@ -519,7 +469,9 @@ defmodule GtBridge.Analysis.Source do
   def source_function_names(source, ast) do
     lines = String.split(source, "\n")
 
-    (Enum.flat_map(outer_statements(ast), &function_entry/1) ++ types_in_source(ast, lines))
+    stmts = outer_statements(ast)
+
+    (Enum.flat_map(stmts, &function_entry/1) ++ types_from_statements(stmts, lines))
     |> Enum.map(& &1.name)
     |> MapSet.new()
   end
