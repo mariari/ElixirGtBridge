@@ -366,7 +366,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## {{gtClass:name=BeamModuleSourceCache}}, per-module source\n\nPer-module instance via `BeamModuleSourceCache for: aModuleName`. Sole subscriber to `BeamModuleRecompiled` for its module. On each event it updates its source map and entries list from the payload, then fans out two narrow events on the per-module announcer:\n\n- {{gtClass:name=BeamModuleSourceChanged}}: per (function, arity) whose source actually changed (filter is in {{gtMethod:name=BeamModuleSourceCache>>onBeamModuleRecompiled:}}).\n- {{gtClass:name=BeamModuleEntriesUpdated}}: coarse, fired once per recompile.\n\nThe `Flow` view below is the static architecture, useful as docs even with no live caches. `Lifecycle` underneath it shows the actual live cache instances and their consumers; click any green cache instance there to open its `Consumers` view (one module's announcer at a time)."
+				"string" : "## {{gtClass:name=BeamModuleSourceCache}}, per-module source\n\nPer-module instance via `BeamModuleSourceCache for: aModuleName`. Sole subscriber to `BeamModuleRecompiled` for its module. On each event it updates its source map and entries list from the payload, then fans out one event on the per-module announcer:\n\n- {{gtClass:name=BeamModuleEntriesUpdated}}: coarse, fired once per recompile.\n\nThe `Flow` view below is the static architecture, useful as docs even with no live caches. `Lifecycle` underneath it shows the actual live cache instances and their consumers; click any green cache instance there to open its `Consumers` view (one module's announcer at a time)."
 			},
 			{
 				"__type" : "elementSnippet",
@@ -477,7 +477,7 @@
 				"paragraphStyle" : {
 					"__type" : "textStyle"
 				},
-				"string" : "## Two consumers, two events\n\nThe `Flow` view above shows the cache emitting two narrow events. The two consumers wire as follows:\n\n- {{gtClass:name=ElixirModuleCoder}} listens on {{gtClass:name=BeamModuleEntriesUpdated}} (coarse, fires once per recompile) and primes its `cachedFunctionEntries` ivar in {{gtMethod:name=ElixirModuleCoder>>onBeamModuleEntriesUpdated:}}, then republishes a local `GtCoderSourceCodeChanged` for module-wide consumers (Source tab, Functions tab list).\n- {{gtClass:name=ElixirFunctionExpanderAttribute}} listens on {{gtClass:name=BeamModuleSourceChanged}} (narrow, per (function, arity)) and filters to its own coordinates in {{gtMethod:name=ElixirFunctionExpanderAttribute>>onSourceChanged:}}. Most events are no-ops for any given expander.\n\nThe example below saves HotReloadTest and asserts the coder ivar got primed."
+				"string" : "## The consumer\n\nThe `Flow` view above shows the cache emitting one event:\n\n- {{gtClass:name=ElixirModuleCoder}} listens on {{gtClass:name=BeamModuleEntriesUpdated}} (coarse, fires once per recompile) and primes its `cachedFunctionEntries` ivar in {{gtMethod:name=ElixirModuleCoder>>onBeamModuleEntriesUpdated:}}, then republishes a local `GtCoderSourceCodeChanged` for module-wide consumers (Source tab, Functions tab list).\n\nThe example below saves HotReloadTest and asserts the coder ivar got primed."
 			},
 			{
 				"__type" : "pharoSnippet",

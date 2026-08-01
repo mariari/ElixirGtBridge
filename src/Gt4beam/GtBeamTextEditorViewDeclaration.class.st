@@ -30,16 +30,7 @@ GtBeamTextEditorViewDeclaration >> treatMarkdownView: view [
 
 { #category : 'private' }
 GtBeamTextEditorViewDeclaration >> treatTextView: view [
-	view text: [
-		| text |
-		text := (self rawData attributeAt: #string) asRopedText.
-		{
-			#monospace -> [ :v | v ifTrue: [ text glamorousCodeFont ] ].
-			#fontSize -> [ :v | text fontSize: v ]
-		} do: [ :assoc |
-			(self rawData attributeAt: assoc key)
-				ifNotNil: [ :v | assoc value value: v ] ].
-		text ]
+	view text: [ (self rawData attributeAt: #string) asRopedText ]
 ]
 
 { #category : 'as yet unclassified' }

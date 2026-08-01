@@ -14,7 +14,7 @@ defmodule GtBridge.Analysis.LoadedModules do
   module born from a live recompile (a new file, or a nested module from
   `typedstruct module:`) never appears in it — but it does arrive here as
   a `:recompiled` fact.  That is why module enumeration
-  (`Analysis.all_module_names/0`, the private `modules/1`, and through
+  (Analysis' module listings, the private `modules/1`, and through
   them the spotter and the module browser) reads me rather than
   `get_key` directly.
 
@@ -93,16 +93,13 @@ defmodule GtBridge.Analysis.LoadedModules do
 
   @doc """
   I enter facts without blocking the caller: `sync_async/0` after
-  every eval and `full_sync_async/0` at bridge connection. Entering
+  every eval. Entering
   facts is fire-and-forget; a blocking call here serializes every
   eval through me and lets a busy queue kill the SSE stream's init
   on its call timeout.
   """
   @spec sync_async() :: :ok
   def sync_async, do: GenServer.cast(__MODULE__, :sync)
-
-  @spec full_sync_async() :: :ok
-  def full_sync_async, do: GenServer.cast(__MODULE__, :full_sync)
 
   @spec start_link(term()) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -137,12 +134,6 @@ defmodule GtBridge.Analysis.LoadedModules do
   @impl true
   def handle_cast(:sync, state) do
     do_sync()
-    {:noreply, state}
-  end
-
-  def handle_cast(:full_sync, state) do
-    do_sync()
-    retract_vanished()
     {:noreply, state}
   end
 

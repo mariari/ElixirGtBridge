@@ -15,13 +15,6 @@ Class {
 	#tag : 'Coder'
 }
 
-{ #category : 'instance creation' }
-GtElixirCoderModel class >> code: aString [
-
-	^ self new sourceCode:
-		  (GtCoderExplicitStringSource new source: aString)
-]
-
 { #category : 'accessing' }
 GtElixirCoderModel >> application [
 

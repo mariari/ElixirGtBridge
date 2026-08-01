@@ -10,7 +10,6 @@ defmodule GtBridge.Phlow.List do
     field(:view_title, String.t(), default: "Unknown")
     field(:view_priority, integer(), default: 1)
     field(:items_callback, (-> list()) | nil, default: nil)
-    field(:item_format, (any() -> String.t()) | nil, default: nil)
   end
 
   @doc """
@@ -42,14 +41,6 @@ defmodule GtBridge.Phlow.List do
   end
 
   @doc """
-  Set the format function for displaying items.
-  """
-  @spec item_format(t(), (any() -> String.t())) :: t()
-  def item_format(self, format_fn) do
-    %__MODULE__{self | item_format: format_fn}
-  end
-
-  @doc """
   Convert the list view to a dictionary format for serialization to GT.
   """
   @spec as_dict(t()) :: map()
@@ -61,8 +52,7 @@ defmodule GtBridge.Phlow.List do
         []
       end
 
-    format_fn = self.item_format || (&inspect/1)
-    formatted_data = Enum.map(items_data, format_fn)
+    formatted_data = Enum.map(items_data, &inspect/1)
 
     %{
       title: self.view_title,

@@ -46,16 +46,6 @@ Class {
 }
 
 { #category : 'announcing' }
-BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: anApp errors: aListOfErrors [
-	^ self
-		announceCompileFailedFor: aModuleName
-		application: anApp
-		errors: aListOfErrors
-		functionHint: nil
-		arityHint: nil
-]
-
-{ #category : 'announcing' }
 BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: anApp errors: aListOfErrors functionHint: aFunctionName arityHint: anArity [
 	"`aFunctionName` / `anArity` are GT-side fallbacks for when the
 	 bridge couldn't identify the function (parse failure on the saved
@@ -69,12 +59,6 @@ BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName application: a
 			application: anApp
 			functionHint: aFunctionName
 			arityHint: anArity)
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> announceCompileFailedFor: aModuleName errors: aListOfErrors [
-	"Convenience for callers without an application reference."
-	^ self announceCompileFailedFor: aModuleName application: nil errors: aListOfErrors
 ]
 
 { #category : 'announcing' }
@@ -130,15 +114,6 @@ BeamEventAnnouncer class >> announcers [
 	"Lazy per-module announcer registry. Keyed by bare module name."
 
 	^ announcers ifNil: [ announcers := Dictionary new ]
-]
-
-{ #category : 'announcing' }
-BeamEventAnnouncer class >> compileFailureNotificationFor: anAnnouncement application: anApp [
-	^ self
-		compileFailureNotificationFor: anAnnouncement
-		application: anApp
-		functionHint: nil
-		arityHint: nil
 ]
 
 { #category : 'announcing' }
@@ -247,12 +222,3 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 				layout: [ :l | l horizontalTree nodeDistance: 8; levelDistance: 40 ] ]
 ]
 
-{ #category : 'accessing' }
-BeamEventAnnouncer class >> reset [
-	"Drop the singleton and the per-module registry. Use in tests; in
-	 normal operation subscribers should `unsubscribe: self` rather than
-	 tear down the announcer."
-
-	default := nil.
-	announcers := nil
-]

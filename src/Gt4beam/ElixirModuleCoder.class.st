@@ -348,11 +348,6 @@ ElixirModuleCoder >> focusFunctionTarget: aTarget [
 ]
 
 { #category : 'accessing' }
-ElixirModuleCoder >> focusLine [
-	^ focusLine
-]
-
-{ #category : 'accessing' }
 ElixirModuleCoder >> focusLine: aLineNumber [
 	focusLine := aLineNumber
 ]
@@ -577,17 +572,6 @@ ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
 			self application evaluateAndWait:
 				'GtBridge.Documentation.for_module(',
 				(each attributeAt: #module) asString, ')' ]
-]
-
-{ #category : 'initialization' }
-ElixirModuleCoder >> initialize [
-	"Subscription to BeamEventAnnouncer is deferred to my `moduleName:`
-	 setter — at construction time my module name isn't known yet, and
-	 per-module dispatch needs the name to pick the right announcer.
-	 Source tab subscribers still keep their cheap closure-based pattern
-	 against `self announcer`; my onBeamModuleRecompiled: handler
-	 republishes the global event as a local GtCoderSourceCodeChanged."
-	super initialize
 ]
 
 { #category : 'accessing' }

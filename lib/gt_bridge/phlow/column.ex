@@ -7,7 +7,6 @@ defmodule GtBridge.Phlow.Column do
   typedstruct do
     field(:title, String.t(), default: "Column")
     field(:format, (any() -> String.t()) | nil, default: nil)
-    field(:width, integer() | nil, default: nil)
   end
 
   @doc """
@@ -27,24 +26,11 @@ defmodule GtBridge.Phlow.Column do
   end
 
   @doc """
-  Set the width of the column.
-  """
-  @spec width(t(), integer()) :: t()
-  def width(self, width_value) do
-    %__MODULE__{self | width: width_value}
-  end
-
-  @doc """
   Convert the column to a dictionary for serialization.
   """
   @spec as_dict(t()) :: map()
   def as_dict(self) do
-    base = %{
-      title: self.title
-    }
-
-    base = if self.width, do: Map.put(base, :width, self.width), else: base
-    base
+    %{title: self.title}
   end
 
   @doc """

@@ -22,7 +22,7 @@ Class {
 { #category : 'examples - announcer' }
 BeamEventBusExamples >> announcerDeliversTypedAnnouncement [
 	"I subscribe a tag to BeamModuleRecompiled, fire one, and
-	 assert it arrives with intact mod and sourceHash. Pure dispatch
+	 assert it arrives with intact mod. Pure dispatch
 	 test — no save, no BEAM round-trip."
 	<gtExample>
 	| tag received |
@@ -33,11 +33,10 @@ BeamEventBusExamples >> announcerDeliversTypedAnnouncement [
 		do: [ :a | received := a ]
 		for: tag.
 	BeamEventAnnouncer default announce:
-		(BeamModuleRecompiled mod: 'HotReloadTest' sourceHash: 42).
+		(BeamModuleRecompiled new mod: 'HotReloadTest').
 	BeamEventAnnouncer default unsubscribe: tag.
 	self assert: received notNil description: 'announcement should arrive'.
 	self assert: received mod equals: 'HotReloadTest'.
-	self assert: received sourceHash equals: 42.
 	^ received
 ]
 
@@ -372,36 +371,6 @@ BeamEventBusExamples >> saveFiresBeamModuleRecompiled [
 	^ received
 ]
 
-{ #category : 'examples - source tab' }
-BeamEventBusExamples >> sourceTabRefreshesOnSave [
-	"I build a Source tab element on a coder, save the module via the
-	 same coder, and verify the inner element was rebuilt (object
-	 identity changes — buildSourceViewElement rebuild block
-	 removeChildren + addChild a new one)."
-	<gtExample>
-	| coder original markerSource container childBefore childAfter |
-	coder := self moduleCoder.
-	container := coder buildSourceViewElement.
-	childBefore := container children first.
-	original := coder sourceCode.
-	markerSource := original copyReplaceAll: ':world' with: ':sourceTabRefresh'.
-	[ coder saveAndCompile: markerSource.
-		childAfter := container children first.
-		self assert: childBefore ~~ childAfter
-			description: 'Source tab inner element should be rebuilt on save' ]
-		ensure: [ coder saveAndCompile: original ].
-	^ container
-]
-
-{ #category : 'examples - setup' }
-BeamEventBusExamples >> streamingModel [
-	"I return a fresh ElixirFunctionStreamingModel wrapping a fresh
-	 ElixirModuleCoder. Two calls yield two independent streaming
-	 models — both subscribed (weakly) to BeamModuleRecompiled."
-	<gtExample>
-	^ ElixirFunctionStreamingModel forModuleCoder: self moduleCoder
-]
-
 { #category : 'examples - cross-coder' }
 BeamEventBusExamples >> twoCodersSeeSameUpdateAfterSave [
 	"I create two independent ElixirModuleCoders for HotReloadTest,
@@ -429,34 +398,6 @@ BeamEventBusExamples >> twoCodersSeeSameUpdateAfterSave [
 		at: 'coder1' put: coder1;
 		at: 'coder2' put: coder2;
 		yourself
-]
-
-{ #category : 'examples - cross-coder' }
-BeamEventBusExamples >> twoStreamingModelsBothRefresh [
-	"I create two independent streaming models for HotReloadTest, save
-	 via the first coder, and verify the SECOND streaming model
-	 underlying moduleCoder reads fresh source after the save.
-
-	 Both streaming models subscribe to BeamModuleRecompiled in their
-	 #moduleCoder: setter — testing through the public moduleCoder
-	 functionEntries surface keeps us off private state while still
-	 proving the cross-instance refresh chain end-to-end.
-
-	 Returns the second streaming model so it is inspectable."
-	<gtExample>
-	| sm1 sm2 original markerSource entry |
-	sm1 := self streamingModel.
-	sm2 := self streamingModel.
-	original := sm1 moduleCoder sourceCode.
-	markerSource := original copyReplaceAll: ':world' with: ':streamSync'.
-	[ sm1 moduleCoder saveAndCompile: markerSource.
-		entry := sm2 moduleCoder functionEntries detect: [ :e |
-			(e attributeAt: #name) asString = 'hello' ].
-		self assert: ((entry attributeAt: #source) asString
-			includesSubstring: ':streamSync')
-			description: 'sm2''s moduleCoder should observe the save via fresh BEAM data' ]
-		ensure: [ sm1 moduleCoder saveAndCompile: original ].
-	^ sm2
 ]
 
 { #category : 'private' }

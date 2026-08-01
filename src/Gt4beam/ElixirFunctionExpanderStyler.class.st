@@ -38,11 +38,6 @@ ElixirFunctionExpanderStyler >> application [
 		application := BeamLinkApplication uniqueInstance ]
 ]
 
-{ #category : 'accessing' }
-ElixirFunctionExpanderStyler >> application: anApp [
-	application := anApp
-]
-
 { #category : 'styling' }
 ElixirFunctionExpanderStyler >> attachUnknownModuleWrenchesIn: aText source: source ast: theAst [
 	"I attach a wrench dropdown after every Elixir module reference

@@ -28,7 +28,6 @@ defmodule GtBridge.Xref do
 
   - `start_indexing/0` — begin the initial indexing pass (called on bridge startup)
   - `q/1` — run an xref query string and return its `:xref.q/2` result
-  - `replace/1` — explicitly refresh one module's edges (also called
     automatically on `BeamModuleRecompiled`)
 
   ### Subscriptions
@@ -55,9 +54,6 @@ defmodule GtBridge.Xref do
   @spec q(charlist()) :: {:ok, list()} | {:error, term(), term()}
   def q(query) when is_list(query), do: GenServer.call(__MODULE__, {:q, query})
 
-  @spec replace(module()) :: :ok
-  def replace(mod) when is_atom(mod), do: GenServer.cast(__MODULE__, {:replace, mod})
-
   @doc """
   I begin the initial cross-reference indexing pass.  Called on bridge
   startup (when a TCP/HTTP listener spins up), not at VM boot, so a host
@@ -67,13 +63,6 @@ defmodule GtBridge.Xref do
   """
   @spec start_indexing() :: :ok
   def start_indexing, do: GenServer.cast(__MODULE__, :start_indexing)
-
-  @doc """
-  I am true once the initial indexing pass has completed.  Until then
-  every `q/1` returns `{:ok, []}` per the moduledoc contract.
-  """
-  @spec ready?() :: boolean()
-  def ready?, do: GenServer.call(__MODULE__, :ready?)
 
   @doc """
   Block the caller until indexing finishes (or `timeout_ms` elapses).
@@ -124,8 +113,6 @@ defmodule GtBridge.Xref do
     {:reply, :xref.q(@xref_server, query), state}
   end
 
-  def handle_call(:ready?, _from, state), do: {:reply, state.ready, state}
-
   def handle_call(:wait_until_ready, _from, %{ready: true} = state) do
     {:reply, :ok, state}
   end
@@ -140,11 +127,6 @@ defmodule GtBridge.Xref do
   def handle_cast(:indexing_done, state) do
     Enum.each(state.waiters, &GenServer.reply(&1, :ok))
     {:noreply, %{state | ready: true, indexing: false, waiters: []}}
-  end
-
-  def handle_cast({:replace, mod}, state) do
-    if state.ready, do: do_replace(mod)
-    {:noreply, state}
   end
 
   @impl true

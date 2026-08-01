@@ -26,25 +26,6 @@ LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 ]
 
 { #category : 'accessing' }
-LeElixirSnippetViewModel >> inspectorSelfObject [
-	"I return the inspected object from the shared snippet context,
-	or nil if not in an inspector."
-	^ sharedContext ifNotNil: [ :ctx | ctx selfObject ]
-]
-
-{ #category : 'accessing' }
-LeElixirSnippetViewModel >> inspectorSelfObject: anObject [
-	"I bind anObject as the inspected self on my shared snippet context,
-	 creating a minimal context first if one isn't already in place. Used
-	 to wire up standalone snippets in inspector playgrounds. The ivar is
-	 written via instVarNamed: because LeAbstractSnippetViewModel has no
-	 public setter for sharedContext, and the getter stays private."
-	sharedContext
-		ifNil: [ self instVarNamed: 'sharedContext' put: LeSharedSnippetContext new ].
-	sharedContext selfObject: anObject
-]
-
-{ #category : 'accessing' }
 LeElixirSnippetViewModel >> snippetElementClass [
 	^ LeElixirSnippetElement
 ]

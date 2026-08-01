@@ -52,11 +52,6 @@ ElixirCoderBrowser >> appNode: anAppName [
 ]
 
 { #category : 'as yet unclassified' }
-ElixirCoderBrowser >> application [
-	^ application
-]
-
-{ #category : 'as yet unclassified' }
 ElixirCoderBrowser >> application: anApp [
 	application := anApp.
 	self buildUI
@@ -312,14 +307,6 @@ ElixirCoderBrowser >> moduleInfoForApplication: anAppName [
 		'GtBridge.Analysis.module_details(:', anAppName, ')') asList
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> modulesForApplication: anAppName [
-	^ [ (application evaluateAndWait:
-		'GtBridge.Analysis.module_details(:', anAppName, ')') asList
-			collect: [ :m | (m attributeAt: #name) asString ] ]
-		on: Error do: [ #() ]
-]
-
 { #category : 'lifecycle' }
 ElixirCoderBrowser >> onAddedToSceneGraph [
 	"I subscribe to the wildcard `default` announcer (not a per-module
@@ -400,11 +387,6 @@ ElixirCoderBrowser >> refreshSidebarTree [
 	sidebar children size >= 2 ifTrue: [
 		sidebar children second removeFromParent ].
 	sidebar addChild: self buildSidebarTree
-]
-
-{ #category : 'as yet unclassified' }
-ElixirCoderBrowser >> scopedApplicationName [
-	^ scopedApplicationName
 ]
 
 { #category : 'as yet unclassified' }

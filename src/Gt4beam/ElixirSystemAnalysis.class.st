@@ -3,7 +3,6 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'application',
-		'gitRepository',
 		'applications'
 	],
 	#category : 'Gt4beam-Analysis',
@@ -37,14 +36,6 @@ ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication [
 		yourself
 ]
 
-{ #category : 'instance creation' }
-ElixirSystemAnalysis class >> onApplication: aBeamLinkApplication gitRepository: aGtGitRepository [
-	^ self new
-		application: aBeamLinkApplication;
-		gitRepository: aGtGitRepository;
-		yourself
-]
-
 { #category : 'accessing' }
 ElixirSystemAnalysis >> application [
 	^ application
@@ -67,16 +58,6 @@ ElixirSystemAnalysis >> appsByName [
 	"I return a dict mapping app name strings to ElixirApplicationAnalysis
 	 for dep-graph clickthrough lookups."
 	^ (self applications collect: [ :app | app name symbol asString -> app ]) asDictionary
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> gitRepository [
-	^ gitRepository
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> gitRepository: aGitRepository [
-	gitRepository := aGitRepository
 ]
 
 { #category : 'gt views' }
@@ -308,19 +289,8 @@ ElixirSystemAnalysis >> hasApplication [
 ]
 
 { #category : 'testing' }
-ElixirSystemAnalysis >> hasGitRepository [
-	^ gitRepository isNotNil
-]
-
-{ #category : 'testing' }
 ElixirSystemAnalysis >> isConnected [
 	^ self hasApplication and: [ application isRunning ]
-]
-
-{ #category : 'accessing' }
-ElixirSystemAnalysis >> loadedApplicationRecords [
-	^ self loadedApplicationTuples asList collect: [ :each |
-		{ each itemAt: 0. each itemAt: 1. each itemAt: 2 } ]
 ]
 
 { #category : 'accessing' }

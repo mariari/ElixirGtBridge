@@ -1,6 +1,5 @@
 defmodule GtBridgeTest do
   use ExUnit.Case
-  doctest GtBridge
 end
 
 defmodule GtBridgeTest.Tcp do

@@ -21,11 +21,6 @@ defmodule Examples.EViews do
     field(:name, String.t(), default: "Example")
   end
 
-  @spec empty() :: t()
-  def empty() do
-    %__MODULE__{}
-  end
-
   @spec with_values(integer(), String.t()) :: t()
   def with_values(int_value, name_value) do
     %__MODULE__{int: int_value, name: name_value}

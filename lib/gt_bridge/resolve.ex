@@ -58,7 +58,7 @@ defmodule GtBridge.Resolve do
 
   @spec function_lines(module(), atom(), non_neg_integer()) ::
           {pos_integer(), pos_integer()} | nil
-  def function_lines(module, name, arity) do
+  defp function_lines(module, name, arity) do
     name_str = Atom.to_string(name)
     funs = GtBridge.Analysis.all_functions(module)
 

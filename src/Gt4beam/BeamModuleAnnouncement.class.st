@@ -30,8 +30,8 @@ BeamModuleAnnouncement class >> gtSubscribersFor: aView [
 	 every per-module announcer registered in the registry.
 
 	 Open this view on any concrete event class
-	 (`BeamModuleRecompiled`, `BeamModuleSourceChanged`,
-	 `BeamModuleEntriesUpdated`, etc.) to see who's listening.
+	 (`BeamModuleRecompiled`, `BeamModuleEntriesUpdated`, etc.)
+	 to see who's listening.
 	 Useful for spotting unexpected receivers and for sanity-checking
 	 that the cache pattern's 'one writer per derivation' property
 	 still holds (only one cache class should subscribe to

@@ -12,16 +12,14 @@ either.  Lifecycle:
   subscribes weakly to `BeamEventAnnouncer for: 'Foo'`.
 - *Active* — consumers (expanders, function coders) hold me
   strongly via instvar; recompile events update my source map
-  and fan out narrow `BeamModuleSourceChanged` events on the
-  same per-module announcer.
+  and fan out `BeamModuleEntriesUpdated` on the same per-module
+  announcer.
 - *Death* — when no consumer holds me, my registry slot and
   subscription are both weak → GC collects me, subscription
   cleans up automatically.  Next `for: 'Foo'` builds fresh.
 
 I am the sole subscriber to `BeamModuleRecompiled` for my module.
-Consumers subscribe to `BeamModuleSourceChanged` instead — the
-narrow event lets them filter by their target function/arity in
-their handler instead of reaching for the announcement payload.
+Consumers subscribe to `BeamModuleEntriesUpdated` instead.
 
 See `project_wrench_design_frp_alignment.md` for the recipe and
 the per-module cache lifecycle rules.
@@ -134,15 +132,13 @@ BeamModuleSourceCache class >> gtFlowFor: aView [
 			edges add: BeamModuleRecompiled -> self.
 
 			"Output events."
-			{ BeamModuleSourceChanged.
-				BeamModuleEntriesUpdated } do: [ :evt |
+			{ BeamModuleEntriesUpdated } do: [ :evt |
 					nodes add: evt.
 					labels at: evt put: evt name.
 					edges add: self -> evt ].
 
 			"Consumers wired to each output."
-			{ BeamModuleSourceChanged -> ElixirFunctionExpanderAttribute.
-				BeamModuleEntriesUpdated -> ElixirModuleCoder } do: [ :pair |
+			{ BeamModuleEntriesUpdated -> ElixirModuleCoder } do: [ :pair |
 					(nodes includes: pair value) ifFalse: [
 						nodes add: pair value.
 						labels at: pair value put: pair value name ].
@@ -268,9 +264,9 @@ BeamModuleSourceCache class >> reset [
 
 { #category : 'subscriptions' }
 BeamModuleSourceCache >> applyEntries: aFunctionsList [
-	"Update entries + fan out a narrow `BeamModuleSourceChanged` per
-	 changed (function, arity) and one coarse `BeamModuleEntriesUpdated`
-	 so module-level consumers re-render once per change."
+	"Update the per-function source map, then fan out one coarse
+	 `BeamModuleEntriesUpdated` so module-level consumers re-render
+	 once per change."
 	| functions |
 	functions := (aFunctionsList isKindOf: BeamProxyObject)
 		ifTrue: [ aFunctionsList asList ]
@@ -281,19 +277,9 @@ BeamModuleSourceCache >> applyEntries: aFunctionsList [
 			ifTrue: [ BeamFunctionEntry fields: each ]
 			ifFalse: [ each ] ].
 	entries do: [ :entry |
-		| fnName arity newSource key |
-		fnName := (entry attributeAt: #name) asString.
-		arity := (entry attributeAt: #arity) asInteger.
-		newSource := (entry attributeAt: #source) asString.
-		key := { fnName. arity }.
-		(sources at: key ifAbsent: [ nil ]) = newSource ifFalse: [
-			sources at: key put: newSource.
-			(BeamEventAnnouncer for: mod) announce:
-				(BeamModuleSourceChanged
-					mod: mod
-					function: fnName
-					arity: arity
-					source: newSource) ] ].
+		| key |
+		key := { (entry attributeAt: #name) asString. (entry attributeAt: #arity) asInteger }.
+		sources at: key put: (entry attributeAt: #source) asString ].
 	(BeamEventAnnouncer for: mod) announce:
 		(BeamModuleEntriesUpdated mod: mod entries: entries)
 ]
@@ -410,16 +396,7 @@ BeamModuleSourceCache >> onBeamModuleSourceRemoved: anAnnouncement [
 	 out the same narrow events as a recompile would, so wrench
 	 stylers and module surfaces invalidate immediately instead of
 	 showing stale source until the next keypress."
-	| previousFunctions |
-	previousFunctions := sources keys.
 	self clear.
-	previousFunctions do: [ :key |
-		(BeamEventAnnouncer for: mod) announce:
-			(BeamModuleSourceChanged
-				mod: mod
-				function: key first
-				arity: key second
-				source: nil) ].
 	(BeamEventAnnouncer for: mod) announce:
 		(BeamModuleEntriesUpdated mod: mod entries: #())
 ]

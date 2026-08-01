@@ -32,7 +32,7 @@ Class {
 
 { #category : 'accessing' }
 BeamLinkTcpMessageBroker class >> serializerClass [
-	^ ElixirLinkNeoJsonSerializer
+	^ LanguageLinkNeoJsonSerializer
 ]
 
 { #category : 'accessing' }

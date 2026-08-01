@@ -6,7 +6,6 @@ defmodule GtBridge.Mix do
   ### Public API
 
   - `normalize_dep/1` — coerce any of mix's 4 dep shapes to `{app, opts}`.
-  - `path_deps/0` — `[{app, opts}]` for every dep declared with `:path`.
   - `path_dep_apps/0` — just the app names of `path_deps/0`.
   - `path_dep_opts/1` — opts for a specific path-dep, or nil.
   """
@@ -21,7 +20,7 @@ defmodule GtBridge.Mix do
   def normalize_dep(app) when is_atom(app), do: {app, []}
 
   @spec path_deps() :: [{atom(), keyword()}]
-  def path_deps do
+  defp path_deps do
     for dep <- Mix.Project.config()[:deps] || [],
         {app, opts} = normalize_dep(dep),
         Keyword.has_key?(opts, :path),

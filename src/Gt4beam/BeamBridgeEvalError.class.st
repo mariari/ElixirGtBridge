@@ -11,7 +11,3 @@ BeamBridgeEvalError class >> elixirClass [
 	^ 'GtBridge.Eval.Error'
 ]
 
-{ #category : 'predicates' }
-BeamBridgeEvalError >> isError [
-	^ false
-]

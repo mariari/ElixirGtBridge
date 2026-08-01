@@ -121,18 +121,10 @@ BeamPIDObject >> inspectorModeName [
 	^ 'Pid'
 ]
 
-{ #category : 'as yet unclassified' }
-BeamPIDObject >> isEvaluatorProcess [
-	" I determine if I'm the same process as the current evaluator.
-	I can not run certain operations on myself"
-
-	^ self evaluateAndWait: self resolve , '== self()'
-]
-
 { #category : 'predicates' }
 BeamPIDObject >> isSupervisor [
 	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
+		evaluateAndWait: self resolve , ' |> GtBridge.Supervision.supervisor?()'
 ]
 
 { #category : 'as yet unclassified' }

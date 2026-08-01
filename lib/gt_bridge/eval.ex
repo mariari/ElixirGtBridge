@@ -107,37 +107,12 @@ defmodule GtBridge.Eval do
   I evaluate in the calling process and return the value, so the answer
   can travel back in the HTTP response rather than as a second message.
 
-  The Task in `eval_stateless/3` existed to keep concurrent queries off
-  one shared mailbox; a request already runs in its own process, so
-  running inline gives the same isolation.
+  A request already runs in its own process, so running inline gives
+  the same isolation a spawned Task would.
   """
   @spec eval_stateless_sync(String.t(), String.t() | nil, pos_integer() | nil) :: term()
   def eval_stateless_sync(code, command_id, port) do
     do_eval_stateless(code, command_id, port)
-  end
-
-  @doc """
-  I evaluate `code` in a fresh process with no per-page bindings.
-
-  GT-side `evaluateAndWait` calls that don't pass a `sessionId` (view-
-  block fetches, proxy-GC finalizers, browser fan-out queries) used
-  to land on a single shared "default" Eval GenServer, which
-  serialized them through one mailbox and cascaded any slow call
-  into a caller timeout storm.
-
-  Per-page snippet evals still use the session-bound `eval/3` path so
-  bindings persist across snippets on the same page. This stateless
-  path is for everything else — parallelism is bounded only by the
-  BEAM scheduler, not by a shared GenServer.
-
-  Registered objects in ObjectRegistry live until GT GCs the
-  corresponding proxy and fires `Eval.remove/1`.
-  """
-  @spec eval_stateless(String.t(), String.t() | nil, pos_integer() | nil) :: :ok
-  def eval_stateless(code, command_id, port) do
-    Task.start(fn -> do_eval_stateless(code, command_id, port) end)
-
-    :ok
   end
 
   @spec do_eval_stateless(String.t(), String.t() | nil, pos_integer() | nil) :: term()

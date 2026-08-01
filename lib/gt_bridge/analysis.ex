@@ -4,7 +4,7 @@ defmodule GtBridge.Analysis do
   I provide static analysis data for GT visualization.
 
   I use `:xref` to extract module-level call graphs from compiled
-  BEAM files and `Code.fetch_docs/1` for documentation coverage.
+  BEAM files and `GtBridge.Beam.docs/1` for documentation coverage.
   I return raw data — GT builds the views.
 
   Sibling modules cover related subsystems split out from this one:
@@ -15,53 +15,33 @@ defmodule GtBridge.Analysis do
   `GtBridge.Eval.Preamble` (editor session import-loading).
   """
 
-  @type edge :: {module(), module()}
+  alias GtBridge.Analysis.Source
 
-  @doc """
-  I return module-level call edges for an application.
+  # The pure source-text half lives in Analysis.Source; these names
+  # stay here because GT eval strings and Elixir callers address them
+  # as GtBridge.Analysis.
+  alias GtBridge.Analysis.CallSites
+  alias GtBridge.Analysis.Graph
+  alias GtBridge.Analysis.LoadedModules
 
-  Each edge `{from, to}` means `from` contains a call to a function
-  in `to`. Self-edges are excluded. Only modules whose BEAM files
-  are on the code path are analyzed.
-  """
-  @spec module_graph(atom()) :: [edge()]
-  def module_graph(app) do
-    app_mods = MapSet.new(modules(app))
+  defdelegate module_graph(app), to: Graph
+  defdelegate callees(mod, app), to: Graph
+  defdelegate callers(mod, app), to: Graph
+  defdelegate implementors(name, arity \\ nil), to: Graph
+  defdelegate function_references(mod, name, arity \\ nil), to: Graph
 
-    case GtBridge.Xref.q(~c"E") do
-      {:ok, edges} ->
-        for {{from, _, _}, {to, _, _}} <- edges,
-            MapSet.member?(app_mods, from),
-            MapSet.member?(app_mods, to),
-            from != to,
-            uniq: true,
-            do: {from, to}
+  defdelegate call_sites(source, context_module \\ nil), to: CallSites
+  defdelegate resolve_alias(context_module, alias_name), to: CallSites
+  defdelegate module_aliases(mod), to: CallSites
+  defdelegate function_in_module?(mod, name), to: CallSites
+  defdelegate modules_loaded?(names), to: CallSites
 
-      _ ->
-        []
-    end
-  end
-
-  @doc "I return the modules that `mod` calls."
-  @spec callees(module()) :: [module()]
-  def callees(mod) do
-    case Application.get_application(mod) do
-      nil -> []
-      app -> callees(mod, app)
-    end
-  end
-
-  @doc "I return the modules that `mod` calls within `app`."
-  @spec callees(module(), atom()) :: [module()]
-  def callees(mod, app) do
-    for {^mod, to} <- module_graph(app), do: to
-  end
-
-  @doc "I return the modules within `app` that call `mod`."
-  @spec callers(module(), atom()) :: [module()]
-  def callers(mod, app) do
-    for {from, ^mod} <- module_graph(app), do: from
-  end
+  defdelegate functions_in_source(source), to: Source
+  defdelegate modules_in_source(source), to: Source
+  defdelegate module_in_source(source), to: Source
+  defdelegate swap_functions(source, module, name_a, arity_a, name_b, arity_b), to: Source
+  defdelegate replace_function(source, module, name, arity, new_text), to: Source
+  defdelegate append_function(source, module, new_text), to: Source
 
   @doc """
   I return aggregate stats across all loaded applications.
@@ -74,7 +54,7 @@ defmodule GtBridge.Analysis do
     zero = %{modules: 0, functions: 0, with_docs: 0, with_source: 0}
 
     Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} -> modules(app) end)
+    |> Enum.flat_map(fn {app, _, _} -> LoadedModules.modules_for_app(app) end)
     |> Enum.reduce(zero, fn mod, acc ->
       {fun_count, has_doc} = module_doc_info(mod)
 
@@ -104,7 +84,7 @@ defmodule GtBridge.Analysis do
     Application.loaded_applications()
     |> Enum.map(fn {app, _, _} ->
       mods =
-        modules(app)
+        LoadedModules.modules_for_app(app)
         |> Enum.map(fn mod ->
           %{name: inspect(mod), has_doc: module_has_doc?(mod)}
         end)
@@ -122,7 +102,7 @@ defmodule GtBridge.Analysis do
   """
   @spec app_doc_coverage(atom()) :: [map()]
   def app_doc_coverage(app) do
-    modules(app)
+    LoadedModules.modules_for_app(app)
     |> Enum.map(fn mod ->
       %{module: inspect(mod), has_mod_doc: module_has_doc?(mod), functions: fun_docs(mod)}
     end)
@@ -130,7 +110,7 @@ defmodule GtBridge.Analysis do
   end
 
   defp fun_docs(mod) do
-    case Code.fetch_docs(mod) do
+    case GtBridge.Beam.docs(mod) do
       {:docs_v1, _, _, _, _, _, docs} ->
         Enum.map(docs, fn {{kind, name, arity}, _, _, doc, _} ->
           has_doc = kind == :function and doc != :none and doc != :hidden
@@ -139,277 +119,6 @@ defmodule GtBridge.Analysis do
 
       _ ->
         []
-    end
-  end
-
-  @doc """
-  I extract the top-level `defmodule X.Y` name from `source`. Returns
-  the dotted module string, or nil when the source doesn't define one
-  or doesn't parse.
-  """
-  @spec module_in_source(String.t()) :: String.t() | nil
-  def module_in_source(source) do
-    case modules_in_source(source) do
-      [first | _] ->
-        first
-
-      [] ->
-        # Parse failed (syntax error elsewhere).  The defmodule line
-        # itself almost always parses; pull the name by regex so error
-        # notifications still name the right module.
-        module_in_source_lenient(source)
-    end
-  end
-
-  defp module_in_source_lenient(source) do
-    case Regex.run(~r/^\s*defmodule\s+([A-Z][A-Za-z0-9_.]*)\b/m, source) do
-      [_, name] -> name
-      _ -> nil
-    end
-  end
-
-  @doc """
-  I return every module `source` defines (nested `defmodule`s and
-  `typedstruct module:` children included) as dotted-name strings.
-  Returns `[]` when the source doesn't parse.
-  """
-  @spec modules_in_source(String.t()) :: [String.t()]
-  def modules_in_source(source) do
-    case Code.string_to_quoted(source) do
-      {:ok, ast} -> collect_modules(ast, "")
-      _ -> []
-    end
-  end
-
-  @spec collect_modules(Macro.t(), String.t()) :: [String.t()]
-  defp collect_modules({:__block__, _, stmts}, prefix),
-    do: Enum.flat_map(stmts, &collect_modules(&1, prefix))
-
-  defp collect_modules({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]}, prefix) do
-    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
-    [full | collect_modules(body, full)]
-  end
-
-  defp collect_modules({:typedstruct, _, _} = node, prefix) do
-    case typedstruct_submodule(node) do
-      nil -> []
-      sub -> [qualify(prefix, sub)]
-    end
-  end
-
-  defp collect_modules(_, _), do: []
-
-  @doc """
-  I parse `source` and return the AST function entries (the same shape
-  `all_functions/1` returns minus the runtime-export merging, which
-  needs the module to be loaded). Works on disk bytes alone, so safe
-  to call before / after a failed compile.
-  """
-  @spec functions_in_source(String.t()) :: [map()]
-  def functions_in_source(source) do
-    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
-      {:ok, ast} ->
-        lines = String.split(source, "\n")
-
-        funs =
-          extract_functions(ast)
-          |> merge_clauses()
-          |> Enum.map(fn f ->
-            start = walk_back_annotations(lines, f.start)
-            %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
-          end)
-
-        funs ++ types_in_source(ast, lines)
-
-      _ ->
-        lenient_function_entries(source)
-    end
-  end
-
-  @doc """
-  I swap two functions (by `{name, arity}`) within `module` in `source`,
-  taking ranges from `source` itself so the splice can't drift. Unknown
-  name/arity returns `source` unchanged.
-  """
-  @spec swap_functions(String.t(), String.t(), String.t(), arity(), String.t(), arity()) ::
-          String.t()
-  def swap_functions(source, module, name_a, arity_a, name_b, arity_b) do
-    entries = module_source_entries(source, module)
-
-    with a when not is_nil(a) <- find_function(entries, name_a, arity_a),
-         b when not is_nil(b) <- find_function(entries, name_b, arity_b) do
-      rewrite(source, [{a, text_lines(b.source)}, {b, text_lines(a.source)}])
-    else
-      _ -> source
-    end
-  end
-
-  @doc """
-  I replace the `{name, arity}` function within `module` in `source` with
-  `new_text` (or remove it when `new_text` is empty), taking the range from
-  `source` itself so the splice can't drift. Unknown name/arity returns
-  `source` unchanged.
-  """
-  @spec replace_function(String.t(), String.t(), String.t(), arity(), String.t()) :: String.t()
-  def replace_function(source, module, name, arity, new_text) do
-    case find_function(module_source_entries(source, module), name, arity) do
-      nil -> source
-      f -> rewrite(source, [{f, text_lines(new_text)}])
-    end
-  end
-
-  @doc """
-  I append `new_text` as a new function just before `module`'s closing `end`,
-  located from the parse so a sibling or nested module in the same file doesn't
-  misdirect it. Returns `source` unchanged when `module` has no `defmodule` to
-  append to (e.g. a typedstruct-generated module), or the source doesn't parse.
-  """
-  @spec append_function(String.t(), String.t(), String.t()) :: String.t()
-  def append_function(source, module, new_text) do
-    with {:ok, ast} <- Code.string_to_quoted(source, token_metadata: true),
-         {:defmodule, meta, _} <- module_scope(ast, module),
-         line when is_integer(line) <- get_in(meta, [:end, :line]) do
-      # a zero-width edit at `line` inserts the blank + new function before end
-      rewrite(source, [{%{start: line, end_line: line - 1}, ["" | text_lines(new_text)]}])
-    else
-      _ -> source
-    end
-  end
-
-  # Replace disjoint function ranges: each {entry, lines} swaps
-  # entry.start..entry.end_line for lines. Spliced in source order so the
-  # untouched line numbers stay valid as we go.
-  defp rewrite(source, edits) do
-    lines = String.split(source, "\n")
-
-    {out, last} =
-      edits
-      |> Enum.sort_by(fn {e, _} -> e.start end)
-      |> Enum.flat_map_reduce(0, fn {e, repl}, cursor ->
-        {take_lines(lines, cursor + 1, e.start - 1) ++ repl, e.end_line}
-      end)
-
-    (out ++ take_lines(lines, last + 1, length(lines))) |> Enum.join("\n")
-  end
-
-  defp text_lines(""), do: []
-  defp text_lines(text), do: String.split(text, "\n")
-
-  defp find_function(entries, name, arity),
-    do: Enum.find(entries, &(&1.name == name and &1.arity == arity))
-
-  # 1-indexed inclusive slice; the from > to guard matters because
-  # (from - 1)..(to - 1) wraps to the whole list when to is 0.
-  defp take_lines(_lines, from, to) when from > to, do: []
-  defp take_lines(lines, from, to), do: Enum.slice(lines, (from - 1)..(to - 1))
-
-  # Per-fn fallback for files where whole-module AST parse fails (stray
-  # `end`, mid-edit).  For each def header, find the smallest end_line
-  # whose slice wrapped in `defmodule __X__ do ... end` parses to a
-  # single def AST.  Headers that don't balance within @lenient_max_fn_lines
-  # are skipped; the compile-error popup names the file to fix.
-  @lenient_max_fn_lines 200
-  @lenient_def_header ~r/^\s*(def|defp|defmacro|defmacrop|defview|example)\s+\w/
-
-  defp lenient_function_entries(source) do
-    lines = String.split(source, "\n")
-    total = length(lines)
-    do_lenient(lines, 1, total, []) |> Enum.reverse() |> merge_clauses()
-  end
-
-  defp do_lenient(_lines, line_num, total, acc) when line_num > total, do: acc
-
-  defp do_lenient(lines, line_num, total, acc) do
-    line = Enum.at(lines, line_num - 1, "")
-
-    if Regex.match?(@lenient_def_header, line) do
-      case extract_lenient_at(lines, line_num, total) do
-        {:ok, entry} -> do_lenient(lines, entry.end_line + 1, total, [entry | acc])
-        :error -> do_lenient(lines, line_num + 1, total, acc)
-      end
-    else
-      do_lenient(lines, line_num + 1, total, acc)
-    end
-  end
-
-  defp extract_lenient_at(lines, start_line, total) do
-    max_end = min(start_line + @lenient_max_fn_lines - 1, total)
-
-    Enum.reduce_while(start_line..max_end, :error, fn end_line, _acc ->
-      body = slice_lines(lines, start_line, end_line)
-      wrapped = "defmodule __GtBridgeLenient__ do\n" <> body <> "\nend\n"
-
-      case Code.string_to_quoted(wrapped) do
-        {:ok, ast} ->
-          case lenient_fn_info(ast) do
-            {:ok, name, arity, kind_str} ->
-              walked_start = walk_back_annotations(lines, start_line)
-
-              full_slice = slice_lines(lines, walked_start, end_line)
-
-              entry = %{
-                name: Atom.to_string(name),
-                arity: arity,
-                kind: kind_str,
-                sig: "#{name}/#{arity}",
-                start: walked_start,
-                end_line: end_line,
-                source: full_slice,
-                defaults: 0
-              }
-
-              {:halt, {:ok, entry}}
-
-            :error ->
-              {:cont, :error}
-          end
-
-        _ ->
-          {:cont, :error}
-      end
-    end)
-  end
-
-  # Atoms that look like function definers (def, defp, defmacro, defmacrop,
-  # plus user macros like defview) but aren't function-defining themselves.
-  @non_function_def_kinds [
-    :defmodule,
-    :defstruct,
-    :defguard,
-    :defguardp,
-    :defprotocol,
-    :defimpl,
-    :defdelegate,
-    :deftype,
-    :defrecord,
-    :defrecordp,
-    :defexception,
-    :defoverridable
-  ]
-
-  # User-level macros that expand to function definitions and
-  # whose AST source we want captured so the inspector shows the
-  # body. Without this allowlist they fall through to the runtime
-  # export path and render as "(no source)".
-  @function_def_macros [:example]
-
-  defp lenient_fn_info({:defmodule, _, [_, [do: {kind, _, [head | _]}]]}) when is_atom(kind) do
-    kind_str = Atom.to_string(kind)
-
-    cond do
-      kind in @non_function_def_kinds -> :error
-      kind in @function_def_macros -> head_to_info(head, "def")
-      String.starts_with?(kind_str, "def") -> head_to_info(head, kind_str)
-      true -> :error
-    end
-  end
-
-  defp lenient_fn_info(_), do: :error
-
-  defp head_to_info(head, kind_str) do
-    case function_head(head) do
-      {name, arity} -> {:ok, name, arity, kind_str}
-      _ -> :error
     end
   end
 
@@ -439,29 +148,21 @@ defmodule GtBridge.Analysis do
 
     ast_entries =
       GtBridge.Resolve.with_source(mod, [], fn source ->
-        module_source_entries(source, inspect(mod))
+        Source.module_source_entries(source, inspect(mod))
       end)
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
 
-    specs = beam_specs_by_arity(mod)
+    specs = GtBridge.Beam.specs_by_arity(mod)
 
     runtime_extra =
-      for {n, a} <- safe_exported_functions(mod),
+      for {n, a} <- GtBridge.Beam.info(mod, :functions),
           name_str = Atom.to_string(n),
           # Skip __struct__, __info__, __views__, etc. — internal/macro
           # plumbing the user doesn't want in their function list.
           not String.starts_with?(name_str, "__"),
           not MapSet.member?(ast_keys, {name_str, a}) do
-        %{
-          name: name_str,
-          arity: a,
-          kind: :def,
-          start: 0,
-          end_line: 0,
-          sig: "#{name_str}/#{a}",
-          source: synth_no_source(name_str, a, Map.get(specs, {n, a}))
-        }
+        GtBridge.Beam.runtime_stub(name_str, a, Map.get(specs, {n, a}))
       end
 
     # Place runtime entries that share a name with an AST entry
@@ -518,253 +219,6 @@ defmodule GtBridge.Analysis do
     end)
   end
 
-  # Type rows located from the source itself: typedstruct's `t` plus each
-  # @type / @opaque / @typep. functions_in_source is the single source of both
-  # functions and types, so the source-written and recompiled cache primes
-  # agree — no separate fetch_types path. typedstruct's `t` wins a name clash
-  # since its block is more useful than a synthesized `@type t :: %Mod{...}`.
-  defp types_in_source(ast, lines) do
-    typedstruct =
-      case find_typedstruct_lines(ast) do
-        {s, e} -> [type_row("t", 0, :type, s, e, lines)]
-        _ -> []
-      end
-
-    (typedstruct ++ type_decls(ast, lines)) |> Enum.uniq_by(&{&1.name, &1.arity})
-  end
-
-  defp type_decls(ast, lines) do
-    {_, rows} =
-      Macro.prewalk(ast, [], fn
-        {:@, meta, [{kind, _, [{:"::", _, [{name, _, args} | _]}]}]} = node, acc
-        when kind in [:type, :opaque, :typep] and is_atom(name) ->
-          arity = if(is_list(args), do: length(args), else: 0)
-          s = Keyword.get(meta, :line)
-          e = get_in(meta, [:end_of_expression, :line]) || s
-          {node, [type_row(Atom.to_string(name), arity, kind, s, e, lines) | acc]}
-
-        node, acc ->
-          {node, acc}
-      end)
-
-    Enum.reverse(rows)
-  end
-
-  defp type_row(name, arity, kind, start, end_line, lines) do
-    %{
-      name: name,
-      arity: arity,
-      kind: kind,
-      start: start,
-      end_line: end_line,
-      sig: "#{name}/#{arity}",
-      source: slice_lines(lines, start, end_line)
-    }
-  end
-
-  defp find_typedstruct_lines(ast) do
-    {_, found} =
-      Macro.prewalk(ast, nil, fn
-        {:typedstruct, meta, args} = node, nil when is_list(args) ->
-          if typedstruct_do?(args) do
-            s = Keyword.get(meta, :line)
-            e = get_in(meta, [:end, :line]) || s
-            {node, {s, e}}
-          else
-            {node, nil}
-          end
-
-        node, acc ->
-          {node, acc}
-      end)
-
-    found
-  end
-
-  # typedstruct carries its block as the `:do` of the last arg, whether
-  # written `typedstruct do`, `typedstruct enforce: true do`, or
-  # `typedstruct(opts) do` — match on that, not a bare `[[do: _]]`.
-  defp typedstruct_do?(args) do
-    kw = List.last(args)
-    is_list(kw) and Keyword.keyword?(kw) and Keyword.has_key?(kw, :do)
-  end
-
-  # Function/type entries for one module, scoped to its own subtree so a nested
-  # or sibling module in the same file doesn't leak the other's. `module` is the
-  # dotted name string. Shared by all_functions/1 and the edit ops.
-  @spec module_source_entries(String.t(), String.t()) :: [map()]
-  defp module_source_entries(source, module) do
-    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
-      {:ok, ast} ->
-        lines = String.split(source, "\n")
-
-        case module_scope(ast, module) do
-          {:defmodule, _, [_, [do: body]]} ->
-            stmts = body_statements(body)
-            functions_from_statements(stmts, lines) ++ types_from_statements(stmts, lines)
-
-          {:typedstruct, _, _} = node ->
-            typedstruct_type(node, lines)
-
-          nil ->
-            []
-        end
-
-      _ ->
-        lenient_function_entries(source)
-    end
-  end
-
-  # The AST node for `target`'s scope: a defmodule tuple, or a `typedstruct
-  # module: X` tuple that generates <enclosing>.X. Walks defmodule nesting to
-  # build full names. The one place that answers "which module is this"; both
-  # the read and write paths use it.
-  @spec module_scope(Macro.t(), String.t()) :: Macro.t() | nil
-  defp module_scope(ast, target), do: module_scope(ast, "", target)
-
-  defp module_scope({:__block__, _, stmts}, prefix, target),
-    do: Enum.find_value(stmts, &module_scope(&1, prefix, target))
-
-  defp module_scope(
-         {:defmodule, _, [{:__aliases__, _, parts}, [do: body]]} = node,
-         prefix,
-         target
-       ) do
-    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
-
-    cond do
-      full == target -> node
-      String.starts_with?(target, full <> ".") -> module_scope(body, full, target)
-      true -> nil
-    end
-  end
-
-  defp module_scope({:typedstruct, _, _} = node, prefix, target) do
-    case typedstruct_submodule(node) do
-      nil -> nil
-      sub -> if qualify(prefix, sub) == target, do: node
-    end
-  end
-
-  defp module_scope(_, _, _), do: nil
-
-  @spec qualify(String.t(), String.t()) :: String.t()
-  defp qualify("", suffix), do: suffix
-  defp qualify(prefix, suffix), do: prefix <> "." <> suffix
-
-  @spec body_statements(Macro.t()) :: [Macro.t()]
-  defp body_statements({:__block__, _, stmts}), do: stmts
-  defp body_statements(single), do: [single]
-
-  # A typedstruct's `module:` option as a dotted string, or nil for a plain
-  # typedstruct (whose `t` belongs to the enclosing module). The option can be
-  # in any leading keyword arg, so scan them all.
-  @spec typedstruct_submodule(Macro.t()) :: String.t() | nil
-  defp typedstruct_submodule({:typedstruct, _, args}) when is_list(args) do
-    module =
-      args
-      |> Enum.filter(&(is_list(&1) and Keyword.keyword?(&1)))
-      |> Enum.find_value(&Keyword.get(&1, :module))
-
-    case module do
-      {:__aliases__, _, parts} -> Enum.map_join(parts, ".", &Atom.to_string/1)
-      _ -> nil
-    end
-  end
-
-  defp typedstruct_submodule(_), do: nil
-
-  @spec functions_from_statements([Macro.t()], [String.t()]) :: [map()]
-  defp functions_from_statements(stmts, lines) do
-    stmts
-    |> Enum.flat_map(&function_entry/1)
-    |> merge_clauses()
-    |> Enum.map(fn f ->
-      start = walk_back_annotations(lines, f.start)
-      %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
-    end)
-  end
-
-  # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
-  # A `typedstruct module: X` is skipped; its `t` is the child's, not ours.
-  @spec types_from_statements([Macro.t()], [String.t()]) :: [map()]
-  defp types_from_statements(stmts, lines) do
-    typedstruct =
-      Enum.find_value(stmts, [], fn
-        {:typedstruct, _, _} = node ->
-          if typedstruct_submodule(node) == nil, do: typedstruct_type(node, lines)
-
-        _ ->
-          nil
-      end)
-
-    decls = Enum.flat_map(stmts, &type_decl(&1, lines))
-    (typedstruct ++ decls) |> Enum.uniq_by(&{&1.name, &1.arity})
-  end
-
-  @spec typedstruct_type(Macro.t(), [String.t()]) :: [map()]
-  defp typedstruct_type({:typedstruct, meta, args}, lines) do
-    if typedstruct_do?(args) do
-      s = Keyword.get(meta, :line)
-      e = get_in(meta, [:end, :line]) || s
-      [type_row("t", 0, :type, s, e, lines)]
-    else
-      []
-    end
-  end
-
-  @spec type_decl(Macro.t(), [String.t()]) :: [map()]
-  defp type_decl({:@, meta, [{kind, _, [{:"::", _, [{name, _, args} | _]}]}]}, lines)
-       when kind in [:type, :opaque, :typep] and is_atom(name) do
-    arity = if is_list(args), do: length(args), else: 0
-    s = Keyword.get(meta, :line)
-    e = get_in(meta, [:end_of_expression, :line]) || s
-    [type_row(Atom.to_string(name), arity, kind, s, e, lines)]
-  end
-
-  defp type_decl(_, _), do: []
-
-  defp slice_lines(lines, s, e), do: take_lines(lines, s, e) |> Enum.join("\n")
-
-  defp merge_clauses(entries) do
-    # Merge consecutive entries with the same name/arity/kind
-    # into a single entry spanning all clauses.
-    Enum.reduce(Enum.reverse(entries), [], fn entry, acc ->
-      case acc do
-        [prev | rest]
-        when prev.name == entry.name and prev.arity == entry.arity and prev.kind == entry.kind ->
-          [%{entry | end_line: prev.end_line} | rest]
-
-        _ ->
-          [entry | acc]
-      end
-    end)
-  end
-
-  defp walk_back_annotations(lines, def_start) do
-    if def_start <= 1 do
-      def_start
-    else
-      Enum.reduce_while((def_start - 1)..1//-1, {def_start, false}, fn i, {acc, in_heredoc} ->
-        trimmed = String.trim(Enum.at(lines, i - 1, ""))
-
-        cond do
-          String.starts_with?(trimmed, "defmodule") -> {:halt, {acc, false}}
-          String.starts_with?(trimmed, "@doc") -> {:halt, {i, false}}
-          String.starts_with?(trimmed, "@spec") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "@impl") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "#") -> {:cont, {i, in_heredoc}}
-          trimmed == ~s(""") -> {:cont, {i, true}}
-          in_heredoc -> {:cont, {i, true}}
-          trimmed == "" -> {:halt, {acc, false}}
-          acc < def_start -> {:cont, {i, in_heredoc}}
-          true -> {:halt, {acc, false}}
-        end
-      end)
-      |> elem(0)
-    end
-  end
-
   @doc "I return system info for the Overview view."
   @spec system_info() :: map()
   def system_info do
@@ -782,7 +236,7 @@ defmodule GtBridge.Analysis do
   @doc "I return per-module metadata for an application."
   @spec module_details(atom()) :: [map()]
   def module_details(app) do
-    modules(app)
+    LoadedModules.modules_for_app(app)
     |> Enum.map(fn mod ->
       name = inspect(mod)
       is_elixir = String.starts_with?(name, "Elixir.") or String.contains?(name, ".")
@@ -799,9 +253,8 @@ defmodule GtBridge.Analysis do
     |> Enum.sort_by(& &1.name)
   end
 
-  @doc "I return all module names across all loaded applications, sorted."
   @spec all_module_names() :: [String.t()]
-  def all_module_names do
+  defp all_module_names do
     GtBridge.Analysis.LoadedModules.all_names() |> Enum.sort()
   end
 
@@ -832,7 +285,7 @@ defmodule GtBridge.Analysis do
   def search_functions(app, query, max \\ 30) do
     q = String.downcase(query)
 
-    modules(app)
+    LoadedModules.modules_for_app(app)
     |> Enum.flat_map(fn mod ->
       mod_name = inspect(mod)
 
@@ -847,374 +300,12 @@ defmodule GtBridge.Analysis do
     |> Enum.take(max)
   end
 
-  @doc """
-  I return all modules that define a function with the given name and
-  optional arity. Includes `def`, `defp`, and macro-generated functions.
-  """
-  @spec implementors(atom(), non_neg_integer() | nil) :: [map()]
-  def implementors(name, arity \\ nil) do
-    name_str = Atom.to_string(name)
-
-    Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} -> modules(app) end)
-    |> Enum.filter(fn mod ->
-      Code.ensure_loaded?(mod) and function_exported?(mod, :__info__, 1)
-    end)
-    |> Enum.flat_map(fn mod -> module_implementors(mod, name_str, arity) end)
-    |> Enum.sort_by(&{&1.module, &1.arity})
-  end
-
-  # I return all entries (with source if available, stubs otherwise)
-  # for a function in a module. Merges AST extraction with runtime
-  # exports so we catch defp (AST-only) and macro-generated functions
-  # (exports-only).
-  defp module_implementors(mod, name_str, arity) do
-    name_atom = String.to_atom(name_str)
-    mod_str = inspect(mod)
-    funs = all_functions(mod)
-
-    ast_entries =
-      funs
-      |> Enum.filter(&(&1.name == name_str and (arity == nil or &1.arity == arity)))
-      |> Enum.map(&Map.put(&1, :module, mod_str))
-
-    ast_arities = for e <- funs, e.name == name_str, into: MapSet.new(), do: e.arity
-
-    exported_arities =
-      for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
-
-    specs = beam_specs_by_arity(mod)
-
-    extra =
-      for a <- exported_arities,
-          arity == nil or a == arity,
-          not MapSet.member?(ast_arities, a) do
-        %{
-          module: mod_str,
-          name: name_str,
-          arity: a,
-          kind: :def,
-          start: 0,
-          end_line: 0,
-          sig: "#{name_str}/#{a}",
-          source: synth_no_source(name_str, a, Map.get(specs, {name_atom, a}))
-        }
-      end
-
-    entries =
-      (ast_entries ++ extra)
-      |> Enum.map(fn e ->
-        case e.start == 0 && covering_def(funs, name_str, e.arity) do
-          %{} = c -> Map.put(c, :module, mod_str)
-          _ -> e
-        end
-      end)
-      |> Enum.uniq()
-
-    # A private default-arg head is neither exported nor in the AST;
-    # it still resolves to the def that generates it.
-    case {entries, arity} do
-      {[], a} when is_integer(a) ->
-        covering_def(funs, name_str, a) |> List.wrap() |> Enum.map(&Map.put(&1, :module, mod_str))
-
-      _ ->
-        entries
-    end
-  end
-
-  # `def foo(a, b \\ :x)` generates foo/1 with no def of its own;
-  # resolve such an arity to the def that generates it.
-  defp covering_def(funs, name_str, a) do
-    funs
-    |> Enum.filter(
-      &(&1.name == name_str and &1.arity > a and &1.start > 0 and
-          String.starts_with?(to_string(&1.kind), "def"))
-    )
-    |> Enum.sort_by(& &1.arity)
-    |> Enum.find(&(a >= &1.arity - Map.get(&1, :defaults, 0)))
-  end
-
-  @doc """
-  I return all call sites of `mod.name/arity` across loaded applications.
-
-  Each result has `:module` (calling module), `:function` (calling function),
-  and `:arity`.
-
-  When `mod` is nil I match callers of `name/arity` regardless of
-  target module — used by GT-side C-n when the call is a runtime
-  variable (`builder.text(...)`, `&1.inserted_at`) or an unqualified
-  Kernel/imported function and we can't statically know the target.
-  """
-  @spec function_references(module() | nil, atom(), non_neg_integer() | nil) :: [map()]
-  def function_references(mod, name, arity \\ nil) do
-    case GtBridge.Xref.q(~c"E") do
-      {:ok, edges} ->
-        callers =
-          for {{from_mod, from_fn, from_ar}, {to_mod, to_fn, to_ar}} <- edges,
-              mod == nil or to_mod == mod,
-              to_fn == name,
-              arity == nil or to_ar == arity,
-              from_mod != mod,
-              uniq: true do
-            {from_mod, Atom.to_string(from_fn), from_ar}
-          end
-
-        callers
-        |> Enum.uniq()
-        |> Enum.flat_map(fn {from_mod, from_name, from_ar} ->
-          all_functions(from_mod)
-          |> Enum.filter(fn f -> f.name == from_name and f.arity == from_ar end)
-          |> Enum.map(&Map.put(&1, :module, inspect(from_mod)))
-        end)
-        |> Enum.sort_by(&{&1.module, &1.name})
-
-      _ ->
-        []
-    end
-  end
-
-  @doc """
-  I parse Elixir source and return uniquely resolvable remote call sites.
-
-  Each result has `:target_module`, `:function`, `:arity`, `:line`,
-  and `:column`. Only fully qualified and alias-resolved remote calls
-  are returned.
-  """
-  @spec call_sites(String.t(), module() | nil) :: [map()]
-  def call_sites(source, context_module \\ nil) do
-    # Smalltalk text uses CR (\r, 0x0D) as line separator while
-    # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
-    # leaves the whole source on a single line as far as the
-    # tokenizer is concerned, so multi-line snippets returned []
-    # call sites and the editor showed no |> triangles.  Normalize
-    # all common variants to \n before hashing/parsing so
-    # semantically-equivalent sources cache to the same key.
-    source = source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
-
-    GtBridge.CacheReaper.cached(
-      {:call_sites, context_module, :erlang.phash2(source)},
-      fn -> compute_call_sites(source, context_module) end
-    )
-  end
-
-  defp compute_call_sites(source, context_module) do
-    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
-      aliases =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_alias_map(source)
-
-          mod ->
-            module_alias_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_alias_map(source))
-        end
-
-      imports =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_import_map(source)
-
-          mod ->
-            module_import_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_import_map(source))
-        end
-
-      calls =
-        ast
-        |> GtBridge.Analysis.Walker.collect_calls(context_module)
-        |> GtBridge.Analysis.Walker.resolve_call_aliases(aliases)
-        |> GtBridge.Analysis.Walker.resolve_import_targets(imports)
-
-      # A cross-module call can't reach a private fn, so exports are the
-      # full callable set (no parse); the context adds its local defs from
-      # the AST already parsed above.
-      modules_in_calls = calls |> Enum.map(& &1.target_module) |> Enum.uniq()
-      context_str = context_module && inspect(context_module)
-
-      # Bare local calls resolve against the source's own defs (defp too)
-      # whether or not a context module was given.  collect_calls/2 tags
-      # them with the context name, or "" when none was passed, so the
-      # local set is keyed under whichever it used.
-      local_key = context_str || ""
-
-      local_names =
-        MapSet.union(
-          source_function_names(source, ast),
-          if(context_module,
-            do: MapSet.union(exported_names(context_str), module_local_names(context_module)),
-            else: MapSet.new()
-          )
-        )
-
-      defined =
-        Map.new(modules_in_calls, fn mod_str ->
-          names = if mod_str == local_key, do: local_names, else: exported_names(mod_str)
-          {mod_str, names}
-        end)
-
-      Enum.filter(calls, fn site ->
-        names = Map.get(defined, site.target_module, MapSet.new())
-        MapSet.member?(names, site.function)
-      end)
-    else
-      _ -> []
-    end
-  end
-
-  @doc """
-  I check whether each name in `names` (dotted Elixir module name
-  strings, e.g. "GtBridge.Eval") is a currently-loaded module, and
-  return a `%{name => boolean()}` map.
-
-  Backed by the `Analysis.LoadedModules` ETS-backed set, which is
-  populated initially from `:application.get_key/2` and maintained
-  additively by EventBroker `%ModuleEvent{}` events — so each
-  lookup is O(1) and stays fresh without recompute.
-
-  Used by GT-side `BeamModuleResolution`: the styler walks source
-  locally with the SmaCC `ElixirParser`, finds module-name
-  candidates, batches the unknowns, and asks me once per source
-  change for their resolution status.  After warm-up the GT cache
-  holds answers for every name in the user's workspace and bridge
-  calls go to zero.
-  """
-  @spec modules_loaded?([String.t()]) :: %{String.t() => boolean()}
-  def modules_loaded?(names) when is_list(names) do
-    Map.new(names, fn name ->
-      {to_string(name), GtBridge.Analysis.LoadedModules.loaded?(to_string(name))}
-    end)
-  end
-
-  # A module's exported functions, macros, and public types — the names
-  # a cross-module call or type reference can reach.
-  defp exported_names(nil), do: MapSet.new()
-
-  defp exported_names(mod_str) do
-    mod = Module.concat([mod_str])
-
-    if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
-      (safe_module_info(mod, :functions) ++ safe_module_info(mod, :macros))
-      |> Enum.map(fn {name, _arity} -> Atom.to_string(name) end)
-      |> Enum.concat(exported_type_names(mod))
-      |> MapSet.new()
-    else
-      MapSet.new()
-    end
-  end
-
-  # Type names come from the beam chunk, not __info__; cache by md5 so
-  # referenced modules stay warm across edits.
-  defp exported_type_names(mod) do
-    GtBridge.CacheReaper.cached({:exported_types, mod, safe_module_info(mod, :md5)}, fn ->
-      case Code.Typespec.fetch_types(mod) do
-        {:ok, types} ->
-          for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
-
-        _ ->
-          []
-      end
-    end)
-  rescue
-    _ -> []
-  end
-
-  defp source_function_names(source, ast) do
-    lines = String.split(source, "\n")
-
-    (extract_functions(ast) ++ types_in_source(ast, lines))
-    |> Enum.map(& &1.name)
-    |> MapSet.new()
-  end
-
-  @doc "I resolve an alias name using a context module's alias declarations."
-  @spec resolve_alias(module(), String.t()) :: String.t()
-  def resolve_alias(context_module, alias_name) do
-    aliases = module_alias_map(context_module)
-    Map.get(aliases, alias_name, alias_name)
-  end
-
-  @doc """
-  I am true when `mod` defines a function (or macro-generated export)
-  named `name`.  Used by GT-side C-n to decide whether an unqualified
-  reference should be searched in `mod` (true) or fall back to
-  cross-module implementors search (false).
-  """
-  @spec function_in_module?(module(), String.t() | atom()) :: boolean()
-  def function_in_module?(mod, name) when is_atom(name),
-    do: function_in_module?(mod, Atom.to_string(name))
-
-  def function_in_module?(mod, name) when is_binary(name) do
-    all_functions(mod) |> Enum.any?(&(&1.name == name))
-  end
-
-  @doc """
-  I return the source for a function or type in `mod` matching
-  `name`/`arity`.  Used by the inline `|>` expander, which attaches
-  both to function calls and to type references in @spec / typedstruct
-  field types.  Returns nil when no entry matches.
-  """
-  @spec function_or_type_source(module(), String.t(), non_neg_integer()) :: String.t() | nil
-  def function_or_type_source(mod, name, arity) do
-    case Enum.find(all_functions(mod), &(&1.name == name and &1.arity == arity)) do
-      %{source: src} -> src
-      nil -> nil
-    end
-  end
-
-  # Parsing the saved source for aliases/imports is ~3ms each; cache by
-  # md5, same as the type names.
-  defp module_alias_map(mod) do
-    GtBridge.CacheReaper.cached({:module_alias_map, mod, safe_module_info(mod, :md5)}, fn ->
-      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
-    end)
-  end
-
-  defp module_import_map(mod) do
-    GtBridge.CacheReaper.cached({:module_import_map, mod, safe_module_info(mod, :md5)}, fn ->
-      GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
-    end)
-  end
-
-  # source_function_names on the module's saved source (the same
-  # extraction the source view runs on the live buffer), so a
-  # single-function view resolves calls to the module's own defs.
-  defp module_local_names(mod) do
-    GtBridge.CacheReaper.cached({:module_local_names, mod, safe_module_info(mod, :md5)}, fn ->
-      GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
-        case Code.string_to_quoted(src, columns: true, token_metadata: true) do
-          {:ok, ast} -> source_function_names(src, ast)
-          _ -> MapSet.new()
-        end
-      end)
-    end)
-  end
-
-  @doc """
-  I return `mod`'s `alias` declarations as a list of
-  `[short_name, full_name]` pairs.
-
-  GT-side wrench detection in inline function editors (the |>
-  expander, the Meta browser's Functions tab) shows only a function
-  body — the surrounding `alias` lines aren't visible in source, so
-  bare references like `ColumnedList` look unresolved even when the
-  enclosing module aliases them.  The styler calls me to merge the
-  module's aliases into its local map before classifying.
-
-  I return a list (rather than a map) so the Smalltalk side can
-  iterate via `asList` without needing `attributeAt:` per name —
-  Maps come back as opaque proxies on the GT side.
-  """
-  @spec module_aliases(module()) :: [[String.t()]]
-  def module_aliases(mod) do
-    module_alias_map(mod) |> Enum.map(fn {short, full} -> [short, full] end)
-  end
-
   @doc "I return exported functions for a module (works for both Elixir and Erlang)."
   @spec exported_functions(module()) :: [map()]
   def exported_functions(mod) do
     funs =
       if function_exported?(mod, :__info__, 1) do
-        safe_exported_functions(mod)
+        GtBridge.Beam.info(mod, :functions)
       else
         try do
           mod.module_info(:exports)
@@ -1257,137 +348,9 @@ defmodule GtBridge.Analysis do
   #                   Private Implementation                 #
   ############################################################
 
-  defp safe_exported_functions(mod), do: safe_module_info(mod, :functions)
-
-  # __info__/1 can raise for some macro-only modules despite exporting it,
-  # so the try/rescue is mandatory.
-  defp safe_module_info(mod, kind) do
-    if function_exported?(mod, :__info__, 1) do
-      try do
-        mod.__info__(kind)
-      rescue
-        _ in [UndefinedFunctionError, ArgumentError] -> []
-      end
-    else
-      []
-    end
-  end
-
-  # I return %{{name, arity} => formatted_spec_string} for every
-  # function in the module that the BEAM has a typespec for.  Used
-  # to enrich macro-generated function entries (which have no source)
-  # with a synthesized @spec line so the user sees the type info
-  # even though there's no AST.
-  defp beam_specs_by_arity(mod) do
-    case Code.Typespec.fetch_specs(mod) do
-      {:ok, specs} ->
-        Map.new(specs, fn {{name, arity}, [spec | _]} ->
-          formatted = Code.Typespec.spec_to_quoted(name, spec) |> Macro.to_string()
-          {{name, arity}, formatted}
-        end)
-
-      _ ->
-        %{}
-    end
-  end
-
-  # I build the placeholder source for a function with no AST entry.
-  # When the BEAM has a typespec for it I prepend an @spec line so the
-  # type info shows up in the editor; otherwise just the comment.
-  defp synth_no_source(name_str, arity, nil),
-    do: "# #{name_str}/#{arity}, no source"
-
-  defp synth_no_source(name_str, arity, spec_string),
-    do: "@spec #{spec_string}\n# #{name_str}/#{arity}, no source"
-
-  # I read the LoadedModules projection, not :application.get_key, so
-  # modules created by a live recompile (a new file, or a nested module
-  # from typedstruct module:) are enumerated instead of being frozen at
-  # the boot-time app spec.
-  defp modules(app) do
-    GtBridge.Analysis.LoadedModules.modules_for_app(app)
-  end
-
-  defp extract_functions({:defmodule, _, [_, [do: {:__block__, _, body}]]}) do
-    Enum.flat_map(body, &function_entry/1)
-  end
-
-  defp extract_functions({:defmodule, _, [_, [do: body]]}) do
-    Enum.flat_map([body], &function_entry/1)
-  end
-
-  defp extract_functions(_), do: []
-
-  defp function_entry({kind, meta, [head | _]}) when is_atom(kind) do
-    kind_str = Atom.to_string(kind)
-
-    cond do
-      kind in @function_def_macros ->
-        function_entry_for("def", head, meta)
-
-      not String.starts_with?(kind_str, "def") ->
-        []
-
-      kind in @non_function_def_kinds ->
-        []
-
-      true ->
-        function_entry_for(kind_str, head, meta)
-    end
-  end
-
-  defp function_entry(_), do: []
-
-  defp function_entry_for(kind_str, head, meta) do
-    case function_head(head) do
-      {name, arity} when is_atom(name) and is_integer(arity) ->
-        function_record(kind_str, name, arity, default_count(head), meta)
-
-      _ ->
-        []
-    end
-  end
-
-  defp function_record(kind_str, name, arity, defaults, meta) do
-    end_line = meta[:end][:line] || meta[:end_of_expression][:line] || meta[:line]
-
-    [
-      %{
-        name: Atom.to_string(name),
-        arity: arity,
-        kind: kind_str,
-        start: meta[:line],
-        end_line: end_line,
-        sig: "#{name}/#{arity}",
-        defaults: defaults
-      }
-    ]
-  end
-
-  # Arities `arity - defaults` .. `arity - 1` are generated heads
-  # with no def of their own.
-  defp default_count({:when, _, [head | _]}), do: default_count(head)
-
-  defp default_count({_, _, args}) when is_list(args),
-    do: Enum.count(args, &match?({:\\, _, _}, &1))
-
-  defp default_count(_), do: 0
-
-  defp function_head({:when, _, [head | _]}), do: function_head(head)
-
-  defp function_head({name, _, args}) when is_atom(name) and is_list(args),
-    do: {name, length(args)}
-
-  defp function_head({name, _, _}) when is_atom(name), do: {name, 0}
-  defp function_head(name) when is_atom(name), do: {name, 0}
-  # Catch-all so non-name heads (e.g. `__aliases__` tuples wrapped
-  # by some macro form) fall through to the case clause's `[]`
-  # branch instead of raising FunctionClauseError.
-  defp function_head(_), do: nil
-
   defp module_doc_info(mod) do
     try do
-      case Code.fetch_docs(mod) do
+      case GtBridge.Beam.docs(mod) do
         {:docs_v1, _, _, _, %{"en" => d}, _, docs} when d != "" -> {length(docs), true}
         {:docs_v1, _, _, _, _, _, docs} -> {length(docs), false}
         _ -> {0, false}

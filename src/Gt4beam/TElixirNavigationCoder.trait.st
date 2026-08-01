@@ -192,9 +192,9 @@ TElixirNavigationCoder >> browseReferencesIn: aString requesterObject: aRequeste
 
 { #category : 'navigation' }
 TElixirNavigationCoder >> contextModuleName [
-	"I return the module name being edited, or nil.
-	 Users override to provide module context."
-	^ nil
+	"I return the module name being edited. Both composers override
+	 me; declared as a requirement so the contract stays explicit."
+	^ self explicitRequirement
 ]
 
 { #category : 'requirements' }

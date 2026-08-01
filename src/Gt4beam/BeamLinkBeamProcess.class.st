@@ -36,13 +36,6 @@ BeamLinkBeamProcess >> gtViewDetailsIn: composite [
 ]
 
 { #category : 'testing' }
-BeamLinkBeamProcess >> hasProcess [
-	"Answer a boolean indicating whether the receiver has a process object"
-
-	^ process isNotNil
-]
-
-{ #category : 'testing' }
 BeamLinkBeamProcess >> isRunning [
 	^ process notNil and: [ process isRunning ]
 ]
@@ -101,7 +94,3 @@ BeamLinkBeamProcess >> stop [
 	process := nil
 ]
 
-{ #category : 'as yet unclassified' }
-BeamLinkBeamProcess >> workingDirectory [
-	^ application settings workingDirectory
-]
