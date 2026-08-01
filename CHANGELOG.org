@@ -1,4 +1,40 @@
 * Changelog
+** v0.19.2
+
+*** Bug Fixes
+
+- Multi-line ~@spec~ blocks display again :: a formatter-wrapped
+  ~@spec~ dropped the whole ~@doc~/~@spec~ block from a function's
+  displayed source.  Annotation ranges now come from the AST, and the
+  mid-edit fallback parses the slice above the def instead of
+  matching line prefixes.
+- Wrapped ~alias~/~import~ directives resolve :: a directive wrapped
+  across lines was invisible to the line scanners: calls through it
+  lost their expander triangles, eval sessions silently lost the
+  aliases (the intermittent lepiter alias bugs), and inspector
+  snippets failed with "missing terminator: }".  Directives are now
+  read as whole AST statements everywhere.
+- Directive answers scope to their module :: alias/import maps no
+  longer include directives of sibling modules in the same file.
+- ~typedstruct module:~ children keep their type :: the child's ~t~
+  was attributed to the enclosing module in the source-written cache
+  prime; type rows now agree with ~all_functions~.
+
+*** Internal
+
+- Inspector snippets prime their session :: instead of prepending
+  preamble text and ~import Mod~ to every eval, the coder primes the
+  session once via ~Preamble.editor_session~, as module coders
+  already did.  Only the ~self~ binding is prepended, so error line
+  numbers are off by one, not by the preamble height.
+- ~Analysis~ becomes a facade :: over ~Analysis.Source~,
+  ~Analysis.CallSites~ and ~Analysis.Graph~, with ~GtBridge.Beam~ as
+  the one beam-chunk reader (2.7x faster doc reads).  GT-facing names
+  are unchanged.
+- Dead and duplicated code removed :: unused functions and classes
+  deleted on both sides, duplicate mechanisms folded into single
+  owners.  Net -1,036 lines against v0.19.1.
+
 ** v0.19.1
 
 *** Features
