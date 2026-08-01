@@ -1,3 +1,22 @@
+defmodule Examples.ECompletion.Wrapped do
+  @moduledoc false
+
+  alias GtBridge.Analysis.{
+    Source,
+    Walker,
+    CallSites,
+    Graph,
+    LoadedModules,
+    Interfaces
+  }
+
+  import Enum,
+    only: [map: 2]
+
+  @doc false
+  def touch, do: {Source, Walker, CallSites, Graph, LoadedModules, Interfaces, map([], & &1)}
+end
+
 defmodule Examples.ECompletion do
   @moduledoc """
   I am examples for the Elixir autocompletion system.
@@ -122,11 +141,15 @@ defmodule Examples.ECompletion do
   example preamble_directives_parse_alone do
     # GT prepends these verbatim to inspector snippet evals; the old
     # line scan handed over fragments of wrapped directives, killing
-    # the whole snippet with a syntax error the user never wrote.
-    lines = GtBridge.Eval.Preamble.directives(GtBridge.Analysis)
+    # the whole snippet with a syntax error the user never wrote. The
+    # fixture alias group is wide enough that the formatter keeps it
+    # wrapped, so this also pins the one-line render (Macro.to_string
+    # reproduces source line breaks unless told otherwise).
+    lines = GtBridge.Eval.Preamble.directives(Examples.ECompletion.Wrapped)
 
-    assert "alias GtBridge.Analysis.Source" in lines
+    assert length(lines) == 2
     assert Enum.all?(lines, &match?({:ok, _}, Code.string_to_quoted(&1)))
+    assert Enum.any?(lines, &String.contains?(&1, "LoadedModules"))
 
     lines
   end

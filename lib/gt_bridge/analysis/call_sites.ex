@@ -166,7 +166,7 @@ defmodule GtBridge.Analysis.CallSites do
       GtBridge.Resolve.with_source(mod, empty_env(), fn src ->
         case GtBridge.Analysis.Source.quoted(src) do
           {:ok, ast} ->
-            directives = GtBridge.Analysis.Source.directives(ast)
+            directives = GtBridge.Analysis.Source.directives(ast, inspect(mod))
 
             %{
               aliases: GtBridge.Analysis.Walker.alias_map(directives),

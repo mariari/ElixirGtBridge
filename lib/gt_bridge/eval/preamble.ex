@@ -33,13 +33,25 @@ defmodule GtBridge.Eval.Preamble do
   @spec directives(module()) :: [String.t()]
   def directives(mod) when is_atom(mod) do
     GtBridge.Resolve.with_source(mod, [], fn source ->
-      Enum.map(directive_nodes(source), &Macro.to_string/1)
+      Enum.map(directive_nodes(source, mod), &one_line/1)
     end)
   end
 
-  defp directive_nodes(source) do
+  # token_metadata remembers the source's own line breaks and
+  # Macro.to_string honors them; drop :newlines so each directive
+  # renders on one line no matter how the file wrapped it.
+  defp one_line(node) do
+    node
+    |> Macro.prewalk(fn
+      {f, meta, args} when is_list(meta) -> {f, Keyword.drop(meta, [:newlines]), args}
+      other -> other
+    end)
+    |> Macro.to_string()
+  end
+
+  defp directive_nodes(source, mod) do
     case GtBridge.Analysis.Source.quoted(source) do
-      {:ok, ast} -> GtBridge.Analysis.Source.directives(ast)
+      {:ok, ast} -> GtBridge.Analysis.Source.directives(ast, inspect(mod))
       _ -> []
     end
   end
@@ -51,7 +63,7 @@ defmodule GtBridge.Eval.Preamble do
 
     new_env =
       GtBridge.Resolve.with_source(mod, base_env, fn source ->
-        Enum.reduce(directive_nodes(source), base_env, &eval_into_env/2)
+        Enum.reduce(directive_nodes(source, mod), base_env, &eval_into_env/2)
       end)
 
     :sys.replace_state(pid, fn s ->
