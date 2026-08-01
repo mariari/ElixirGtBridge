@@ -48,28 +48,10 @@ defmodule GtBridge.Analysis.Source do
   @spec modules_in_source(String.t()) :: [String.t()]
   def modules_in_source(source) do
     case Code.string_to_quoted(source) do
-      {:ok, ast} -> collect_modules(ast, "")
+      {:ok, ast} -> Enum.map(module_nodes(ast, ""), &elem(&1, 0))
       _ -> []
     end
   end
-
-  @spec collect_modules(Macro.t(), String.t()) :: [String.t()]
-  defp collect_modules({:__block__, _, stmts}, prefix),
-    do: Enum.flat_map(stmts, &collect_modules(&1, prefix))
-
-  defp collect_modules({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]}, prefix) do
-    full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
-    [full | collect_modules(body, full)]
-  end
-
-  defp collect_modules({:typedstruct, _, _} = node, prefix) do
-    case typedstruct_submodule(node) do
-      nil -> []
-      sub -> [qualify(prefix, sub)]
-    end
-  end
-
-  defp collect_modules(_, _), do: []
 
   @doc """
   I parse `source` and return the AST function entries (the same shape
@@ -319,38 +301,32 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
-  # The AST node for `target`'s scope: a defmodule tuple, or a `typedstruct
-  # module: X` tuple that generates <enclosing>.X. Walks defmodule nesting to
-  # build full names. The one place that answers "which module is this"; both
-  # the read and write paths use it.
-  @spec module_scope(Macro.t(), String.t()) :: Macro.t() | nil
-  defp module_scope(ast, target), do: module_scope(ast, "", target)
+  # The one traversal that knows what counts as a module: nested
+  # defmodules and `typedstruct module: X` children, as {dotted_name, node}
+  # pairs. Name listing and scope lookup are projections of it; both the
+  # read and write paths resolve "which module is this" here.
+  @spec module_nodes(Macro.t(), String.t()) :: [{String.t(), Macro.t()}]
+  defp module_nodes({:__block__, _, stmts}, prefix),
+    do: Enum.flat_map(stmts, &module_nodes(&1, prefix))
 
-  defp module_scope({:__block__, _, stmts}, prefix, target),
-    do: Enum.find_value(stmts, &module_scope(&1, prefix, target))
-
-  defp module_scope(
-         {:defmodule, _, [{:__aliases__, _, parts}, [do: body]]} = node,
-         prefix,
-         target
-       ) do
+  defp module_nodes({:defmodule, _, [{:__aliases__, _, parts}, [do: body]]} = node, prefix) do
     full = qualify(prefix, Enum.map_join(parts, ".", &Atom.to_string/1))
-
-    cond do
-      full == target -> node
-      String.starts_with?(target, full <> ".") -> module_scope(body, full, target)
-      true -> nil
-    end
+    [{full, node} | module_nodes(body, full)]
   end
 
-  defp module_scope({:typedstruct, _, _} = node, prefix, target) do
+  defp module_nodes({:typedstruct, _, _} = node, prefix) do
     case typedstruct_submodule(node) do
-      nil -> nil
-      sub -> if qualify(prefix, sub) == target, do: node
+      nil -> []
+      sub -> [{qualify(prefix, sub), node}]
     end
   end
 
-  defp module_scope(_, _, _), do: nil
+  defp module_nodes(_, _), do: []
+
+  @spec module_scope(Macro.t(), String.t()) :: Macro.t() | nil
+  defp module_scope(ast, target),
+    do: Enum.find_value(module_nodes(ast, ""), fn {name, node} -> name == target && node end)
+
   @spec qualify(String.t(), String.t()) :: String.t()
   defp qualify("", suffix), do: suffix
   defp qualify(prefix, suffix), do: prefix <> "." <> suffix
