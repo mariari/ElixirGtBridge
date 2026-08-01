@@ -215,16 +215,16 @@ defmodule GtBridge.Analysis do
 
     ast_keys = ast_entries |> Enum.map(&{&1.name, &1.arity}) |> MapSet.new()
 
-    specs = beam_specs_by_arity(mod)
+    specs = GtBridge.Beam.specs_by_arity(mod)
 
     runtime_extra =
-      for {n, a} <- safe_exported_functions(mod),
+      for {n, a} <- GtBridge.Beam.info(mod, :functions),
           name_str = Atom.to_string(n),
           # Skip __struct__, __info__, __views__, etc. — internal/macro
           # plumbing the user doesn't want in their function list.
           not String.starts_with?(name_str, "__"),
           not MapSet.member?(ast_keys, {name_str, a}) do
-        runtime_stub(name_str, a, Map.get(specs, {n, a}))
+        GtBridge.Beam.runtime_stub(name_str, a, Map.get(specs, {n, a}))
       end
 
     # Place runtime entries that share a name with an AST entry
@@ -396,15 +396,19 @@ defmodule GtBridge.Analysis do
     ast_arities = for e <- funs, e.name == name_str, into: MapSet.new(), do: e.arity
 
     exported_arities =
-      for {n, a} <- safe_exported_functions(mod), n == name_atom, do: a
+      for {n, a} <- GtBridge.Beam.info(mod, :functions), n == name_atom, do: a
 
-    specs = beam_specs_by_arity(mod)
+    specs = GtBridge.Beam.specs_by_arity(mod)
 
     extra =
       for a <- exported_arities,
           arity == nil or a == arity,
           not MapSet.member?(ast_arities, a) do
-        Map.put(runtime_stub(name_str, a, Map.get(specs, {name_atom, a})), :module, mod_str)
+        Map.put(
+          GtBridge.Beam.runtime_stub(name_str, a, Map.get(specs, {name_atom, a})),
+          :module,
+          mod_str
+        )
       end
 
     entries =
@@ -599,7 +603,7 @@ defmodule GtBridge.Analysis do
     mod = Module.concat([mod_str])
 
     if Code.ensure_loaded?(mod) and GtBridge.Resolve.source_file(mod) != nil do
-      (safe_module_info(mod, :functions) ++ safe_module_info(mod, :macros))
+      (GtBridge.Beam.info(mod, :functions) ++ GtBridge.Beam.info(mod, :macros))
       |> Enum.map(fn {name, _arity} -> Atom.to_string(name) end)
       |> Enum.concat(exported_type_names(mod))
       |> MapSet.new()
@@ -698,7 +702,7 @@ defmodule GtBridge.Analysis do
   def exported_functions(mod) do
     funs =
       if function_exported?(mod, :__info__, 1) do
-        safe_exported_functions(mod)
+        GtBridge.Beam.info(mod, :functions)
       else
         try do
           mod.module_info(:exports)
@@ -741,63 +745,6 @@ defmodule GtBridge.Analysis do
   #                   Private Implementation                 #
   ############################################################
 
-  defp safe_exported_functions(mod), do: safe_module_info(mod, :functions)
-
-  # __info__/1 can raise for some macro-only modules despite exporting it,
-  # so the try/rescue is mandatory.
-  defp safe_module_info(mod, kind) do
-    if function_exported?(mod, :__info__, 1) do
-      try do
-        mod.__info__(kind)
-      rescue
-        _ in [UndefinedFunctionError, ArgumentError] -> []
-      end
-    else
-      []
-    end
-  end
-
-  # I return %{{name, arity} => formatted_spec_string} for every
-  # function in the module that the BEAM has a typespec for.  Used
-  # to enrich macro-generated function entries (which have no source)
-  # with a synthesized @spec line so the user sees the type info
-  # even though there's no AST.
-  defp beam_specs_by_arity(mod) do
-    case Code.Typespec.fetch_specs(mod) do
-      {:ok, specs} ->
-        Map.new(specs, fn {{name, arity}, [spec | _]} ->
-          formatted = Code.Typespec.spec_to_quoted(name, spec) |> Macro.to_string()
-          {{name, arity}, formatted}
-        end)
-
-      _ ->
-        %{}
-    end
-  end
-
-  # I build the placeholder source for a function with no AST entry.
-  # When the BEAM has a typespec for it I prepend an @spec line so the
-  # type info shows up in the editor; otherwise just the comment.
-  # The shape of an exports-only entry: a runtime function with no
-  # textual def, carrying a synthesized source.
-  defp runtime_stub(name_str, arity, spec) do
-    %{
-      name: name_str,
-      arity: arity,
-      kind: :def,
-      start: 0,
-      end_line: 0,
-      sig: "#{name_str}/#{arity}",
-      source: synth_no_source(name_str, arity, spec)
-    }
-  end
-
-  defp synth_no_source(name_str, arity, nil),
-    do: "# #{name_str}/#{arity}, no source"
-
-  defp synth_no_source(name_str, arity, spec_string),
-    do: "@spec #{spec_string}\n# #{name_str}/#{arity}, no source"
-
   # I read the LoadedModules projection, not :application.get_key, so
   # modules created by a live recompile (a new file, or a nested module
   # from typedstruct module:) are enumerated instead of being frozen at
@@ -805,7 +752,7 @@ defmodule GtBridge.Analysis do
   # Read-through cache keyed by the module's md5: the key
   # self-invalidates on recompile and CacheReaper sweeps leftovers.
   defp cached_by_md5(tag, mod, fun) do
-    GtBridge.CacheReaper.cached({tag, mod, safe_module_info(mod, :md5)}, fun)
+    GtBridge.CacheReaper.cached({tag, mod, GtBridge.Beam.info(mod, :md5)}, fun)
   end
 
   defp modules(app) do
