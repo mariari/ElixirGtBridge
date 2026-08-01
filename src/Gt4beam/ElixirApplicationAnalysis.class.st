@@ -30,31 +30,6 @@ ElixirApplicationAnalysis >> application [
 ]
 
 { #category : 'private' }
-ElixirApplicationAnalysis >> buildTreeNode: aLabel from: entries [
-	"I build a tree node by consuming the namespace path.
-	 entries is a list of {info, remainingParts} pairs.
-	 A single leaf at this level merges its module info into the branch
-	 node itself; multiple leaves become separate child leaf nodes."
-	| leaves branches groups info leafChildren branchChildren |
-	leaves := entries select: [ :e | e second isEmpty ].
-	branches := entries reject: [ :e | e second isEmpty ].
-	groups := branches groupedBy: [ :e | e second first ].
-	info := leaves size = 1
-		ifTrue: [ self moduleInfoEntriesFor: leaves first first ]
-		ifFalse: [ { #module -> nil. #functions -> nil. #has_doc -> nil } ].
-	leafChildren := leaves size > 1
-		ifTrue: [ leaves collect: [ :e | self leafNodeFor: e first ] ]
-		ifFalse: [ #() ].
-	branchChildren := groups keys sorted collect: [ :k |
-		self buildTreeNode: k
-			from: ((groups at: k) collect: [ :e | { e first. e second allButFirst } ]) ].
-	^ ({
-		#label -> aLabel.
-		#children -> (leafChildren , branchChildren) asArray }
-		, info) asDictionary
-]
-
-{ #category : 'private' }
 ElixirApplicationAnalysis >> compileDepsViewLabeled: aLabel query: aQuery appModules: appModules [
 	"I build a single mondrian compile-deps sub-view."
 	^ GtPhlowEmptyView new mondrian
@@ -440,44 +415,11 @@ ElixirApplicationAnalysis >> hasTuple [
 	^ tuple isNotNil
 ]
 
-{ #category : 'private' }
-ElixirApplicationAnalysis >> leafNodeFor: aModuleInfo [
-	"I return a leaf tree node dictionary for a fully-qualified module."
-	| parts |
-	parts := $. split: ((aModuleInfo attributeAt: #name) withoutPrefix: 'Elixir.').
-	^ ({
-		#label -> parts last.
-		#children -> #() }
-		, (self moduleInfoEntriesFor: aModuleInfo)) asDictionary
-]
-
 { #category : 'accessing' }
 ElixirApplicationAnalysis >> moduleInfo [
 	"I return per-module metadata from the BEAM for the modules view."
 	^ self application evaluateAndWait:
 		'GtBridge.Analysis.module_details(', self name resolve, ')'
-]
-
-{ #category : 'private' }
-ElixirApplicationAnalysis >> moduleInfoEntriesFor: aModuleInfo [
-	"I return the module/functions/has_doc associations from a module info object.
-	 Used to merge a single leaf's metadata into its parent branch node."
-	^ {
-		#module -> (aModuleInfo attributeAt: #name).
-		#functions -> (aModuleInfo attributeAt: #functions).
-		#has_doc -> (aModuleInfo attributeAt: #has_doc) }
-]
-
-{ #category : 'accessing' }
-ElixirApplicationAnalysis >> moduleTreeRoots [
-	"I return a tree of module info grouped by namespace prefix."
-	| entries groups |
-	entries := self moduleInfo asList collect: [ :each |
-		{ each. ($. split: ((each attributeAt: #name) withoutPrefix: 'Elixir.')) } ].
-	groups := entries groupedBy: [ :e | e second first ].
-	^ (groups keys sorted collect: [ :key |
-		self buildTreeNode: key
-			from: ((groups at: key) collect: [ :e | { e first. e second allButFirst } ]) ]) asArray
 ]
 
 { #category : 'accessing' }

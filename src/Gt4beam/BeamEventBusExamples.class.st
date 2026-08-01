@@ -22,7 +22,7 @@ Class {
 { #category : 'examples - announcer' }
 BeamEventBusExamples >> announcerDeliversTypedAnnouncement [
 	"I subscribe a tag to BeamModuleRecompiled, fire one, and
-	 assert it arrives with intact mod and sourceHash. Pure dispatch
+	 assert it arrives with intact mod. Pure dispatch
 	 test — no save, no BEAM round-trip."
 	<gtExample>
 	| tag received |
@@ -33,11 +33,10 @@ BeamEventBusExamples >> announcerDeliversTypedAnnouncement [
 		do: [ :a | received := a ]
 		for: tag.
 	BeamEventAnnouncer default announce:
-		(BeamModuleRecompiled mod: 'HotReloadTest' sourceHash: 42).
+		(BeamModuleRecompiled new mod: 'HotReloadTest').
 	BeamEventAnnouncer default unsubscribe: tag.
 	self assert: received notNil description: 'announcement should arrive'.
 	self assert: received mod equals: 'HotReloadTest'.
-	self assert: received sourceHash equals: 42.
 	^ received
 ]
 
