@@ -2,9 +2,9 @@ defmodule GtBridge.Supervision do
   @moduledoc """
   I expose process-supervision introspection to GT.
 
-  My single public function `tree/1` walks a supervisor's children
-  recursively and returns a nested map structure suitable for
-  Mondrian-tree rendering on the GT side.
+  `tree/1` walks a supervisor's children recursively into a nested
+  map for Mondrian-tree rendering; `supervisor?/1` judges whether a
+  process is a supervisor from its state shape.
   """
 
   @doc """
@@ -16,6 +16,25 @@ defmodule GtBridge.Supervision do
   """
   @spec tree(pid()) :: map()
   def tree(pid) when is_pid(pid), do: build_node(pid)
+
+  @doc """
+  I return true when the process is a supervisor (Supervisor or
+  DynamicSupervisor), judged from its state shape.
+  """
+  @spec supervisor?(GenServer.name()) :: boolean()
+  def supervisor?(name) do
+    case :sys.get_state(name) do
+      %DynamicSupervisor{} ->
+        true
+
+      # Internally it's called :state
+      {:state, _, _strategy, _children, _, _, _, _, _, _, _, _} ->
+        true
+
+      _ ->
+        false
+    end
+  end
 
   defp build_node(pid) do
     info =

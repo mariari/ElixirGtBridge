@@ -132,7 +132,7 @@ BeamPIDObject >> isEvaluatorProcess [
 { #category : 'predicates' }
 BeamPIDObject >> isSupervisor [
 	^ self
-		evaluateAndWait: self resolve , ' |> GtBridge.ViewHelpers.determine_supervisor()'
+		evaluateAndWait: self resolve , ' |> GtBridge.Supervision.supervisor?()'
 ]
 
 { #category : 'as yet unclassified' }
