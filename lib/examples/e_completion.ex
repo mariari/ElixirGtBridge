@@ -1,6 +1,9 @@
 defmodule Examples.ECompletion.Wrapped do
   @moduledoc false
 
+  # Deliberately the brace-group form, wide enough to stay wrapped:
+  # this fixture guards multi-line directive parsing. Don't "fix" the
+  # style - one-alias-per-line would never wrap and the coverage dies.
   alias GtBridge.Analysis.{
     Source,
     Walker,

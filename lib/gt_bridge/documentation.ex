@@ -18,7 +18,8 @@ defmodule GtBridge.Documentation do
   use TypedStruct
   use GtBridge.View
 
-  alias GtBridge.Phlow.{Text, ColumnedList}
+  alias GtBridge.Phlow.ColumnedList
+  alias GtBridge.Phlow.Text
 
   @type module_query :: {:module, module()}
   @type function_query :: {:function, module(), atom()}
