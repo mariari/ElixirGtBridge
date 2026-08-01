@@ -17,6 +17,9 @@ defmodule GtBridge.Analysis do
 
   @type edge :: {module(), module()}
 
+  # One home for the parse options every source walk uses.
+  @quoted_opts [columns: true, token_metadata: true]
+
   @doc """
   I return module-level call edges for an application.
 
@@ -198,7 +201,7 @@ defmodule GtBridge.Analysis do
   """
   @spec functions_in_source(String.t()) :: [map()]
   def functions_in_source(source) do
-    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+    case Code.string_to_quoted(source, @quoted_opts) do
       {:ok, ast} ->
         lines = String.split(source, "\n")
 
@@ -585,7 +588,7 @@ defmodule GtBridge.Analysis do
   # dotted name string. Shared by all_functions/1 and the edit ops.
   @spec module_source_entries(String.t(), String.t()) :: [map()]
   defp module_source_entries(source, module) do
-    case Code.string_to_quoted(source, columns: true, token_metadata: true) do
+    case Code.string_to_quoted(source, @quoted_opts) do
       {:ok, ast} ->
         lines = String.split(source, "\n")
 
@@ -988,7 +991,7 @@ defmodule GtBridge.Analysis do
   end
 
   defp compute_call_sites(source, context_module) do
-    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
+    with {:ok, ast} <- Code.string_to_quoted(source, @quoted_opts) do
       aliases =
         case context_module do
           nil ->
@@ -1095,7 +1098,7 @@ defmodule GtBridge.Analysis do
   # Type names come from the beam chunk, not __info__; cache by md5 so
   # referenced modules stay warm across edits.
   defp exported_type_names(mod) do
-    GtBridge.CacheReaper.cached({:exported_types, mod, safe_module_info(mod, :md5)}, fn ->
+    cached_by_md5(:exported_types, mod, fn ->
       case Code.Typespec.fetch_types(mod) do
         {:ok, types} ->
           for {kind, {name, _, _}} <- types, kind in [:type, :opaque], do: Atom.to_string(name)
@@ -1140,13 +1143,13 @@ defmodule GtBridge.Analysis do
   # Parsing the saved source for aliases/imports is ~3ms each; cache by
   # md5, same as the type names.
   defp module_alias_map(mod) do
-    GtBridge.CacheReaper.cached({:module_alias_map, mod, safe_module_info(mod, :md5)}, fn ->
+    cached_by_md5(:module_alias_map, mod, fn ->
       GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_alias_map/1)
     end)
   end
 
   defp module_import_map(mod) do
-    GtBridge.CacheReaper.cached({:module_import_map, mod, safe_module_info(mod, :md5)}, fn ->
+    cached_by_md5(:module_import_map, mod, fn ->
       GtBridge.Resolve.with_source(mod, %{}, &GtBridge.Analysis.Walker.extract_import_map/1)
     end)
   end
@@ -1155,7 +1158,7 @@ defmodule GtBridge.Analysis do
   # extraction the source view runs on the live buffer), so a
   # single-function view resolves calls to the module's own defs.
   defp module_local_names(mod) do
-    GtBridge.CacheReaper.cached({:module_local_names, mod, safe_module_info(mod, :md5)}, fn ->
+    cached_by_md5(:module_local_names, mod, fn ->
       GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
         case Code.string_to_quoted(src, columns: true, token_metadata: true) do
           {:ok, ast} -> source_function_names(src, ast)
@@ -1280,6 +1283,12 @@ defmodule GtBridge.Analysis do
   # modules created by a live recompile (a new file, or a nested module
   # from typedstruct module:) are enumerated instead of being frozen at
   # the boot-time app spec.
+  # Read-through cache keyed by the module's md5: the key
+  # self-invalidates on recompile and CacheReaper sweeps leftovers.
+  defp cached_by_md5(tag, mod, fun) do
+    GtBridge.CacheReaper.cached({tag, mod, safe_module_info(mod, :md5)}, fun)
+  end
+
   defp modules(app) do
     GtBridge.Analysis.LoadedModules.modules_for_app(app)
   end
