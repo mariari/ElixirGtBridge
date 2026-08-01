@@ -2,21 +2,9 @@ defmodule GtBridge do
   use Application
 
   @moduledoc """
-  Documentation for `GtBridge`.
+  I am the OTP application entry point: I start the supervision tree,
+  register Phlow views, and start the TCP listener GT connects to.
   """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> GtBridge.hello()
-      :world
-
-  """
-  def hello do
-    :world
-  end
 
   def start(_type, args) do
     result = GtBridge.Supervisor.start_link(args)
