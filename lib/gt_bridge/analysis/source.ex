@@ -428,14 +428,46 @@ defmodule GtBridge.Analysis.Source do
   defp typedstruct_submodule(_), do: nil
   @spec functions_from_statements([Macro.t()], [String.t()]) :: [map()]
   defp functions_from_statements(stmts, lines) do
+    ann = annotation_starts(stmts)
+
     stmts
     |> Enum.flat_map(&function_entry/1)
     |> merge_clauses()
     |> Enum.map(fn f ->
-      start = walk_back_annotations(lines, f.start)
+      start = extend_over_comments(lines, Map.get(ann, f.start, f.start))
       %{f | start: start} |> Map.put(:source, slice_lines(lines, start, f.end_line))
     end)
   end
+
+  # First line of the @doc/@spec/@impl run above each statement, keyed by the
+  # statement's line: an attribute spans lines freely where a line walk trips.
+  @annotation_attrs [:doc, :spec, :impl]
+  @spec annotation_starts([Macro.t()]) :: %{pos_integer() => pos_integer()}
+  defp annotation_starts(stmts) do
+    stmts
+    |> Enum.reduce({%{}, nil}, fn
+      {:@, meta, [{attr, _, _}]}, {map, run} when attr in @annotation_attrs ->
+        {map, run || meta[:line]}
+
+      {_, meta, _}, {map, run} when run != nil and is_list(meta) ->
+        {Map.put(map, meta[:line], run), nil}
+
+      _, {map, _} ->
+        {map, nil}
+    end)
+    |> elem(0)
+  end
+
+  @spec extend_over_comments([String.t()], pos_integer()) :: pos_integer()
+  defp extend_over_comments(lines, start) when start > 1 do
+    if String.starts_with?(String.trim(Enum.at(lines, start - 2, "")), "#") do
+      extend_over_comments(lines, start - 1)
+    else
+      start
+    end
+  end
+
+  defp extend_over_comments(_lines, start), do: start
 
   # @type/@opaque/@typep plus a plain typedstruct's `t`, from direct statements.
   # A `typedstruct module: X` is skipped; its `t` is the child's, not ours.
@@ -492,29 +524,30 @@ defmodule GtBridge.Analysis.Source do
     end)
   end
 
+  # No AST to consult here: anchor at the farthest @doc/@spec/@impl line whose
+  # slice down to the def parses as pure annotations (heredocs and wrapped
+  # specs come out whole), then take adjacent comments like the strict path.
   defp walk_back_annotations(lines, def_start) do
-    if def_start <= 1 do
-      def_start
-    else
-      Enum.reduce_while((def_start - 1)..1//-1, {def_start, false}, fn i, {acc, in_heredoc} ->
-        trimmed = String.trim(Enum.at(lines, i - 1, ""))
-
-        cond do
-          String.starts_with?(trimmed, "defmodule") -> {:halt, {acc, false}}
-          String.starts_with?(trimmed, "@doc") -> {:halt, {i, false}}
-          String.starts_with?(trimmed, "@spec") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "@impl") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "#") -> {:cont, {i, in_heredoc}}
-          trimmed == ~s(""") -> {:cont, {i, true}}
-          in_heredoc -> {:cont, {i, true}}
-          trimmed == "" -> {:halt, {acc, false}}
-          acc < def_start -> {:cont, {i, in_heredoc}}
-          true -> {:halt, {acc, false}}
-        end
+    anchor =
+      (def_start - 1)..max(def_start - @lenient_max_fn_lines, 1)//-1
+      |> Enum.filter(fn i ->
+        String.starts_with?(String.trim(Enum.at(lines, i - 1, "")), ["@doc", "@spec", "@impl"])
       end)
-      |> elem(0)
+      |> Enum.reverse()
+      |> Enum.find(&pure_annotations?(slice_lines(lines, &1, def_start - 1)))
+
+    extend_over_comments(lines, anchor || def_start)
+  end
+
+  defp pure_annotations?(slice) do
+    case Code.string_to_quoted(slice) do
+      {:ok, ast} -> Enum.all?(body_statements(ast), &annotation?/1)
+      _ -> false
     end
   end
+
+  defp annotation?({:@, _, [{attr, _, _}]}), do: attr in @annotation_attrs
+  defp annotation?(_), do: false
 
   def source_function_names(source, ast) do
     lines = String.split(source, "\n")
