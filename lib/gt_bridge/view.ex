@@ -91,16 +91,7 @@ defmodule GtBridge.View do
   """
   @spec register_all(GenServer.server()) :: :ok
   def register_all(server \\ GtBridge.Views) do
-    modules =
-      Application.loaded_applications()
-      |> Enum.flat_map(fn {app, _, _} ->
-        case :application.get_key(app, :modules) do
-          {:ok, mods} -> mods
-          _ -> []
-        end
-      end)
-
-    for module <- modules,
+    for module <- GtBridge.Analysis.LoadedModules.all_modules(),
         Code.ensure_loaded?(module),
         function_exported?(module, :__views__, 0) do
       register(module, server)

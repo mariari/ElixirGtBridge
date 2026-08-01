@@ -53,8 +53,7 @@ defmodule GtBridge.Analysis do
   def system_stats do
     zero = %{modules: 0, functions: 0, with_docs: 0, with_source: 0}
 
-    Application.loaded_applications()
-    |> Enum.flat_map(fn {app, _, _} -> LoadedModules.modules_for_app(app) end)
+    LoadedModules.all_modules()
     |> Enum.reduce(zero, fn mod, acc ->
       {fun_count, has_doc} = module_doc_info(mod)
 
