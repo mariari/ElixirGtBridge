@@ -6,6 +6,13 @@ defmodule GtBridge.Analysis.CallSites do
   and alias/import lookups are md5-cached per module.
   """
 
+  @doc """
+  I parse Elixir source and return uniquely resolvable remote call sites.
+
+  Each result has `:target_module`, `:function`, `:arity`, `:line`,
+  and `:column`. Only fully qualified and alias-resolved remote calls
+  are returned.
+  """
   @spec call_sites(String.t(), module() | nil) :: [map()]
   def call_sites(source, context_module \\ nil) do
     # Smalltalk text uses CR (\r, 0x0D) as line separator while
@@ -87,6 +94,23 @@ defmodule GtBridge.Analysis.CallSites do
     end
   end
 
+  @doc """
+  I check whether each name in `names` (dotted Elixir module name
+  strings, e.g. "GtBridge.Eval") is a currently-loaded module, and
+  return a `%{name => boolean()}` map.
+
+  Backed by the `Analysis.LoadedModules` ETS-backed set, which is
+  populated initially from `:application.get_key/2` and maintained
+  additively by EventBroker `%ModuleEvent{}` events — so each
+  lookup is O(1) and stays fresh without recompute.
+
+  Used by GT-side `BeamModuleResolution`: the styler walks source
+  locally with the SmaCC `ElixirParser`, finds module-name
+  candidates, batches the unknowns, and asks me once per source
+  change for their resolution status.  After warm-up the GT cache
+  holds answers for every name in the user's workspace and bridge
+  calls go to zero.
+  """
   @spec modules_loaded?([String.t()]) :: %{String.t() => boolean()}
   def modules_loaded?(names) when is_list(names) do
     Map.new(names, fn name ->
@@ -127,12 +151,19 @@ defmodule GtBridge.Analysis.CallSites do
     _ -> []
   end
 
+  @doc "I resolve an alias name using a context module's alias declarations."
   @spec resolve_alias(module(), String.t()) :: String.t()
   def resolve_alias(context_module, alias_name) do
     aliases = module_alias_map(context_module)
     Map.get(aliases, alias_name, alias_name)
   end
 
+  @doc """
+  I am true when `mod` defines a function (or macro-generated export)
+  named `name`.  Used by GT-side C-n to decide whether an unqualified
+  reference should be searched in `mod` (true) or fall back to
+  cross-module implementors search (false).
+  """
   @spec function_in_module?(module(), String.t() | atom()) :: boolean()
   def function_in_module?(mod, name) when is_atom(name),
     do: function_in_module?(mod, Atom.to_string(name))
@@ -169,6 +200,21 @@ defmodule GtBridge.Analysis.CallSites do
     end)
   end
 
+  @doc """
+  I return `mod`'s `alias` declarations as a list of
+  `[short_name, full_name]` pairs.
+
+  GT-side wrench detection in inline function editors (the |>
+  expander, the Meta browser's Functions tab) shows only a function
+  body — the surrounding `alias` lines aren't visible in source, so
+  bare references like `ColumnedList` look unresolved even when the
+  enclosing module aliases them.  The styler calls me to merge the
+  module's aliases into its local map before classifying.
+
+  I return a list (rather than a map) so the Smalltalk side can
+  iterate via `asList` without needing `attributeAt:` per name —
+  Maps come back as opaque proxies on the GT side.
+  """
   @spec module_aliases(module()) :: [[String.t()]]
   def module_aliases(mod) do
     module_alias_map(mod) |> Enum.map(fn {short, full} -> [short, full] end)

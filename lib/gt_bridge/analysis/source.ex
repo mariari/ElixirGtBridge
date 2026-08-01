@@ -13,6 +13,12 @@ defmodule GtBridge.Analysis.Source do
   @doc "I parse `source` with the options every source walk uses."
   @spec quoted(String.t()) :: {:ok, Macro.t()} | {:error, term()}
   def quoted(source), do: Code.string_to_quoted(source, @quoted_opts)
+
+  @doc """
+  I extract the top-level `defmodule X.Y` name from `source`. Returns
+  the dotted module string, or nil when the source doesn't define one
+  or doesn't parse.
+  """
   @spec module_in_source(String.t()) :: String.t() | nil
   def module_in_source(source) do
     case modules_in_source(source) do
@@ -34,6 +40,11 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
+  @doc """
+  I return every module `source` defines (nested `defmodule`s and
+  `typedstruct module:` children included) as dotted-name strings.
+  Returns `[]` when the source doesn't parse.
+  """
   @spec modules_in_source(String.t()) :: [String.t()]
   def modules_in_source(source) do
     case Code.string_to_quoted(source) do
@@ -59,6 +70,13 @@ defmodule GtBridge.Analysis.Source do
   end
 
   defp collect_modules(_, _), do: []
+
+  @doc """
+  I parse `source` and return the AST function entries (the same shape
+  `all_functions/1` returns minus the runtime-export merging, which
+  needs the module to be loaded). Works on disk bytes alone, so safe
+  to call before / after a failed compile.
+  """
   @spec functions_in_source(String.t()) :: [map()]
   def functions_in_source(source) do
     case quoted(source) do
@@ -73,6 +91,11 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
+  @doc """
+  I swap two functions (by `{name, arity}`) within `module` in `source`,
+  taking ranges from `source` itself so the splice can't drift. Unknown
+  name/arity returns `source` unchanged.
+  """
   @spec swap_functions(String.t(), String.t(), String.t(), arity(), String.t(), arity()) ::
           String.t()
   def swap_functions(source, module, name_a, arity_a, name_b, arity_b) do
@@ -86,6 +109,12 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
+  @doc """
+  I replace the `{name, arity}` function within `module` in `source` with
+  `new_text` (or remove it when `new_text` is empty), taking the range from
+  `source` itself so the splice can't drift. Unknown name/arity returns
+  `source` unchanged.
+  """
   @spec replace_function(String.t(), String.t(), String.t(), arity(), String.t()) :: String.t()
   def replace_function(source, module, name, arity, new_text) do
     case find_function(module_source_entries(source, module), name, arity) do
@@ -94,6 +123,12 @@ defmodule GtBridge.Analysis.Source do
     end
   end
 
+  @doc """
+  I append `new_text` as a new function just before `module`'s closing `end`,
+  located from the parse so a sibling or nested module in the same file doesn't
+  misdirect it. Returns `source` unchanged when `module` has no `defmodule` to
+  append to (e.g. a typedstruct-generated module), or the source doesn't parse.
+  """
   @spec append_function(String.t(), String.t(), String.t()) :: String.t()
   def append_function(source, module, new_text) do
     with {:ok, ast} <- Code.string_to_quoted(source, token_metadata: true),

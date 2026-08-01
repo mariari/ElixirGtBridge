@@ -25,7 +25,7 @@ defmodule Examples.EAnalysis do
   #                    Module Graph Examples                  #
   ############################################################
 
-  @spec module_graph() :: [Analysis.edge()]
+  @spec module_graph() :: [Analysis.Graph.edge()]
   example module_graph do
     edges = Analysis.module_graph(:gt_bridge)
 
