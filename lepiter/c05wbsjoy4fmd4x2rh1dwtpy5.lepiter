@@ -1,184 +1,150 @@
 {
-	"__schema" : "4.1",
-	"__type" : "page",
-	"children" : {
-		"__type" : "snippets",
-		"items" : [
+	"__schema": "4.1",
+	"__type": "page",
+	"children": {
+		"__type": "snippets",
+		"items": [
 			{
-				"__type" : "textSnippet",
-				"children" : {
-					"__type" : "snippets",
-					"items" : [ ]
+				"__type": "textSnippet",
+				"children": {
+					"__type": "snippets",
+					"items": []
 				},
-				"createEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"createEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"createTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:04:08.26959-05:00"
+				"createTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:04:08.26959-05:00"
 					}
 				},
-				"editEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"editEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"editTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:09:23.593623-05:00"
+				"editTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:09:23.593623-05:00"
 					}
 				},
-				"uid" : {
-					"__type" : "uid",
-					"uidString" : "P9vYh6/9DQCGlSE1CXPFyg=="
+				"uid": {
+					"__type": "uid",
+					"uidString": "P9vYh6/9DQCGlSE1CXPFyg=="
 				},
-				"paragraphStyle" : {
-					"__type" : "textStyle"
+				"paragraphStyle": {
+					"__type": "textStyle"
 				},
-				"string" : "`gt4beam` doesn’t only ship with an integration for programming. It also leverages GT’s code analysis tools to facilitate auditing its own codebase."
+				"string": "`gt4beam` doesn’t only ship with an integration for programming. It also leverages GT’s code analysis tools to facilitate auditing its own codebase."
 			},
 			{
-				"__type" : "textSnippet",
-				"children" : {
-					"__type" : "snippets",
-					"items" : [ ]
+				"__type": "textSnippet",
+				"children": {
+					"__type": "snippets",
+					"items": []
 				},
-				"createEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"createEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"createTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:04:51.473049-05:00"
+				"createTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:04:51.473049-05:00"
 					}
 				},
-				"editEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"editEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"editTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:07:05.155896-05:00"
+				"editTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:07:05.155896-05:00"
 					}
 				},
-				"uid" : {
-					"__type" : "uid",
-					"uidString" : "77sQi6/9DQCKnJCbCXPFyg=="
+				"uid": {
+					"__type": "uid",
+					"uidString": "77sQi6/9DQCKnJCbCXPFyg=="
 				},
-				"paragraphStyle" : {
-					"__type" : "textStyle"
+				"paragraphStyle": {
+					"__type": "textStyle"
 				},
-				"string" : "Below is a snippet for analyzing the code of the entire Elixir bridge."
+				"string": "Below is a snippet for analyzing the code of the entire Elixir bridge."
 			},
 			{
-				"__type" : "pharoSnippet",
-				"children" : {
-					"__type" : "snippets",
-					"items" : [ ]
+				"__type": "textSnippet",
+				"children": {
+					"__type": "snippets",
+					"items": []
 				},
-				"createEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"createEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"createTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:05:52.997523-05:00"
+				"createTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:07:36.70461-05:00"
 					}
 				},
-				"editEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
+				"editEmail": {
+					"__type": "email",
+					"emailString": "<unknown>"
 				},
-				"editTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2026-04-29T15:50:59.199079+08:00"
+				"editTime": {
+					"__type": "time",
+					"time": {
+						"__type": "dateAndTime",
+						"dateAndTimeString": "2025-10-16T17:07:36.70461-05:00"
 					}
 				},
-				"uid" : {
-					"__type" : "uid",
-					"uidString" : "q4i7jq/9DQCNB9F3CXPFyg=="
+				"uid": {
+					"__type": "uid",
+					"uidString": "d/rplK/9DQCOfamKCXPFyg=="
 				},
-				"code" : "BeamCodeVisualizer new codeView"
-			},
-			{
-				"__type" : "textSnippet",
-				"children" : {
-					"__type" : "snippets",
-					"items" : [ ]
+				"paragraphStyle": {
+					"__type": "textStyle"
 				},
-				"createEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
-				},
-				"createTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:07:36.70461-05:00"
-					}
-				},
-				"editEmail" : {
-					"__type" : "email",
-					"emailString" : "<unknown>"
-				},
-				"editTime" : {
-					"__type" : "time",
-					"time" : {
-						"__type" : "dateAndTime",
-						"dateAndTimeString" : "2025-10-16T17:07:36.70461-05:00"
-					}
-				},
-				"uid" : {
-					"__type" : "uid",
-					"uidString" : "d/rplK/9DQCOfamKCXPFyg=="
-				},
-				"paragraphStyle" : {
-					"__type" : "textStyle"
-				},
-				"string" : ""
+				"string": ""
 			}
 		]
 	},
-	"createEmail" : {
-		"__type" : "email",
-		"emailString" : "<unknown>"
+	"createEmail": {
+		"__type": "email",
+		"emailString": "<unknown>"
 	},
-	"createTime" : {
-		"__type" : "time",
-		"time" : {
-			"__type" : "dateAndTime",
-			"dateAndTimeString" : "2025-10-16T17:03:57.417807-05:00"
+	"createTime": {
+		"__type": "time",
+		"time": {
+			"__type": "dateAndTime",
+			"dateAndTimeString": "2025-10-16T17:03:57.417807-05:00"
 		}
 	},
-	"editEmail" : {
-		"__type" : "email",
-		"emailString" : "<unknown>"
+	"editEmail": {
+		"__type": "email",
+		"emailString": "<unknown>"
 	},
-	"editTime" : {
-		"__type" : "time",
-		"time" : {
-			"__type" : "dateAndTime",
-			"dateAndTimeString" : "2025-10-16T17:09:04.583413-05:00"
+	"editTime": {
+		"__type": "time",
+		"time": {
+			"__type": "dateAndTime",
+			"dateAndTimeString": "2025-10-16T17:09:04.583413-05:00"
 		}
 	},
-	"pageType" : {
-		"__type" : "namedPage",
-		"title" : "Visualizing the bridge code"
+	"pageType": {
+		"__type": "namedPage",
+		"title": "Visualizing the bridge code"
 	},
-	"uid" : {
-		"__type" : "uuid",
-		"uuid" : "9decd787-affd-0d00-8694-765e0973c5ca"
+	"uid": {
+		"__type": "uuid",
+		"uuid": "9decd787-affd-0d00-8694-765e0973c5ca"
 	}
 }

@@ -2,12 +2,10 @@
 I announce that a module's full function-entries list has been
 refreshed in the local cache.
 
-I am the *coarse* sibling of `BeamModuleSourceChanged`: where the
-narrow event fires per-function whose source actually changed, I
-fire ONCE per recompile, after all per-function events.  This
-lets module-level consumers (the Source tab rebuilder, the
-function streaming list) re-render once per recompile instead of
-N times for N changed functions.
+I fire ONCE per recompile, after the cache updates its per-function
+source map.  This lets module-level consumers (the Source tab
+rebuilder, the function streaming list) re-render once per recompile
+instead of N times for N changed functions.
 
 The cache (`BeamModuleSourceCache`) is the sole publisher.
 
