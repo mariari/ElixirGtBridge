@@ -45,8 +45,6 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 		elixirLinkApplicationStrategy: self serverStrategy.
 	self coderViewModel
 		viewPharoBindings: self snippetViewModel snippetBindings.
-	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
-		self coderViewModel selfObject: obj ].
 	pageSrc := self siblingAliasSource.
 	contextMod := self pageContextModuleName.
 	self coder pageAliasSource: pageSrc.
@@ -61,15 +59,9 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 { #category : 'private' }
 LeElixirSnippetElement >> pageContextModuleName [
 	"I return the Elixir module my page is for, so my coder can pull
-	 the module's `alias`/`import` declarations.  Two sources:
-
-	 1. Inspector playgrounds for a `BeamProxyObject` use the proxy's
-	    `elixirClass`.
-	 2. Standalone pages titled like an Elixir module use the title."
-	| selfObj title |
-	selfObj := [ self snippetViewModel inspectorSelfObject ] on: Error do: [ nil ].
-	(selfObj isKindOf: BeamProxyObject) ifTrue: [
-		^ [ selfObj elixirClass ] on: Error do: [ nil ] ].
+	 the module's `alias`/`import` declarations: standalone pages
+	 titled like an Elixir module use the title."
+	| title |
 	title := [ self snippet page title ] on: Error do: [ nil ].
 	(title isString and: [ title matchesRegex: '^[A-Z][A-Za-z0-9_]*(\.[A-Z][A-Za-z0-9_]*)*$' ])
 		ifFalse: [ ^ nil ].
