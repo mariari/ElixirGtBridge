@@ -14,7 +14,7 @@ defmodule GtBridge.Analysis.LoadedModules do
   module born from a live recompile (a new file, or a nested module from
   `typedstruct module:`) never appears in it — but it does arrive here as
   a `:recompiled` fact.  That is why module enumeration
-  (`Analysis.all_module_names/0`, the private `modules/1`, and through
+  (Analysis' module listings, the private `modules/1`, and through
   them the spotter and the module browser) reads me rather than
   `get_key` directly.
 

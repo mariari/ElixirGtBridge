@@ -42,15 +42,6 @@ defmodule GtBridge.Analysis do
     end
   end
 
-  @doc "I return the modules that `mod` calls."
-  @spec callees(module()) :: [module()]
-  def callees(mod) do
-    case Application.get_application(mod) do
-      nil -> []
-      app -> callees(mod, app)
-    end
-  end
-
   @doc "I return the modules that `mod` calls within `app`."
   @spec callees(module(), atom()) :: [module()]
   def callees(mod, app) do
@@ -799,9 +790,8 @@ defmodule GtBridge.Analysis do
     |> Enum.sort_by(& &1.name)
   end
 
-  @doc "I return all module names across all loaded applications, sorted."
   @spec all_module_names() :: [String.t()]
-  def all_module_names do
+  defp all_module_names do
     GtBridge.Analysis.LoadedModules.all_names() |> Enum.sort()
   end
 
@@ -1145,20 +1135,6 @@ defmodule GtBridge.Analysis do
 
   def function_in_module?(mod, name) when is_binary(name) do
     all_functions(mod) |> Enum.any?(&(&1.name == name))
-  end
-
-  @doc """
-  I return the source for a function or type in `mod` matching
-  `name`/`arity`.  Used by the inline `|>` expander, which attaches
-  both to function calls and to type references in @spec / typedstruct
-  field types.  Returns nil when no entry matches.
-  """
-  @spec function_or_type_source(module(), String.t(), non_neg_integer()) :: String.t() | nil
-  def function_or_type_source(mod, name, arity) do
-    case Enum.find(all_functions(mod), &(&1.name == name and &1.arity == arity)) do
-      %{source: src} -> src
-      nil -> nil
-    end
   end
 
   # Parsing the saved source for aliases/imports is ~3ms each; cache by

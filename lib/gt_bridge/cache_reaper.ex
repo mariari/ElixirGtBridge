@@ -3,9 +3,7 @@ defmodule GtBridge.CacheReaper do
   I own the named ETS table that backs all GtBridge derived-state caches and
   invalidate per-module entries when the module recompiles.
 
-  Cache consumers (styler call_sites, alias maps, function records, doc
-  fetches, source paths) read and write this table directly via `:ets`. I
-  do not mediate reads or writes — I only react to
+  Cache consumers go through `cached/2`; I only react to
   `%ModuleEvent{kind: :recompiled}` from the EventBroker by
   deleting every entry tagged with the affected module.
 
@@ -15,13 +13,10 @@ defmodule GtBridge.CacheReaper do
       {:call_sites, mod, source_hash}
       {:alias_map,  mod, source_hash}
       {:functions,  mod, source_hash}
-      {:docs,       mod}
-      {:source_file, mod}
 
   ### Public API
 
   - `start_link/1` — supervised start
-  - `table/0` — name of the ETS table for cache consumers
   - `cached/2` — read-through cache helper for consumers
   """
 
@@ -36,9 +31,6 @@ defmodule GtBridge.CacheReaper do
   ############################################################
   #                        Public API                        #
   ############################################################
-
-  @spec table() :: atom()
-  def table, do: @table
 
   @doc """
   I read `key` from the cache table and return the stored value on hit.
@@ -100,7 +92,6 @@ defmodule GtBridge.CacheReaper do
 
   defp invalidate(%ModuleEvent{mod: mod}) when is_atom(mod) do
     :ets.match_delete(@table, {{:_, mod, :_}, :_})
-    :ets.match_delete(@table, {{:_, mod}, :_})
     :ok
   end
 end
