@@ -441,11 +441,12 @@ defmodule GtBridge.Analysis.Source do
 
   # First line of the @doc/@spec/@impl run above each statement, keyed by the
   # statement's line: an attribute spans lines freely where a line walk trips.
+  @annotation_attrs [:doc, :spec, :impl]
   @spec annotation_starts([Macro.t()]) :: %{pos_integer() => pos_integer()}
   defp annotation_starts(stmts) do
     stmts
     |> Enum.reduce({%{}, nil}, fn
-      {:@, meta, [{attr, _, _}]}, {map, run} when attr in [:doc, :spec, :impl] ->
+      {:@, meta, [{attr, _, _}]}, {map, run} when attr in @annotation_attrs ->
         {map, run || meta[:line]}
 
       {_, meta, _}, {map, run} when run != nil and is_list(meta) ->
@@ -523,29 +524,30 @@ defmodule GtBridge.Analysis.Source do
     end)
   end
 
+  # No AST to consult here: anchor at the farthest @doc/@spec/@impl line whose
+  # slice down to the def parses as pure annotations (heredocs and wrapped
+  # specs come out whole), then take adjacent comments like the strict path.
   defp walk_back_annotations(lines, def_start) do
-    if def_start <= 1 do
-      def_start
-    else
-      Enum.reduce_while((def_start - 1)..1//-1, {def_start, false}, fn i, {acc, in_heredoc} ->
-        trimmed = String.trim(Enum.at(lines, i - 1, ""))
-
-        cond do
-          String.starts_with?(trimmed, "defmodule") -> {:halt, {acc, false}}
-          String.starts_with?(trimmed, "@doc") -> {:halt, {i, false}}
-          String.starts_with?(trimmed, "@spec") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "@impl") -> {:cont, {i, false}}
-          String.starts_with?(trimmed, "#") -> {:cont, {i, in_heredoc}}
-          trimmed == ~s(""") -> {:cont, {i, true}}
-          in_heredoc -> {:cont, {i, true}}
-          trimmed == "" -> {:halt, {acc, false}}
-          acc < def_start -> {:cont, {i, in_heredoc}}
-          true -> {:halt, {acc, false}}
-        end
+    anchor =
+      (def_start - 1)..max(def_start - @lenient_max_fn_lines, 1)//-1
+      |> Enum.filter(fn i ->
+        String.starts_with?(String.trim(Enum.at(lines, i - 1, "")), ["@doc", "@spec", "@impl"])
       end)
-      |> elem(0)
+      |> Enum.reverse()
+      |> Enum.find(&pure_annotations?(slice_lines(lines, &1, def_start - 1)))
+
+    extend_over_comments(lines, anchor || def_start)
+  end
+
+  defp pure_annotations?(slice) do
+    case Code.string_to_quoted(slice) do
+      {:ok, ast} -> Enum.all?(body_statements(ast), &annotation?/1)
+      _ -> false
     end
   end
+
+  defp annotation?({:@, _, [{attr, _, _}]}), do: attr in @annotation_attrs
+  defp annotation?(_), do: false
 
   def source_function_names(source, ast) do
     lines = String.split(source, "\n")
