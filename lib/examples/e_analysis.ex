@@ -562,4 +562,34 @@ defmodule Examples.EAnalysis do
   end
 
   defp priv_default(a, b \\ :x), do: {a, b}
+
+  @spec xref_index_survives_recompile() :: non_neg_integer()
+  example xref_index_survives_recompile do
+    # Folded from Examples.EXref (which was never registered in the
+    # suite): the one assertion unique to it - the long-lived xref
+    # index reacts to recompile facts without crashing or shrinking.
+    assert Process.whereis(GtBridge.Xref) |> is_pid()
+
+    src_path = "fixtures/hot_reload_test/lib/hot_reload_test.ex"
+    original = File.read!(src_path)
+    {:ok, mods_before} = GtBridge.Xref.q(~c"M")
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      :ok = GtBridge.HotReload.reload(src_path, original)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{kind: :recompiled, mod: HotReloadTest}
+                     },
+                     15_000
+
+      :sys.get_state(GtBridge.Xref)
+      {:ok, mods_after} = GtBridge.Xref.q(~c"M")
+      assert length(mods_after) >= length(mods_before)
+      length(mods_after)
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      File.write!(src_path, original)
+    end
+  end
 end
