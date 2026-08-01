@@ -9,6 +9,10 @@ defmodule GtBridge.Analysis.Source do
 
   # One home for the parse options every source walk uses.
   @quoted_opts [columns: true, token_metadata: true]
+
+  @doc "I parse `source` with the options every source walk uses."
+  @spec quoted(String.t()) :: {:ok, Macro.t()} | {:error, term()}
+  def quoted(source), do: Code.string_to_quoted(source, @quoted_opts)
   @spec module_in_source(String.t()) :: String.t() | nil
   def module_in_source(source) do
     case modules_in_source(source) do
@@ -57,7 +61,7 @@ defmodule GtBridge.Analysis.Source do
   defp collect_modules(_, _), do: []
   @spec functions_in_source(String.t()) :: [map()]
   def functions_in_source(source) do
-    case Code.string_to_quoted(source, @quoted_opts) do
+    case quoted(source) do
       {:ok, ast} ->
         lines = String.split(source, "\n")
 
@@ -318,7 +322,7 @@ defmodule GtBridge.Analysis.Source do
   # dotted name string. Shared by all_functions/1 and the edit ops.
   @spec module_source_entries(String.t(), String.t()) :: [map()]
   def module_source_entries(source, module) do
-    case Code.string_to_quoted(source, @quoted_opts) do
+    case quoted(source) do
       {:ok, ast} ->
         lines = String.split(source, "\n")
 

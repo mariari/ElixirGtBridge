@@ -224,15 +224,7 @@ defmodule GtBridge.Analysis do
           # plumbing the user doesn't want in their function list.
           not String.starts_with?(name_str, "__"),
           not MapSet.member?(ast_keys, {name_str, a}) do
-        %{
-          name: name_str,
-          arity: a,
-          kind: :def,
-          start: 0,
-          end_line: 0,
-          sig: "#{name_str}/#{a}",
-          source: synth_no_source(name_str, a, Map.get(specs, {n, a}))
-        }
+        runtime_stub(name_str, a, Map.get(specs, {n, a}))
       end
 
     # Place runtime entries that share a name with an AST entry
@@ -412,16 +404,7 @@ defmodule GtBridge.Analysis do
       for a <- exported_arities,
           arity == nil or a == arity,
           not MapSet.member?(ast_arities, a) do
-        %{
-          module: mod_str,
-          name: name_str,
-          arity: a,
-          kind: :def,
-          start: 0,
-          end_line: 0,
-          sig: "#{name_str}/#{a}",
-          source: synth_no_source(name_str, a, Map.get(specs, {name_atom, a}))
-        }
+        Map.put(runtime_stub(name_str, a, Map.get(specs, {name_atom, a})), :module, mod_str)
       end
 
     entries =
@@ -521,7 +504,7 @@ defmodule GtBridge.Analysis do
   end
 
   defp compute_call_sites(source, context_module) do
-    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
+    with {:ok, ast} <- Source.quoted(source) do
       aliases =
         case context_module do
           nil ->
@@ -682,7 +665,7 @@ defmodule GtBridge.Analysis do
   defp module_local_names(mod) do
     cached_by_md5(:module_local_names, mod, fn ->
       GtBridge.Resolve.with_source(mod, MapSet.new(), fn src ->
-        case Code.string_to_quoted(src, columns: true, token_metadata: true) do
+        case Source.quoted(src) do
           {:ok, ast} -> Source.source_function_names(src, ast)
           _ -> MapSet.new()
         end
@@ -795,6 +778,20 @@ defmodule GtBridge.Analysis do
   # I build the placeholder source for a function with no AST entry.
   # When the BEAM has a typespec for it I prepend an @spec line so the
   # type info shows up in the editor; otherwise just the comment.
+  # The shape of an exports-only entry: a runtime function with no
+  # textual def, carrying a synthesized source.
+  defp runtime_stub(name_str, arity, spec) do
+    %{
+      name: name_str,
+      arity: arity,
+      kind: :def,
+      start: 0,
+      end_line: 0,
+      sig: "#{name_str}/#{arity}",
+      source: synth_no_source(name_str, arity, spec)
+    }
+  end
+
   defp synth_no_source(name_str, arity, nil),
     do: "# #{name_str}/#{arity}, no source"
 
