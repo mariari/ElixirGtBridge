@@ -26,6 +26,17 @@ LeElixirSnippetViewModel >> initializeCoderAddOns: aCoderViewModel [
 ]
 
 { #category : 'accessing' }
+LeElixirSnippetViewModel >> sharedSnippetContext: aLeSharedSnippetContext [
+	"I point my coder view model at the page context so it can read
+	 the receiver from it. It reads, so a receiver set later -- as
+	 LeInspectorPlaygroundElement does, page first and receiver
+	 after -- needs no notification to reach the coder."
+
+	super sharedSnippetContext: aLeSharedSnippetContext.
+	coderViewModel sharedSnippetContext: aLeSharedSnippetContext
+]
+
+{ #category : 'accessing' }
 LeElixirSnippetViewModel >> snippetElementClass [
 	^ LeElixirSnippetElement
 ]
