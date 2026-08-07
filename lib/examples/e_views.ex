@@ -60,11 +60,32 @@ defmodule Examples.EViews do
     |> Text.string(fn -> "Name: #{self.name}" end)
   end
 
+  @spec bare_pattern_view(Examples.EViews.Bound.t(), GtBridge.Phlow.Builder) :: Text.t()
+  defview bare_pattern_view(%Examples.EViews.Bound{}, builder) do
+    builder.text()
+    |> Text.title("Bare")
+    |> Text.string(fn -> "bare" end)
+  end
+
   @spec bound_pattern_view(Examples.EViews.Bound.t(), GtBridge.Phlow.Builder) :: Text.t()
   defview bound_pattern_view(%Examples.EViews.Bound{} = item, builder) do
     builder.text()
     |> Text.title("Bound")
     |> Text.string(fn -> "v: #{item.v}" end)
+  end
+
+  @spec binding_first_view(Examples.EViews.Bound.t(), GtBridge.Phlow.Builder) :: Text.t()
+  defview binding_first_view(item = %Examples.EViews.Bound{}, builder) do
+    builder.text()
+    |> Text.title("Binding first")
+    |> Text.string(fn -> "v: #{item.v}" end)
+  end
+
+  @spec field_pattern_view(Examples.EViews.Bound.t(), GtBridge.Phlow.Builder) :: Text.t()
+  defview field_pattern_view(%Examples.EViews.Bound{v: v} = item, builder) do
+    builder.text()
+    |> Text.title("Field pattern")
+    |> Text.string(fn -> "#{v} of #{item.v}" end)
   end
 
   ############################################################
@@ -126,11 +147,21 @@ defmodule Examples.EViews do
 
   @spec struct_binding_pattern_registers() :: [tuple()]
   example struct_binding_pattern_registers do
-    # `%Struct{} = var` heads register for the struct, not __MODULE__;
-    # :% used to be mistaken for a variable name and dropped the match.
+    # Every spelling of a struct head registers for the struct, not
+    # __MODULE__. The two that bind on the left used to lose: :% is an
+    # atom, so the picker mistook %Struct{} for a variable and kept the
+    # binding, which matches nothing and falls back to the defining
+    # module.
     views = Examples.EViews.__views__()
 
-    assert {Examples.EViews.Bound, {__MODULE__, :bound_pattern_view}} in views
+    for name <- [
+          :bare_pattern_view,
+          :bound_pattern_view,
+          :binding_first_view,
+          :field_pattern_view
+        ] do
+      assert {Examples.EViews.Bound, {__MODULE__, name}} in views
+    end
 
     views
   end
