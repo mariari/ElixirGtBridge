@@ -6,9 +6,13 @@ Class {
 	#tag : 'Serialization'
 }
 
-{ #category : 'as yet unclassified' }
-BeamLinkDeserializer class >> deserialize: anObject [
-	^ self new deserialize: anObject
+{ #category : 'instance creation' }
+BeamLinkDeserializer class >> onApplication: anApplication [
+	"I wire the execution handler, which is not optional: a deserializer
+	 built with `new` raises on the first pid it decodes."
+	^ self new
+		executionHandler: anApplication executionHandler;
+		yourself
 ]
 
 { #category : 'as yet unclassified' }
@@ -27,6 +31,12 @@ BeamLinkDeserializer >> charsFrom: aSentinelArray [
 	"The pid, ref and port sentinels carry their printed form as
 	 character codes after the tag."
 	^ String withAll: (aSentinelArray allButFirst collect: [ :c | c asCharacter ])
+]
+
+{ #category : 'wire decoding' }
+BeamLinkDeserializer >> decodeJson: aJsonString [
+	"I take the wire string; decodeWire: takes the parsed form."
+	^ self decodeWire: (STONJSON fromString: aJsonString)
 ]
 
 { #category : 'wire decoding' }

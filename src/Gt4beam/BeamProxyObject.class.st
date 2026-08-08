@@ -13,22 +13,6 @@ Class {
 	#tag : 'Serialization'
 }
 
-{ #category : 'wire' }
-BeamProxyObject class >> decode: aJsonString through: anApplication [
-	"I turn one Serializer.to_json wire string into bridge values: atoms
-	 as BeamAtomObjects, pids rebuilt as live BeamPIDObjects.
-
-	 The execution handler is what rebuilds them, and it is not optional.
-	 LanguageLinkDeserializer reads its application through the handler
-	 while its application: setter writes an ivar it never reads, so a
-	 deserializer built without one does not merely lose pids -- it
-	 raises on the first pid it meets."
-	^ (BeamLinkDeserializer new
-		executionHandler: anApplication executionHandler;
-		yourself)
-		decodeWire: (STONJSON fromString: aJsonString)
-]
-
 { #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass [
 	^ self subclassResponsibility
@@ -54,7 +38,7 @@ BeamProxyObject class >> fetch: anElixirSource through: anApplication [
 		<< ('(' , anElixirSource , ') |> GtBridge.Serializer.to_json() |> elem(1)');
 		sendAndWait.
 	json isString ifFalse: [ ^ json ].
-	^ self decode: json through: anApplication
+	^ (BeamLinkDeserializer onApplication: anApplication) decodeJson: json
 ]
 
 { #category : 'as yet unclassified' }
