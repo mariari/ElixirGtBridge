@@ -16,6 +16,34 @@ BeamProxyObjectExamples >> documentationObjectClassSelection [
 ]
 
 { #category : 'examples' }
+BeamProxyObjectExamples >> fetchAnswersBridgeData [
+	"I fetch plain bridge data in one round trip: an atom arrives as a
+	 BeamAtomObject, a pid as a live BeamPIDObject."
+	<gtExample>
+	| application fetched |
+	application := Gt4beamSessionLifecycleExamples new application.
+	fetched := BeamProxyObject
+		fetch: '%{name: :alice, pid: self()}'
+		through: application.
+	self assert: (fetched at: 'name') class equals: BeamAtomObject.
+	self assert: (fetched at: 'name') symbol equals: #alice.
+	self assert: (fetched at: 'pid') class equals: BeamPIDObject.
+	^ fetched
+]
+
+{ #category : 'examples' }
+BeamProxyObjectExamples >> fetchAnswersTheErrorWhenTheNodeRefuses [
+	"I answer the node's error rather than nil, so the caller keeps why."
+	<gtExample>
+	| application refused |
+	application := Gt4beamSessionLifecycleExamples new application.
+	refused := BeamProxyObject fetch: 'raise "boom"' through: application.
+	self assert: refused isError.
+	self assert: refused messageText equals: '** (RuntimeError) boom'.
+	^ refused
+]
+
+{ #category : 'examples' }
 BeamProxyObjectExamples >> functionLinesHandlesRemoteErrors [
 	<gtExample>
 	<noTest>

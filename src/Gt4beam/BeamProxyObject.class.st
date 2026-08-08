@@ -13,6 +13,22 @@ Class {
 	#tag : 'Serialization'
 }
 
+{ #category : 'wire' }
+BeamProxyObject class >> decode: aJsonString through: anApplication [
+	"I turn one Serializer.to_json wire string into bridge values: atoms
+	 as BeamAtomObjects, pids rebuilt as live BeamPIDObjects.
+
+	 The execution handler is what rebuilds them, and it is not optional.
+	 LanguageLinkDeserializer reads its application through the handler
+	 while its application: setter writes an ivar it never reads, so a
+	 deserializer built without one does not merely lose pids -- it
+	 raises on the first pid it meets."
+	^ (BeamLinkDeserializer new
+		executionHandler: anApplication executionHandler;
+		yourself)
+		decodeWire: (STONJSON fromString: aJsonString)
+]
+
 { #category : 'as yet unclassified' }
 BeamProxyObject class >> elixirClass [
 	^ self subclassResponsibility
@@ -25,6 +41,20 @@ BeamProxyObject class >> elixirClass: aClass [
 			collect: [ :each | each elixirClass -> each ]) asDictionary.
 	proxyClass := proxyClasses at: aClass ifAbsent: [ BeamProxyObject ].
 	^ proxyClass new elixirClass: aClass
+]
+
+{ #category : 'wire' }
+BeamProxyObject class >> fetch: anElixirSource through: anApplication [
+	"I answer what anElixirSource evaluates to as bridge data in one
+	 round trip, or the BeamBridgeEvalError the node replied with. I
+	 bracket the source: Elixir binds |> into a bare macro call's last
+	 argument."
+	| json |
+	json := anApplication newCommandFactory
+		<< ('(' , anElixirSource , ') |> GtBridge.Serializer.to_json() |> elem(1)');
+		sendAndWait.
+	json isString ifFalse: [ ^ json ].
+	^ self decode: json through: anApplication
 ]
 
 { #category : 'as yet unclassified' }
@@ -84,26 +114,11 @@ BeamProxyObject >> asList [
 	 same reading protocol I do, except pids, which the decoder rebuilds
 	 as live BeamPIDObjects from their printed form.
 
-	 The deserializer is wired through executionHandler rather than
-	 `application:`, because LanguageLinkDeserializer's getter reads
-	 through the handler while its setter writes an ivar it never reads.
-
-	 I fall back to the per-element path when the serializer cannot
-	 represent my contents.  That is a named failure mode, not a
-	 blanket guard."
-	| json decoded |
-	json := [ self evaluateAndWait:
-		'{:ok, s} = GtBridge.Serializer.to_json(GtBridge.ObjectRegistry.resolve('
-			, self elixirVar asString , ')); s' ]
-		on: Error do: [ nil ].
-	(json isNil or: [ json isKindOf: BeamBridgeEvalError ])
-		ifTrue: [ ^ self asListElementByElement ].
-	decoded := [ (BeamLinkDeserializer new
-			executionHandler: application executionHandler; yourself)
-		decodeWire: (STONJSON fromString: json asString) ]
-		on: Error do: [ nil ].
-	(decoded isNil or: [ decoded isArray not ])
-		ifTrue: [ ^ self asListElementByElement ].
+	 I fall back to the per-element path when the node could not answer
+	 or the reply would not decode."
+	| decoded |
+	decoded := [ self fetch: self resolve ] on: Error do: [ nil ].
+	decoded isArray ifFalse: [ ^ self asListElementByElement ].
 	^ decoded collect: [ :each | BeamValue wrapping: each ]
 ]
 
@@ -175,6 +190,12 @@ BeamProxyObject >> evaluateAndWait: string [
 	^ self application newCommandFactory
 		<< string;
 		sendAndWait
+]
+
+{ #category : 'wire' }
+BeamProxyObject >> fetch: anElixirSource [
+	"I evaluate against my node; `self fetch: self resolve` reads me back."
+	^ self class fetch: anElixirSource through: self application
 ]
 
 { #category : 'accessing' }
