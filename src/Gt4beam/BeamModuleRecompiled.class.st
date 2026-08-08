@@ -48,4 +48,3 @@ BeamModuleRecompiled >> source [
 BeamModuleRecompiled >> source: aStringOrNil [
 	source := aStringOrNil
 ]
-

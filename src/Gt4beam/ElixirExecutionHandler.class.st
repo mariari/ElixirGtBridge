@@ -50,6 +50,21 @@ ElixirExecutionHandler >> primitiveSendCommand: command [
 	^ response
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> registerObject: aProxyObject [
+	"Don't register the object. Gets a new proxy every time"
+	weakRegistry 
+		registerObject: aProxyObject 
+		finalizer: (LanguageLinkRegistryFinalizer 
+							variable: aProxyObject elixirVar
+							executionHandler: self)
+]
+
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> removeId: aRemoteProxyId [
+	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
+]
+
 { #category : 'requesting' }
 ElixirExecutionHandler >> requestAndWait: aDict [
 	"Send a typed request over the transport and block on the promise the
@@ -68,19 +83,4 @@ ElixirExecutionHandler >> requestAndWait: aDict [
 	self application settings messageBroker primSendMessage: aDict.
 	promise wait.
 	^ promise value
-]
-
-{ #category : 'as yet unclassified' }
-ElixirExecutionHandler >> registerObject: aProxyObject [
-	"Don't register the object. Gets a new proxy every time"
-	weakRegistry 
-		registerObject: aProxyObject 
-		finalizer: (LanguageLinkRegistryFinalizer 
-							variable: aProxyObject elixirVar
-							executionHandler: self)
-]
-
-{ #category : 'as yet unclassified' }
-ElixirExecutionHandler >> removeId: aRemoteProxyId [
-	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
 ]

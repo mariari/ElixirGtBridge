@@ -317,6 +317,13 @@ ElixirModuleCoder >> contextModuleName [
 	^ moduleName
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> definesInterface [
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 0) == true ]
+]
+
 { #category : 'accessing' }
 ElixirModuleCoder >> editorSessionId [
 	"I return a unique session ID for this coder instance, with the
@@ -330,13 +337,6 @@ ElixirModuleCoder >> editorSessionId [
 			add: self
 			finalizer: (BeamSessionFinalizer sessionId: sessionId application: application).
 		sessionId ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> definesInterface [
-	^ self interfaceFlags
-		ifNil: [ false ]
-		ifNotNil: [ :flags | (flags itemAt: 0) == true ]
 ]
 
 { #category : 'accessing' }
@@ -496,53 +496,6 @@ ElixirModuleCoder >> gtSourceViewFor: aView context: aContext [
 		stencil: [ self buildSourceViewElement ]
 ]
 
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> hasFunctions [
-	"Cheap guard: GtBridge.Analysis.has_functions?/1 answers from BEAM
-	 metadata for normal modules (~1ms) and parses source only for
-	 struct / macro-generated modules — instead of fetching and
-	 serializing the whole function list just to test non-emptiness.
-	 This guard runs eagerly when the coder builds its tab bar, so it
-	 must be cheap or every module-coder open pays for it (white screen)."
-	^ [ self application evaluateAndWait:
-		'GtBridge.Analysis.has_functions?(', self moduleName, ')' ]
-		on: Error do: [ false ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> hasInterfaces [
-	^ self interfaceFlags
-		ifNil: [ false ]
-		ifNotNil: [ :flags | (flags itemAt: 1) == true ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> interfaceFlags [
-	"One cheap eager eval gating the Interfaces, Callbacks and Users
-	 tabs: {defines an interface, has any interface facts}. Memoized
-	 like hasFunctions; nil on bridge error, which readers take as
-	 false."
-	^ interfaceFlags ifNil: [
-		interfaceFlags := [ self application evaluateAndWait:
-			'{GtBridge.Analysis.Interfaces.interface?(', self moduleName,
-			'), GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleName, ')}' ]
-			on: Error do: [ nil ].
-		(interfaceFlags isKindOf: BeamBridgeEvalError)
-			ifTrue: [ interfaceFlags := nil ].
-		interfaceFlags ]
-]
-
-{ #category : 'as yet unclassified' }
-ElixirModuleCoder >> hasLocalSource [
-	"I return true if my sourcePath is a String pointing to an
-	 existing file on this machine. Guarding on isKindOf: String
-	 so a stray BeamProxyObject (from a bridge quirk we've seen on
-	 some modules) degrades to 'no local source' instead of
-	 crashing on #asFileReference."
-	(sourcePath isKindOf: String) ifFalse: [ ^ false ].
-	^ sourcePath asFileReference exists
-]
-
 { #category : 'gt-extensions' }
 ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
 	<gtElixirModuleView>
@@ -572,6 +525,53 @@ ElixirModuleCoder >> gtUsersViewFor: aView context: aContext [
 			self application evaluateAndWait:
 				'GtBridge.Documentation.for_module(',
 				(each attributeAt: #module) asString, ')' ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> hasFunctions [
+	"Cheap guard: GtBridge.Analysis.has_functions?/1 answers from BEAM
+	 metadata for normal modules (~1ms) and parses source only for
+	 struct / macro-generated modules — instead of fetching and
+	 serializing the whole function list just to test non-emptiness.
+	 This guard runs eagerly when the coder builds its tab bar, so it
+	 must be cheap or every module-coder open pays for it (white screen)."
+	^ [ self application evaluateAndWait:
+		'GtBridge.Analysis.has_functions?(', self moduleName, ')' ]
+		on: Error do: [ false ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> hasInterfaces [
+	^ self interfaceFlags
+		ifNil: [ false ]
+		ifNotNil: [ :flags | (flags itemAt: 1) == true ]
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> hasLocalSource [
+	"I return true if my sourcePath is a String pointing to an
+	 existing file on this machine. Guarding on isKindOf: String
+	 so a stray BeamProxyObject (from a bridge quirk we've seen on
+	 some modules) degrades to 'no local source' instead of
+	 crashing on #asFileReference."
+	(sourcePath isKindOf: String) ifFalse: [ ^ false ].
+	^ sourcePath asFileReference exists
+]
+
+{ #category : 'as yet unclassified' }
+ElixirModuleCoder >> interfaceFlags [
+	"One cheap eager eval gating the Interfaces, Callbacks and Users
+	 tabs: {defines an interface, has any interface facts}. Memoized
+	 like hasFunctions; nil on bridge error, which readers take as
+	 false."
+	^ interfaceFlags ifNil: [
+		interfaceFlags := [ self application evaluateAndWait:
+			'{GtBridge.Analysis.Interfaces.interface?(', self moduleName,
+			'), GtBridge.Analysis.Interfaces.has_interfaces?(', self moduleName, ')}' ]
+			on: Error do: [ nil ].
+		(interfaceFlags isKindOf: BeamBridgeEvalError)
+			ifTrue: [ interfaceFlags := nil ].
+		interfaceFlags ]
 ]
 
 { #category : 'accessing' }
