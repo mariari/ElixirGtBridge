@@ -22,7 +22,7 @@ BeamEventStreamReaderExamples >> dispatchIgnoresUnknownKind [
 
 	<gtExample>
 	| reader pair |
-	reader := self handleLineSwallowsMalformedJson.
+	reader := self dispatchOfRecompiledFires.
 	pair := self recompiledHitsOn: BeamEventAnnouncer default.
 	[ reader dispatch: (Dictionary new
 			at: 'kind' put: 'something_new';
