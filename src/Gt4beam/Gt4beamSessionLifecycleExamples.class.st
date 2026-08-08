@@ -243,6 +243,44 @@ Gt4beamSessionLifecycleExamples >> integerKeyedMapViews [
 	^ map
 ]
 
+{ #category : 'examples - lepiter' }
+Gt4beamSessionLifecycleExamples >> lepiterSnippetBindsSelf [
+	"I verify an Elixir snippet on a page with a receiver evaluates
+	`self` to that receiver. The receiver reaches the coder through
+	LeElixirSnippetViewModel, the way an inspector playground page
+	supplies the inspected object."
+	<gtExample>
+	| object context coderViewModel result |
+	object := self target bindAndExecuteRaw: '%GtBridge.Eval{}'
+		sessionId: self sessionId.
+	context := LeSharedSnippetContext new.
+	coderViewModel := (self lepiterSnippetViewModelIn: context) coderViewModel.
+	self assert: coderViewModel selfObject isNil.
+	"The coder reads the receiver off the context, so one that arrives
+	after the snippet exists is seen without any resynchronisation."
+	context selfObject: object.
+	self assert: coderViewModel selfObject == object.
+	result := coderViewModel coderModel
+		primitiveEvaluate: 'self'
+		inContext: coderViewModel evaluationContext
+		onFailDo: [ nil ].
+	self assert: (result isKindOf: BeamProxyObject).
+	self assert: result elixirClass equals: 'GtBridge.Eval'.
+	^ result
+]
+
+{ #category : 'private' }
+Gt4beamSessionLifecycleExamples >> lepiterSnippetViewModelIn: aSharedSnippetContext [
+	"I build the snippet view model a Lepiter page hands its Elixir
+	snippets, sharing aSharedSnippetContext the way a page does."
+	| viewModel |
+	viewModel := LeElixirSnippet new asSnippetViewModel.
+	viewModel sharedSnippetContext: aSharedSnippetContext.
+	viewModel coderViewModel coderModel
+		elixirLinkApplicationStrategy: LeElixirApplicationStrategy new.
+	^ viewModel
+]
+
 { #category : 'examples - encoding' }
 Gt4beamSessionLifecycleExamples >> message [
 	"I return a base enqueue message. Without a sessionId,

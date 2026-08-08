@@ -2,7 +2,7 @@ Class {
 	#name : 'GtElixirSnippetCoderViewModel',
 	#superclass : 'GtSourceCoderViewModel',
 	#instVars : [
-		'selfObject',
+		'sharedSnippetContext',
 		'viewPharoBindings',
 		'sessionFinalizerRegistered'
 	],
@@ -24,12 +24,12 @@ GtElixirSnippetCoderViewModel >> newCompletionStrategy [
 
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> selfObject [
-	^ selfObject
-]
+	"I read my page's receiver off the shared snippet context every
+	 time rather than keeping a copy of it. The context is the one
+	 place the receiver lives -- LePageViewModel>>receiver: writes it
+	 -- so there is nothing here to keep in step with it."
 
-{ #category : 'accessing' }
-GtElixirSnippetCoderViewModel >> selfObject: anObject [
-	selfObject := anObject
+	^ sharedSnippetContext ifNotNil: [ :aContext | aContext selfObject ]
 ]
 
 { #category : 'accessing' }
@@ -40,6 +40,11 @@ GtElixirSnippetCoderViewModel >> sessionFinalizerRegistered [
 { #category : 'accessing' }
 GtElixirSnippetCoderViewModel >> sessionFinalizerRegistered: aBoolean [
 	sessionFinalizerRegistered := aBoolean
+]
+
+{ #category : 'accessing' }
+GtElixirSnippetCoderViewModel >> sharedSnippetContext: aSharedSnippetContext [
+	sharedSnippetContext := aSharedSnippetContext
 ]
 
 { #category : 'accessing' }
