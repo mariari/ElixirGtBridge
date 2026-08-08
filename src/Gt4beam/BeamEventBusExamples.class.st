@@ -86,6 +86,7 @@ BeamEventBusExamples >> compileFailedDoesNotMatchRecompiled [
 	 Returns the (empty) received collection — the typed Announcer
 	 dispatch correctly filters by class so failed-compile events
 	 do not trigger surface refreshes."
+
 	<gtExample>
 	| tag received |
 	tag := Object new.
@@ -94,8 +95,8 @@ BeamEventBusExamples >> compileFailedDoesNotMatchRecompiled [
 		when: BeamModuleRecompiled
 		do: [ :a | received add: a ]
 		for: tag.
-	BeamEventAnnouncer default announce:
-		(BeamCompileFailed mod: 'HotReloadTest' errors: #()).
+	BeamEventAnnouncer default
+		announce: (BeamCompileFailed mod: 'HotReloadTest' errors: #()).
 	BeamEventAnnouncer default unsubscribe: tag.
 	self assert: received isEmpty.
 	^ received

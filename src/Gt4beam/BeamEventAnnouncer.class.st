@@ -221,4 +221,3 @@ BeamEventAnnouncer class >> gtFanoutFor: aView [
 				labels: labels
 				layout: [ :l | l horizontalTree nodeDistance: 8; levelDistance: 40 ] ]
 ]
-

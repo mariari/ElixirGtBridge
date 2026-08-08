@@ -35,42 +35,54 @@ BeamLinkTcpMessageBroker class >> serializerClass [
 	^ LanguageLinkNeoJsonSerializer
 ]
 
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> dispatchEvent: dict [
+	eventReader ifNotNil: [ eventReader dispatch: dict ]
+]
+
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> dispatchFrame: dict [
+	PharoLinkResponseSignal new response: dict; emit.
+	(dict includesKey: 'type')
+		ifTrue: [ self handleRMessage: dict ]
+		ifFalse: [ (dict includesKey: 'kind') ifTrue: [ self dispatchEvent: dict ] ]
+]
+
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> drainFrames: aBuffer [
+	"Dispatch every complete frame in aBuffer, return the remainder."
+	| buf len |
+	buf := aBuffer.
+	[ buf size >= 4 and: [ buf size >= (4 + (self frameLenOf: buf)) ] ] whileTrue: [
+		len := self frameLenOf: buf.
+		self dispatchFrame: (self serializer deserialize: (buf copyFrom: 5 to: 4 + len) utf8Decoded).
+		buf := buf copyFrom: 5 + len to: buf size ].
+	^ buf
+]
+
 { #category : 'accessing' }
 BeamLinkTcpMessageBroker >> eventReader: aReader [
 	eventReader := aReader
 ]
 
-{ #category : 'accessing' }
-BeamLinkTcpMessageBroker >> tcpPort [
-	"The framed transport is the only one now, so it takes the server
-	 port directly."
-	^ settings serverSocketAddress port
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> frameLenOf: buf [
+	^ ((buf at: 1) << 24) + ((buf at: 2) << 16) + ((buf at: 3) << 8) + (buf at: 4)
+]
+
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> handleRMessage: dict [
+	"A reply resolves its promise the same way the /EVAL callback did:
+	 its `type` (#EVAL) maps to LanguageLinkUpdatePromiseMessage, whose
+	 registered handler signals the promise."
+	| msgClass |
+	msgClass := self resolveMessageFromType: (dict at: #type).
+	^ self handle: dict reverseMessageClass: msgClass
 ]
 
 { #category : 'testing' }
 BeamLinkTcpMessageBroker >> isRunning [
 	^ running == true and: [ socket notNil and: [ socket isConnected ] ]
-]
-
-{ #category : 'lifecycle' }
-BeamLinkTcpMessageBroker >> start [
-	| addr |
-	addr := settings serverSocketAddress.
-	socket := Socket newTCP.
-	socket
-		connectTo: (NetNameResolver addressForName: addr ipOrName)
-		port: self tcpPort
-		waitForConnectionFor: 5.
-	running := true.
-	readerProcess := [ self readLoop ] forkNamed: 'BeamLinkTcp reader'.
-	^ self
-]
-
-{ #category : 'lifecycle' }
-BeamLinkTcpMessageBroker >> stop [
-	running := false.
-	readerProcess ifNotNil: [ readerProcess terminate. readerProcess := nil ].
-	socket ifNotNil: [ socket closeAndDestroy. socket := nil ]
 ]
 
 { #category : 'sending' }
@@ -84,20 +96,6 @@ BeamLinkTcpMessageBroker >> primSendMessage: dict [
 	      at: 3 put: (len >> 8 bitAnd: 255); at: 4 put: (len bitAnd: 255).
 	frame replaceFrom: 5 to: frame size with: json startingAt: 1.
 	socket sendData: frame
-]
-
-{ #category : 'sending' }
-BeamLinkTcpMessageBroker >> sendAsyncMessage: msg [
-	"Fire and forget: the answer rides back as an inbound frame the reader
-	 resolves the promise from."
-	self primSendMessage: msg encode
-]
-
-{ #category : 'sending' }
-BeamLinkTcpMessageBroker >> sendSyncMessage: msg [
-	"Evals are async; a sync message still resolves through the promise the
-	 reader signals."
-	^ self sendAsyncMessage: msg
 ]
 
 { #category : 'reading' }
@@ -122,42 +120,44 @@ BeamLinkTcpMessageBroker >> readLoop [
 			on: Error do: [ :e | self debugMode ifTrue: [ e pass ] ] ]
 ]
 
-{ #category : 'reading' }
-BeamLinkTcpMessageBroker >> drainFrames: aBuffer [
-	"Dispatch every complete frame in aBuffer, return the remainder."
-	| buf len |
-	buf := aBuffer.
-	[ buf size >= 4 and: [ buf size >= (4 + (self frameLenOf: buf)) ] ] whileTrue: [
-		len := self frameLenOf: buf.
-		self dispatchFrame: (self serializer deserialize: (buf copyFrom: 5 to: 4 + len) utf8Decoded).
-		buf := buf copyFrom: 5 + len to: buf size ].
-	^ buf
+{ #category : 'sending' }
+BeamLinkTcpMessageBroker >> sendAsyncMessage: msg [
+	"Fire and forget: the answer rides back as an inbound frame the reader
+	 resolves the promise from."
+	self primSendMessage: msg encode
 ]
 
-{ #category : 'reading' }
-BeamLinkTcpMessageBroker >> frameLenOf: buf [
-	^ ((buf at: 1) << 24) + ((buf at: 2) << 16) + ((buf at: 3) << 8) + (buf at: 4)
+{ #category : 'sending' }
+BeamLinkTcpMessageBroker >> sendSyncMessage: msg [
+	"Evals are async; a sync message still resolves through the promise the
+	 reader signals."
+	^ self sendAsyncMessage: msg
 ]
 
-{ #category : 'reading' }
-BeamLinkTcpMessageBroker >> dispatchFrame: dict [
-	PharoLinkResponseSignal new response: dict; emit.
-	(dict includesKey: 'type')
-		ifTrue: [ self handleRMessage: dict ]
-		ifFalse: [ (dict includesKey: 'kind') ifTrue: [ self dispatchEvent: dict ] ]
+{ #category : 'lifecycle' }
+BeamLinkTcpMessageBroker >> start [
+	| addr |
+	addr := settings serverSocketAddress.
+	socket := Socket newTCP.
+	socket
+		connectTo: (NetNameResolver addressForName: addr ipOrName)
+		port: self tcpPort
+		waitForConnectionFor: 5.
+	running := true.
+	readerProcess := [ self readLoop ] forkNamed: 'BeamLinkTcp reader'.
+	^ self
 ]
 
-{ #category : 'reading' }
-BeamLinkTcpMessageBroker >> handleRMessage: dict [
-	"A reply resolves its promise the same way the /EVAL callback did:
-	 its `type` (#EVAL) maps to LanguageLinkUpdatePromiseMessage, whose
-	 registered handler signals the promise."
-	| msgClass |
-	msgClass := self resolveMessageFromType: (dict at: #type).
-	^ self handle: dict reverseMessageClass: msgClass
+{ #category : 'lifecycle' }
+BeamLinkTcpMessageBroker >> stop [
+	running := false.
+	readerProcess ifNotNil: [ readerProcess terminate. readerProcess := nil ].
+	socket ifNotNil: [ socket closeAndDestroy. socket := nil ]
 ]
 
-{ #category : 'reading' }
-BeamLinkTcpMessageBroker >> dispatchEvent: dict [
-	eventReader ifNotNil: [ eventReader dispatch: dict ]
+{ #category : 'accessing' }
+BeamLinkTcpMessageBroker >> tcpPort [
+	"The framed transport is the only one now, so it takes the server
+	 port directly."
+	^ settings serverSocketAddress port
 ]

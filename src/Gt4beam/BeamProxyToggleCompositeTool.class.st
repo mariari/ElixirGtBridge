@@ -142,4 +142,3 @@ BeamProxyToggleCompositeTool >> onTabSelected [
 		self onProxyModeChanged ].
 	self attachRpBoxToSelectedTab
 ]
-

@@ -93,4 +93,3 @@ BeamLinkBeamProcess >> stop [
 	process terminate.
 	process := nil
 ]
-

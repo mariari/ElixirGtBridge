@@ -164,6 +164,13 @@ BeamMondrianHelpers class >> flattenTree: node into: nodes edges: edges poolThre
 ]
 
 { #category : 'uml' }
+BeamMondrianHelpers class >> implementorsOf: aRow [
+	"A behaviour row carries implementors, a protocol row impls."
+	^ ((aRow attributeAt: #implementors) ifNil: [ aRow attributeAt: #impls ])
+		ifNil: [ #() ] ifNotNil: [ :kids | kids asList ]
+]
+
+{ #category : 'uml' }
 BeamMondrianHelpers class >> implementsEdgeStencil [
 	"UmlClassDiagram's realization arrow: gray line, hollow triangle
 	 at the interface (from) end."
@@ -173,13 +180,6 @@ BeamMondrianHelpers class >> implementsEdgeStencil [
 			fromHead: (BlArrowheadTriangle new
 				scale: 4;
 				border: (BlBorder paint: Color gray)) ]
-]
-
-{ #category : 'uml' }
-BeamMondrianHelpers class >> implementorsOf: aRow [
-	"A behaviour row carries implementors, a protocol row impls."
-	^ ((aRow attributeAt: #implementors) ifNil: [ aRow attributeAt: #impls ])
-		ifNil: [ #() ] ifNotNil: [ :kids | kids asList ]
 ]
 
 { #category : 'uml' }
