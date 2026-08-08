@@ -1,4 +1,32 @@
 * Changelog
+** v0.19.3
+
+*** Bug Fixes
+
+- ~self~ binds in inspector snippets again :: regression from v0.19.2,
+  which trimmed the ~selfObject~ receiver as dead.
+- ~defview~ registers struct binding patterns :: ~%Struct{} = var~
+  registered under the defining module and never dispatched.  Broken
+  since v0.11.0.
+- A failed eval answers ~isError~ :: it inherited false, so views
+  guarding on it built a tab over the error instead of hiding it.
+- ~dispatchIgnoresUnknownKind~ runs again :: it composed on an example
+  deleted with the SSE chain.
+
+*** Additions
+
+- ~BeamBridgeEvalError>>messageText~ :: the node's own banner, such as
+  ~** (RuntimeError) boom~.
+- ~BeamProxyObject>>fetch:~ and ~fetch:through:~ :: one round trip to
+  decoded bridge data, answering the ~BeamBridgeEvalError~ on failure.
+  ~BeamLinkDeserializer class>>onApplication:~ is the constructor that
+  wires the execution handler.
+
+*** Internal
+
+- Nine files normalized to Iceberg's Tonel output :: ordering only, so
+  contributors inherit it rather than reordering them for us.
+
 ** v0.19.2
 
 *** Bug Fixes
