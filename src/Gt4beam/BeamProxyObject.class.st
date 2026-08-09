@@ -271,6 +271,23 @@ BeamProxyObject >> gtElixirRawFor: aView [
 ]
 
 { #category : 'gt-extensions' }
+BeamProxyObject >> gtInspectorVariableNodesIn: aCollection [
+	"I read as Elixir: my variables are the attributes of the object I
+	 proxy, not the Pharo slots holding the connection to it. An atom
+	 key answers #symbol, and I label it by its name so a field reads
+	 as scheme rather than as Smalltalk's #scheme."
+	| attrs |
+	attrs := [ self attributesAndValues ] on: Error do: [ #() ].
+	attrs do: [ :each |
+		aCollection add: (GtInspectorDynamicNode
+			hostObject: self
+			label: ((each key respondsTo: #symbol)
+				ifTrue: [ each key symbol asString ]
+				ifFalse: [ each key asString ])
+			value: each value) ]
+]
+
+{ #category : 'gt-extensions' }
 BeamProxyObject >> gtProxyInspectorContentFor: aView [
 	"I build the Proxy tab's labelled content — GT wrapper views
 	 only, no BEAM data views."
