@@ -256,6 +256,22 @@ defmodule GtBridge.Eval do
     end
   end
 
+  @doc """
+  I register each element of `list` and return what GT dresses as a
+  proxy, leaving primitives inline.
+
+  `GtBridge.Serializer.to_json` inlines a struct as a plain map, so a
+  list fetched through it arrives as data with no remote identity. I
+  give each element the same `%{exclass, exid}` reference an eval
+  result gets, in one call rather than one per element.
+
+      [1, URI.parse("http://a.b")] |> references()
+  """
+  @spec references(list()) :: list()
+  def references(list) do
+    Enum.map(list, &register_value/1)
+  end
+
   ############################################################
   #                   Private Implementation                 #
   ############################################################

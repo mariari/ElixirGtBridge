@@ -94,14 +94,15 @@ BeamProxyObject >> asList [
 	 Enum.at/2 walks a linked list.  Listing a 52-function module cost
 	 53 requests and 71ms; it now costs one request and 9ms.
 
-	 Elements arrive as values, wrapped in BeamValue so they answer the
-	 same reading protocol I do, except pids, which the decoder rebuilds
-	 as live BeamPIDObjects from their printed form.
+	 references/1 registers each element, so a struct arrives dressed as
+	 its proxy. Plain data is wrapped in BeamValue, which answers the
+	 same reading protocol I do, and pids the decoder rebuilds live.
 
 	 I fall back to the per-element path when the node could not answer
 	 or the reply would not decode."
 	| decoded |
-	decoded := [ self fetch: self resolve ] on: Error do: [ nil ].
+	decoded := [ self fetch: 'GtBridge.Eval.references(' , self resolve , ')' ]
+		on: Error do: [ nil ].
 	decoded isArray ifFalse: [ ^ self asListElementByElement ].
 	^ decoded collect: [ :each | BeamValue wrapping: each ]
 ]
