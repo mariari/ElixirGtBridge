@@ -28,6 +28,10 @@ defmodule GtBridge.Eval do
     field(:locals, [{atom(), arity()}], default: [])
     field(:port, non_neg_integer(), default: nil)
     field(:registered_ids, MapSet.t(non_neg_integer()), default: MapSet.new())
+    # The evals in flight, by the ref their task answers with.
+    field(:running, %{optional(reference()) => {String.t() | nil, Task.t(), GenServer.from()}},
+      default: %{}
+    )
   end
 
   def start_link(init_args) do
@@ -63,6 +67,22 @@ defmodule GtBridge.Eval do
   @spec complete(GenServer.server(), String.t(), String.t() | nil) :: [String.t()]
   def complete(pid, code_prefix, source \\ nil) do
     GenServer.call(pid, {:complete, code_prefix, source}, @call_timeout)
+  end
+
+  @doc """
+  I stop the eval running under `command_id` and answer its caller a
+  `GtBridge.Eval.Error` of kind `:cancelled`.
+
+  I am how a stopped eval on the GT side stops costing anything here.
+  Nothing else can interrupt user code: it runs in a task I own, and
+  killing that task is the only way to take the session back.
+
+  I answer `:ok` whether or not there was anything to kill, so a
+  cancel that races the eval's own completion is not an error.
+  """
+  @spec cancel(GenServer.server(), String.t() | nil) :: :ok
+  def cancel(pid, command_id) do
+    GenServer.call(pid, {:cancel, command_id}, @call_timeout)
   end
 
   @doc """
@@ -166,32 +186,52 @@ defmodule GtBridge.Eval do
   end
 
   @impl true
-  def handle_call({:eval, string, command_id}, _from, state = %__MODULE__{}) do
-    try do
-      quoted =
-        string
-        |> String.replace("\r", "\n")
-        |> Code.string_to_quoted!()
+  def handle_call({:eval, string, command_id}, from, state = %__MODULE__{}) do
+    {:noreply, start(string, command_id, from, state)}
+  end
 
-      {term, new_bindings, new_env} =
-        Code.eval_quoted_with_env(
-          quoted,
-          state.bindings ++ [command_id: command_id],
-          state.env
-        )
+  @impl true
+  def handle_call({:cancel, command_id}, _from, state = %__MODULE__{}) do
+    case Enum.find(state.running, fn {_ref, {id, _task, _from}} -> id == command_id end) do
+      nil ->
+        {:reply, :ok, state}
 
-      # The snippet may have defined modules; enter them into the record.
-      GtBridge.Analysis.LoadedModules.sync_async()
+      {ref, {_id, task, from}} ->
+        Task.shutdown(task, :brutal_kill)
 
-      # Remove duplicated keys and ports
-      unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
+        GenServer.reply(from, %GtBridge.Eval.Error{trace: [], error: :cancelled, kind: :cancelled})
 
-      {:reply, term, collect_registered(%__MODULE__{state | bindings: unique_keys, env: new_env})}
-    catch
-      kind, e ->
-        error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
-        {:reply, error, collect_registered(state)}
+        {:reply, :ok, %__MODULE__{state | running: Map.delete(state.running, ref)}}
     end
+  end
+
+  @impl true
+  def handle_call(:flush, _from, state = %__MODULE__{}) do
+    {:reply, Enum.reverse(Process.delete(:_mailbox) || []), state}
+  end
+
+  @impl true
+  def handle_info({ref, answer}, state = %__MODULE__{running: running})
+      when is_map_key(running, ref) do
+    {{_id, _task, from}, rest} = Map.pop(running, ref)
+    Process.demonitor(ref, [:flush])
+    GenServer.reply(from, elem(answer, 0))
+    {:noreply, apply_answer(answer, %__MODULE__{state | running: rest})}
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state = %__MODULE__{running: running})
+      when is_map_key(running, ref) do
+    # The task died instead of answering, so its caller is still
+    # waiting. A cancel never lands here: Task.shutdown flushes both.
+    {{_id, _task, from}, rest} = Map.pop(running, ref)
+    GenServer.reply(from, %GtBridge.Eval.Error{trace: [], error: reason, kind: :exit})
+    {:noreply, %__MODULE__{state | running: rest}}
+  end
+
+  @impl true
+  def handle_info({:registered, exid}, state = %__MODULE__{}) do
+    {:noreply, track([exid], state)}
   end
 
   @impl true
@@ -250,9 +290,18 @@ defmodule GtBridge.Eval do
   """
   @spec flush() :: [term()]
   def flush do
-    case Process.delete(:_mailbox) do
-      nil -> []
-      msgs -> Enum.reverse(msgs)
+    case Process.get(:_session) do
+      nil ->
+        case Process.delete(:_mailbox) do
+          nil -> []
+          msgs -> Enum.reverse(msgs)
+        end
+
+      session ->
+        # I run in the task, but messages arrive at the session, which
+        # is the process the `pid` binding names and the one worth
+        # subscribing to -- it outlives me.
+        GenServer.call(session, :flush, @call_timeout)
     end
   end
 
@@ -276,6 +325,79 @@ defmodule GtBridge.Eval do
   #                   Private Implementation                 #
   ############################################################
 
+  # The task carries my pid so flush/0 can find the mailbox messages
+  # arrive at.
+  @spec start(String.t(), String.t() | nil, GenServer.from(), t()) :: t()
+  defp start(string, command_id, from, state) do
+    session = self()
+
+    task =
+      Task.Supervisor.async_nolink(GtBridge.EvalTaskSupervisor, fn ->
+        Process.put(:_session, session)
+        run(string, command_id, state)
+      end)
+
+    %__MODULE__{state | running: Map.put(state.running, task.ref, {command_id, task, from})}
+  end
+
+  @spec run(String.t(), String.t() | nil, t()) ::
+          {term(), Code.binding(), Macro.Env.t(), [non_neg_integer()]}
+  defp run(string, command_id, state) do
+    quoted =
+      string
+      |> String.replace("\r", "\n")
+      |> Code.string_to_quoted!()
+
+    {term, new_bindings, new_env} =
+      Code.eval_quoted_with_env(quoted, state.bindings ++ [command_id: command_id], state.env)
+
+    # The snippet may have defined modules; enter them into the record.
+    GtBridge.Analysis.LoadedModules.sync_async()
+
+    {term, new_bindings, new_env, Process.get(:_reg_ids, [])}
+  catch
+    kind, e ->
+      error = %GtBridge.Eval.Error{trace: __STACKTRACE__, error: e, kind: kind}
+      {error, nil, nil, Process.get(:_reg_ids, [])}
+  end
+
+  # A failed eval keeps the bindings it started with; a half-applied
+  # set is worse than none.
+  @spec apply_answer(
+          {term(), Code.binding() | nil, Macro.Env.t() | nil, [non_neg_integer()]},
+          t()
+        ) ::
+          t()
+  defp apply_answer({_term, nil, nil, ids}, state) do
+    track(ids, state)
+  end
+
+  defp apply_answer({_term, new_bindings, new_env, ids}, state) do
+    # Remove duplicated keys and ports
+    unique_keys = Keyword.merge(state.bindings, Keyword.delete(new_bindings, :port))
+    track(ids, %__MODULE__{state | bindings: unique_keys, env: merge_env(state.env, new_env)})
+  end
+
+  # Bindings merge, so the env has to as well: two evals in flight both
+  # start from my env and each answers with its own, and assigning the
+  # last one to arrive drops the other's aliases.  Only these three
+  # fields can differ between envs grown from the same one.
+  @spec merge_env(Macro.Env.t(), Macro.Env.t()) :: Macro.Env.t()
+  defp merge_env(old, new) do
+    %{
+      old
+      | aliases: Keyword.merge(old.aliases, new.aliases),
+        requires: Enum.uniq(old.requires ++ new.requires),
+        functions:
+          Keyword.merge(old.functions, new.functions, fn _m, a, b -> Enum.uniq(a ++ b) end)
+    }
+  end
+
+  @spec track([non_neg_integer()], t()) :: t()
+  defp track(ids, state) do
+    %__MODULE__{state | registered_ids: Enum.into(ids, state.registered_ids)}
+  end
+
   # Register a value in ObjectRegistry.  Returns `%{exclass, exid}`
   # for complex objects, or the value as-is for primitives.
   # Accumulates IDs in the process dictionary for collection by
@@ -286,8 +408,15 @@ defmodule GtBridge.Eval do
         value
 
       exid ->
-        ids = Process.get(:_reg_ids, [])
-        Process.put(:_reg_ids, [exid | ids])
+        # Tell the session now rather than handing back a list at the
+        # end: a cancelled eval is killed mid-flight, and a batch it
+        # never got to return would leave its objects in the registry
+        # with nothing tracking them.
+        case Process.get(:_session) do
+          nil -> Process.put(:_reg_ids, [exid | Process.get(:_reg_ids, [])])
+          session -> send(session, {:registered, exid})
+        end
+
         %{exclass: GtBridge.Resolve.data_type_to_string(value), exid: exid}
     end
   end

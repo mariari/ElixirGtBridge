@@ -10,6 +10,7 @@ defmodule GtBridge.Supervisor do
     children = [
       {Registry, keys: :unique, name: GtBridge.EvalRegistry},
       {EvaluationSupervisor, []},
+      {Task.Supervisor, name: GtBridge.EvalTaskSupervisor},
       {Tcp.Supervisor, []},
       {GtBridge.Views, [name: GtBridge.Views]},
       {GtBridge.ObjectRegistry, [name: GtBridge.ObjectRegistry]},

@@ -18,6 +18,17 @@ ElixirExecutionHandler >> buildMessageFromCommand: command [
 	^ message
 ]
 
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> cancelCommand: command [
+	"I tell the node to stop the eval this command started. Without me
+	 a stopped snippet keeps running there and every later request for
+	 its session queues behind it."
+	self communicationHandler sendMessage: (BeamLinkCancelMessage new
+		commandId: command id;
+		sessionId: command sessionId;
+		yourself)
+]
+
 { #category : 'initialization' }
 ElixirExecutionHandler >> initializeHandler [
 	commandQueue := LanguageLinkCommandRegistry executionHandler: self.
