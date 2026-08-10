@@ -26,6 +26,14 @@ defmodule Tcp.Dispatch do
     answer(request, Eval.encode_result(evaluate(request)))
   end
 
+  def reply_to(%{"type" => "CANCEL"} = request) do
+    # GT sends me when the user stops waiting.  Without me the eval
+    # keeps running and every later request for that session queues
+    # behind it, which is how a stopped snippet used to wedge a page.
+    Eval.cancel(resolve_eval(request), request["commandId"])
+    :no_reply
+  end
+
   def reply_to(%{"type" => "COMPLETE"} = request) do
     results = Eval.complete(resolve_eval(request), request["code"] || "", request["source"])
     answer(request, Jason.encode!(results))

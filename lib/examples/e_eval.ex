@@ -157,4 +157,62 @@ defmodule Examples.EEval do
 
     :ok
   end
+
+  @spec cancel_frees_the_session() :: :ok
+  example cancel_frees_the_session do
+    {:ok, pid} = DynamicSupervisor.start_child(EvaluationSupervisor, {Eval, []})
+    caller = self()
+    spin = "Stream.repeatedly(fn -> :x end) |> Enum.to_list()"
+
+    spawn(fn -> send(caller, {:spun, Eval.eval(pid, spin, "spin")}) end)
+    Process.sleep(200)
+
+    # The session answers while user code runs: the eval is in a task,
+    # not in the GenServer, which is what a cancel needs to be possible.
+    assert Eval.complete(pid, "Enu", nil) != []
+
+    # A second eval queues behind the first rather than clobbering it.
+    spawn(fn -> send(caller, {:queued, Eval.eval(pid, "40 + 2", "queued")}) end)
+    Process.sleep(100)
+
+    assert Eval.cancel(pid, "spin") == :ok
+
+    assert_receive {:spun, %GtBridge.Eval.Error{kind: :cancelled}}, 3_000
+    # Killing the head of the queue lets what was behind it through.
+    assert_receive {:queued, 42}, 3_000
+
+    # Bindings survive a cancelled neighbour.
+    assert Eval.eval(pid, "x = 7", nil) == 7
+    assert Eval.eval(pid, "x * 6", nil) == 42
+
+    :ok
+  end
+
+  @spec cancel_tracks_what_the_killed_eval_registered() :: :ok
+  example cancel_tracks_what_the_killed_eval_registered do
+    session = "cancel-cleanup-" <> Integer.to_string(:rand.uniform(100_000))
+    pid = EvalRegistry.get_or_create(session)
+    caller = self()
+
+    code =
+      "GtBridge.Eval.encode_result(URI.parse(\"http://a.b\"));" <>
+        "Stream.repeatedly(fn -> :x end) |> Enum.to_list()"
+
+    spawn(fn -> send(caller, {:spun, Eval.eval(pid, code, "spin")}) end)
+    Process.sleep(300)
+    Eval.cancel(pid, "spin")
+    assert_receive {:spun, %GtBridge.Eval.Error{kind: :cancelled}}, 3_000
+
+    # The killed task never handed its ids back, so it reports each one
+    # as it registers; otherwise these would outlive the session.
+    tracked = :sys.get_state(pid).registered_ids
+    assert MapSet.size(tracked) > 0
+    assert Enum.all?(tracked, &(GtBridge.ObjectRegistry.get(&1) != :error))
+
+    EvalRegistry.remove(session)
+    Process.sleep(100)
+    assert Enum.all?(tracked, &(GtBridge.ObjectRegistry.get(&1) == :error))
+
+    :ok
+  end
 end
