@@ -1,4 +1,38 @@
 * Changelog
+** v0.19.4
+
+*** Bug Fixes
+
+- Stopping a snippet stops it on the node :: the eval ran in the
+  session's GenServer, so a cancelled one kept the session busy and
+  every later eval, completion and bindings fetch queued behind it.
+- Tuple and list elements keep their identity :: ~to_json~ inlines a
+  struct, so they arrived as raw maps instead of proxies.
+- A proxy's raw view reads as Elixir :: it listed the Pharo slots
+  holding the connection rather than the object's attributes.
+
+*** Additions
+
+- ~GtBridge.Eval.cancel/2~ and a ~CANCEL~ request :: GT sends one when
+  it stops waiting.
+- ~GtBridge.Eval.references/1~ :: registers each element of a list so
+  it comes back dressed.
+
+*** Internal
+
+- Eval runs under a ~Task.Supervisor~ :: user code was spawned from
+  inside the session GenServer and supervised by nothing.
+
+*** Incompatibilities
+
+- ~self()~ in a snippet is the eval's task, not the session :: that is
+  what makes a cancel possible.  Use the ~pid~ binding for a process
+  that outlives one eval.
+- Evals in a session run concurrently :: bindings and aliases from
+  both still land, but one started while another runs cannot see the
+  other's bindings, and the same name resolves to whichever finishes
+  last.
+
 ** v0.19.3
 
 *** Bug Fixes
