@@ -234,7 +234,9 @@ ElixirFunctionCoder >> initializeAddOns: addOns [
 	addOns
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler).
 	addOns
-		addStyler: ElixirFunctionExpanderStyler new
+		addStyler: ElixirFunctionExpanderStyler new.
+	addOns
+		addStyler: ElixirVariableOccurrenceStyler new
 ]
 
 { #category : 'as yet unclassified' }
