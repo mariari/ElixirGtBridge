@@ -30,7 +30,7 @@ defmodule GtBridge.Analysis do
   defdelegate implementors(name, arity \\ nil), to: Graph
   defdelegate function_references(mod, name, arity \\ nil), to: Graph
 
-  defdelegate call_sites(source, context_module \\ nil), to: CallSites
+  defdelegate call_sites(source, context_module \\ nil, sibling_sources \\ []), to: CallSites
   defdelegate resolve_alias(context_module, alias_name), to: CallSites
   defdelegate module_aliases(mod), to: CallSites
   defdelegate function_in_module?(mod, name), to: CallSites
