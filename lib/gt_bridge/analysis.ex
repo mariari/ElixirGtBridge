@@ -713,45 +713,51 @@ defmodule GtBridge.Analysis do
   Each result has `:target_module`, `:function`, `:arity`, `:line`,
   and `:column`. Only fully qualified and alias-resolved remote calls
   are returned.
+
+  Sibling sources (other snippets on the same Lepiter page) contribute
+  their `alias`/`import` lines, each handled on its own, so a snippet
+  that does not parse costs only its own contribution.
   """
-  @spec call_sites(String.t(), module() | nil) :: [map()]
-  def call_sites(source, context_module \\ nil) do
-    # Smalltalk text uses CR (\r, 0x0D) as line separator while
-    # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
-    # leaves the whole source on a single line as far as the
-    # tokenizer is concerned, so multi-line snippets returned []
-    # call sites and the editor showed no |> triangles.  Normalize
-    # all common variants to \n before hashing/parsing so
-    # semantically-equivalent sources cache to the same key.
-    source = source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
+  @spec call_sites(String.t(), module() | nil, [String.t()]) :: [map()]
+  def call_sites(source, context_module \\ nil, sibling_sources \\ []) do
+    source = normalize_line_endings(source)
+    siblings = Enum.map(sibling_sources, &normalize_line_endings/1)
 
     GtBridge.CacheReaper.cached(
-      {:call_sites, context_module, :erlang.phash2(source)},
-      fn -> compute_call_sites(source, context_module) end
+      {:call_sites, context_module, :erlang.phash2({source, siblings})},
+      fn -> compute_call_sites(source, context_module, siblings) end
     )
   end
 
-  defp compute_call_sites(source, context_module) do
-    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
-      aliases =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_alias_map(source)
+  # Smalltalk text uses CR (\r, 0x0D) as line separator while
+  # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
+  # leaves the whole source on a single line as far as the
+  # tokenizer is concerned, so multi-line snippets returned []
+  # call sites and the editor showed no |> triangles.  Normalize
+  # all common variants to \n before hashing/parsing so
+  # semantically-equivalent sources cache to the same key.
+  defp normalize_line_endings(source) do
+    source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
+  end
 
-          mod ->
-            module_alias_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_alias_map(source))
-        end
+  defp compute_call_sites(source, context_module, siblings) do
+    with {:ok, ast} <- Code.string_to_quoted(source, columns: true, token_metadata: true) do
+      # Closest declaration wins: source > siblings > context module.
+      aliases =
+        merged_directive_map(
+          &GtBridge.Analysis.Walker.extract_alias_map/1,
+          if(context_module, do: module_alias_map(context_module), else: %{}),
+          siblings,
+          source
+        )
 
       imports =
-        case context_module do
-          nil ->
-            GtBridge.Analysis.Walker.extract_import_map(source)
-
-          mod ->
-            module_import_map(mod)
-            |> Map.merge(GtBridge.Analysis.Walker.extract_import_map(source))
-        end
+        merged_directive_map(
+          &GtBridge.Analysis.Walker.extract_import_map/1,
+          if(context_module, do: module_import_map(context_module), else: %{}),
+          siblings,
+          source
+        )
 
       calls =
         ast
@@ -798,6 +804,12 @@ defmodule GtBridge.Analysis do
   def modules_loaded?(names) when is_list(names) do
     Map.new(names, fn name ->
       {to_string(name), GtBridge.Analysis.LoadedModules.loaded?(to_string(name))}
+    end)
+  end
+
+  defp merged_directive_map(extract, base, siblings, source) do
+    Enum.reduce(siblings ++ [source], base, fn src, acc ->
+      Map.merge(acc, extract.(src))
     end)
   end
 

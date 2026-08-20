@@ -16,6 +16,26 @@ Class {
 	#tag : 'Styler'
 }
 
+{ #category : 'querying' }
+ElixirFunctionExpanderStyler class >> callSitesQueryFor: source context: aModuleNameOrNil siblings: aCollection [
+	"Each sibling is decoded separately so the BEAM parses them independently."
+
+	| query |
+	query := 'GtBridge.Analysis.call_sites(' , (self decodeExprFor: source).
+	(aModuleNameOrNil isNil and: [ aCollection isEmpty ]) ifFalse: [
+		query := query , ', ' , (aModuleNameOrNil ifNil: [ 'nil' ]) ].
+	aCollection isEmpty ifFalse: [
+		query := query , ', ['
+			, (', ' join: (aCollection collect: [ :each | self decodeExprFor: each ]))
+			, ']' ].
+	^ query , ')'
+]
+
+{ #category : 'querying' }
+ElixirFunctionExpanderStyler class >> decodeExprFor: aString [
+	^ 'Base.decode64!("' , (ZnBase64Encoder new encode: aString utf8Encoded) , '")'
+]
+
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> absolutePositionForLine: line column: col in: source [
 	"I convert a 1-based line:column pair to a 1-based absolute
@@ -37,7 +57,7 @@ ElixirFunctionExpanderStyler >> aliasMapFor: source [
 	 declaration wins."
 	| aliasMap |
 	aliasMap := self extractAliasesFrom: source.
-	self pageAliasSource ifNotNil: [ :pageSrc |
+	self pageAliasSources do: [ :pageSrc |
 		(self extractAliasesFrom: pageSrc) keysAndValuesDo: [ :k :v |
 			aliasMap at: k ifAbsentPut: [ v ] ] ].
 	self contextModuleName ifNotNil: [ :mod |
@@ -103,11 +123,11 @@ ElixirFunctionExpanderStyler >> contextModuleName [
 ]
 
 { #category : 'accessing' }
-ElixirFunctionExpanderStyler >> pageAliasSource [
-	"Extra Elixir source whose `alias`/`import` lines should also
-	 resolve here — Lepiter snippet elements populate it with their
-	 sibling snippets' aliases.  Non-Lepiter coders return nil."
-	^ self attachedCoder ifNotNil: [ :coder | coder pageAliasSource ]
+ElixirFunctionExpanderStyler >> pageAliasSources [
+	"Sibling snippet sources from the Lepiter page; empty elsewhere."
+	^ self attachedCoder
+		ifNil: [ #(  ) ]
+		ifNotNil: [ :coder | coder pageAliasSources ]
 ]
 
 { #category : 'private' }
@@ -365,29 +385,20 @@ ElixirFunctionExpanderStyler >> style: aText ast: theAst [
 	 state persists across re-styles.  cachedHash/cachedSites
 	 short-circuits the BEAM round-trip for back-to-back styles of
 	 the same source."
-	| source effectiveSource pageSrc hash sites b64 query |
+	| source pageSrcs hash sites query |
 	text := aText.
 	lastIndex := 0.
 	source := aText asString.
 	source size < 10 ifTrue: [ ^ self ].
-	pageSrc := self pageAliasSource ifNil: [ '' ].
-	"Append page-level aliases after the original source so BEAM's
-	 extract_alias_map picks them up.  The parser scans the whole
-	 string for `alias` lines regardless of position, and call-site
-	 line/col come from the real-code section, so appending doesn't
-	 shift any in-editor positions."
-	effectiveSource := pageSrc isEmpty
-		ifTrue: [ source ]
-		ifFalse: [ source , String lf , pageSrc ].
-	hash := { source hash. self contextModuleName. pageSrc hash }.
+	pageSrcs := self pageAliasSources.
+	hash := { source hash. self contextModuleName. pageSrcs hash }.
 	hash = cachedHash
 		ifTrue: [ sites := cachedSites ]
 		ifFalse: [
-			b64 := ZnBase64Encoder new encode: effectiveSource utf8Encoded.
-			query := 'GtBridge.Analysis.call_sites(Base.decode64!("', b64, '")'.
-			self contextModuleName ifNotNil: [ :mod |
-				query := query, ', ', mod ].
-			query := query, ')'.
+			query := self class
+				callSitesQueryFor: source
+				context: self contextModuleName
+				siblings: pageSrcs.
 			sites := [ (self application evaluateAndWait: query) asList ]
 				on: Error do: [ #() ].
 			cachedHash := hash.

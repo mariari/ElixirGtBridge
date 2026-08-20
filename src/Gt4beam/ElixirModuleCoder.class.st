@@ -299,10 +299,10 @@ ElixirModuleCoder >> contextModuleName [
 ]
 
 { #category : 'accessing' }
-ElixirModuleCoder >> pageAliasSource [
-	"Common interface with GtElixirCoderModel and ElixirFunctionCoder.
+ElixirModuleCoder >> pageAliasSources [
+	"Common interface with GtElixirCoderModel.
 	 Module editors have no Lepiter page context."
-	^ nil
+	^ #(  )
 ]
 
 { #category : 'accessing' }

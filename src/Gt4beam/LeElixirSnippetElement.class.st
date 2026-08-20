@@ -38,9 +38,9 @@ LeElixirSnippetElement >> onSnippetViewModelChanged [
 		viewPharoBindings: self snippetViewModel snippetBindings.
 	self snippetViewModel inspectorSelfObject ifNotNil: [ :obj |
 		self coderViewModel selfObject: obj ].
-	pageSrc := self siblingAliasSource.
+	pageSrc := self siblingSources.
 	contextMod := self pageContextModuleName.
-	self coder pageAliasSource: pageSrc.
+	self coder pageAliasSources: pageSrc.
 	contextMod ifNotNil: [ self coder contextModuleName: contextMod ].
 	"Force a re-style only when we injected context that the framework's
 	 initial style: call couldn't have used — otherwise the unconditional
@@ -74,27 +74,24 @@ LeElixirSnippetElement >> serverStrategy [
 ]
 
 { #category : 'private' }
-LeElixirSnippetElement >> siblingAliasSource [
-	"I concatenate every other Elixir snippet on my page so the
-	 styler's existing `extractAliasesFrom:` can pick up declarations
-	 introduced elsewhere on the page.  Snapshot at view-model-change
-	 time; editing a sibling later won't refresh me until I remount."
-	| page myself stream |
+LeElixirSnippetElement >> siblingSources [
+	"One string per sibling Elixir snippet, so each can be parsed on
+	 its own.  Snapshot at view-model-change time."
+	| page myself sources |
 	page := [ self snippet page ] on: Error do: [ nil ].
-	page ifNil: [ ^ '' ].
+	page ifNil: [ ^ #(  ) ].
 	myself := self snippet.
-	stream := WriteStream on: String new.
-	self collectSiblingSourcesIn: page children excluding: myself into: stream.
-	^ stream contents
+	sources := OrderedCollection new.
+	self collectSiblingSourcesIn: page children excluding: myself into: sources.
+	^ sources
 ]
 
 { #category : 'private' }
-LeElixirSnippetElement >> collectSiblingSourcesIn: snippets excluding: mySelf into: stream [
+LeElixirSnippetElement >> collectSiblingSourcesIn: snippets excluding: mySelf into: aCollection [
 	snippets do: [ :snippet |
 		(snippet ~~ mySelf and: [ snippet isKindOf: LeElixirSnippet ]) ifTrue: [
-			snippet string ifNotNil: [ :src |
-				stream nextPutAll: src; nextPut: Character lf ] ].
-		self collectSiblingSourcesIn: snippet children excluding: mySelf into: stream ]
+			snippet string ifNotNil: [ :src | aCollection add: src ] ].
+		self collectSiblingSourcesIn: snippet children excluding: mySelf into: aCollection ]
 ]
 
 { #category : 'accessing' }
