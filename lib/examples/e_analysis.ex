@@ -369,6 +369,16 @@ defmodule Examples.EAnalysis do
     sites
   end
 
+  # Examples.EAnalysis imports ExUnit.Assertions; the nested
+  # EnforcedStruct module is the live fixture for "Functions up to".
+  @spec module_imports_lists_explicit_imports() :: [String.t()]
+  example module_imports_lists_explicit_imports do
+    imports = Analysis.module_imports(Examples.EAnalysis)
+    assert "ExUnit.Assertions" in imports
+    assert imports == Enum.uniq(imports)
+    imports
+  end
+
   @spec call_sites_through_wrapped_directives() :: [map()]
   example call_sites_through_wrapped_directives do
     # The old regex directive scanners were line-based and went blind

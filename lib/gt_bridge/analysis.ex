@@ -33,6 +33,7 @@ defmodule GtBridge.Analysis do
   defdelegate call_sites(source, context_module \\ nil), to: CallSites
   defdelegate resolve_alias(context_module, alias_name), to: CallSites
   defdelegate module_aliases(mod), to: CallSites
+  defdelegate module_imports(mod), to: CallSites
   defdelegate function_in_module?(mod, name), to: CallSites
   defdelegate modules_loaded?(names), to: CallSites
 
