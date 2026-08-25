@@ -66,3 +66,23 @@ ElixirFunctionFilterExamples >> nameFilterHighlightAgreesWithMatch [
 		self assert: (source copyFrom: r first to: r last) asLowercase equals: 'get' ].
 	^ filter
 ]
+
+{ #category : 'examples' }
+ElixirFunctionFilterExamples >> visibilityFilterSeparatesExportedFromPrivate [
+	"Exported keeps def, defmacro and public types; Private keeps the
+	 p-suffixed kinds. All passes everything, like its Kind sibling."
+
+	<gtExample>
+	| exported private |
+	exported := ElixirVisibilityFilter forVisibility: 'Exported'.
+	private := ElixirVisibilityFilter forVisibility: 'Private'.
+	#('def' 'defmacro' 'type' 'opaque') do: [ :kind |
+		self assert: (exported matches: (self entryNamed: 'go' kind: kind source: '')).
+		self assert: (private matches: (self entryNamed: 'go' kind: kind source: '')) not ].
+	#('defp' 'defmacrop' 'typep') do: [ :kind |
+		self assert: (exported matches: (self entryNamed: 'go' kind: kind source: '')) not.
+		self assert: (private matches: (self entryNamed: 'go' kind: kind source: '')) ].
+	self assert: ((ElixirVisibilityFilter forVisibility: 'All')
+		matches: (self entryNamed: 'go' kind: 'defp' source: '')).
+	^ exported
+]
