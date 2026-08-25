@@ -7,7 +7,9 @@ Class {
 		'content',
 		'scopedApplicationName',
 		'filterText',
-		'rawNodes'
+		'rawNodes',
+		'focusedModuleName',
+		'treeElement'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -32,6 +34,16 @@ ElixirCoderBrowser class >> forApplicationAnalysis: anElixirApplicationAnalysis 
 	^ self new
 		scopedApplicationName: anElixirApplicationAnalysis name symbol;
 		application: anElixirApplicationAnalysis application;
+		yourself
+]
+
+{ #category : 'instance creation' }
+ElixirCoderBrowser class >> forApplication: anApp scopedTo: anAppName [
+	"A browser scoped to one application by name, without an analysis
+	 object in hand. Scope must land before application: builds the UI."
+	^ self new
+		scopedApplicationName: anAppName;
+		application: anApp;
 		yourself
 ]
 
@@ -198,6 +210,7 @@ ElixirCoderBrowser >> buildSidebarTree [
 			| result |
 			result := (node at: #module ifAbsent: [ nil ])
 				ifNotNil: [ :name |
+					focusedModuleName := name.
 					application evaluateAndWait:
 						'GtBridge.Documentation.for_module(', name, ')' ]
 				ifNil: [
@@ -209,6 +222,10 @@ ElixirCoderBrowser >> buildSidebarTree [
 	element constraintsDo: [ :c |
 		c horizontal matchParent.
 		c vertical matchParent ].
+	treeElement := nil.
+	element allChildrenBreadthFirstDo: [ :c |
+		(treeElement isNil and: [ c isKindOf: BrColumnedTree ])
+			ifTrue: [ treeElement := c ] ].
 	^ element
 ]
 
@@ -231,6 +248,48 @@ ElixirCoderBrowser >> buildUI [
 		text: 'Select a module from the sidebar').
 	self addChild: sidebar.
 	self addChild: content
+]
+
+{ #category : 'accessing' }
+ElixirCoderBrowser >> centerSidebarOnFocus [
+	"Scroll to and select the focused module's row; a programmatic
+	 selection does not fire the tree's send action."
+	focusedModuleName ifNil: [ ^ self ].
+	treeElement ifNil: [ ^ self ].
+	[ treeElement viewModel root allChildrenNodesBreadthFirstDo: [ :treeNode |
+		treeNode ensureChildrenNodes.
+		((treeNode value at: #module ifAbsent: [ nil ]) = focusedModuleName)
+			ifTrue: [
+				treeElement scrollToIndex: treeNode indexInTree.
+				treeElement selectOne: treeNode indexInTree.
+				^ self ] ] ]
+		on: Error do: [ :e |  ]
+]
+
+{ #category : 'accessing' }
+ElixirCoderBrowser >> focusedModuleName [
+	"The module my content pane last showed: seeded by my host, updated
+	 by tree clicks."
+	^ focusedModuleName
+]
+
+{ #category : 'accessing' }
+ElixirCoderBrowser >> focusModule: aModuleName [
+	"Open aModuleName in my content pane, as clicking its tree node
+	 would, and center the sidebar on it."
+	| doc |
+	self focusSidebarOn: aModuleName.
+	doc := [ application evaluateAndWait:
+		'GtBridge.Documentation.for_module(', aModuleName, ')' ]
+		on: Error do: [ nil ].
+	self openModule: doc
+]
+
+{ #category : 'accessing' }
+ElixirCoderBrowser >> focusSidebarOn: aModuleName [
+	"Center the sidebar tree on aModuleName, now and on later attach."
+	focusedModuleName := aModuleName.
+	self centerSidebarOnFocus
 ]
 
 { #category : 'as yet unclassified' }
@@ -322,7 +381,8 @@ ElixirCoderBrowser >> onAddedToSceneGraph [
 	BeamEventAnnouncer default weak
 		when: BeamModuleRecompiled
 		send: #onBeamModuleRecompiled:
-		to: self
+		to: self.
+	self enqueueTask: (BlTaskAction new action: [ self centerSidebarOnFocus ])
 ]
 
 { #category : 'announcements' }
@@ -358,6 +418,14 @@ ElixirCoderBrowser >> openModule: aDocObject [
 		asElementDo: [ :e | e matchParent ].
 	content removeChildren.
 	content addChild: element
+]
+
+{ #category : 'accessing' }
+ElixirCoderBrowser >> showContentElement: anElement [
+	"Host a live element in my content pane, keeping its state."
+	anElement removeFromParent.
+	content removeChildren.
+	content addChild: anElement
 ]
 
 { #category : 'as yet unclassified' }
