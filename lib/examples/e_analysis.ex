@@ -677,6 +677,25 @@ defmodule Examples.EAnalysis do
     end
   end
 
+  # A pipe's right side and a capture are calls without parens.
+  @spec call_sites_parenless_locals() :: [map()]
+  example call_sites_parenless_locals do
+    source = ~s'''
+    defmodule Example do
+      def run(a), do: a |> store
+      def ref, do: &fetch/2
+      defp store(a), do: a
+      defp fetch(a, b), do: a + b
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    # The defs below name themselves too, so match the use line.
+    assert Enum.any?(sites, &(&1.function == "store" and &1.arity == 1 and &1.line == 2))
+    assert Enum.any?(sites, &(&1.function == "fetch" and &1.arity == 2 and &1.line == 3))
+    sites
+  end
+
   # Siblings parse independently: a snippet with a syntax error loses
   # only its own aliases instead of blanking the page's |> expanders.
   @spec call_sites_survive_broken_sibling() :: [map()]
