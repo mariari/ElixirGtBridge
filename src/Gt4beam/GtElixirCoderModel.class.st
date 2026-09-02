@@ -137,6 +137,8 @@ GtElixirCoderModel >> initializeAddOns: addOns [
 		addStyler: (GtCoderAstSmaCCParserStyler new smaccStyler: ElixirParser gtStyler).
 	addOns
 		addStyler: ElixirFunctionExpanderStyler new.
+	addOns
+		addStyler: ElixirVariableOccurrenceStyler new.
 
 	elixirLinkApplicationStrategy
 		ifNotNil: [ addOns
