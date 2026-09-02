@@ -337,6 +337,12 @@ ElixirFunctionCoder >> moduleCoder [
 	^ moduleCoder
 ]
 
+{ #category : 'accessing' }
+ElixirFunctionCoder >> moduleCoder: anElixirModuleCoder [
+	"A draft can be retargeted at another module of the range before save."
+	moduleCoder := anElixirModuleCoder
+]
+
 { #category : 'as yet unclassified' }
 ElixirFunctionCoder >> moveBy: anOffset [
 	"Filter out macro-generated entries (start = 0) before indexing:

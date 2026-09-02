@@ -240,6 +240,18 @@ defmodule GtBridge.Analysis.CallSites do
     module_env(mod).aliases |> Enum.map(fn {short, full} -> [short, full] end)
   end
 
+  @doc """
+  I return the module names `mod` explicitly imports, sorted and distinct.
+
+  The "Functions up to" range lists a module's imports beside it, so
+  the GT side needs the importer-to-module relation without the
+  per-function detail `import_map/1` keeps for call resolution.
+  """
+  @spec module_imports(module()) :: [String.t()]
+  def module_imports(mod) do
+    module_env(mod).imports |> Map.values() |> Enum.uniq() |> Enum.sort()
+  end
+
   # I read the LoadedModules projection, not :application.get_key, so
   # modules created by a live recompile (a new file, or a nested module
   # from typedstruct module:) are enumerated instead of being frozen at

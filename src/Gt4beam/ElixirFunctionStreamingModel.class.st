@@ -2,7 +2,8 @@ Class {
 	#name : 'ElixirFunctionStreamingModel',
 	#superclass : 'GtFilteredCodersModel',
 	#instVars : [
-		'moduleCoder'
+		'moduleCoder',
+		'lastRange'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -28,9 +29,9 @@ ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 	 GtCoderSourceCodeChanged.  The coder is the single subscriber to
 	 the global per-module BeamEventAnnouncer; it primes its
 	 functionEntries cache from the announcement payload and republishes
-	 GtCoderSourceCodeChanged locally.  I read the freshly cached
-	 entries via `moduleCoder functionEntries` — no global subscription
-	 of my own, no second bridge call.
+	 GtCoderSourceCodeChanged locally.  Entries reach me through
+	 rangeEntries, reading each range coder's own entries — no
+	 global subscription of my own, no second bridge call.
 
 	 If reassigned to a different coder, drop the prior subscription
 	 first so I don't leak."
@@ -42,20 +43,59 @@ ElixirFunctionStreamingModel >> moduleCoder: anElixirModuleCoder [
 		to: self
 ]
 
+{ #category : 'range' }
+ElixirFunctionStreamingModel >> upToModuleName [
+	"The filter's choice, or my own module when no filter is active."
+	^ (self additionalFilters
+		detect: [ :f | f isKindOf: ElixirFunctionsUpToFilter ]
+		ifNone: [ nil ])
+		ifNil: [ moduleCoder moduleName ]
+		ifNotNil: [ :f | f upTo ]
+]
+
+{ #category : 'range' }
+ElixirFunctionStreamingModel >> rangeCoders [
+	"Own coder first. Each coder points back at me so substring
+	 highlighting finds the active filters through any row."
+	| coders |
+	coders := moduleCoder coderRangeUpTo: self upToModuleName.
+	coders do: [ :each | each functionStreamingModel: self ].
+	self announceRange: (coders collect: [ :each | each moduleName ]) asArray.
+	^ coders
+]
+
+{ #category : 'range' }
+ElixirFunctionStreamingModel >> rangeEntries [
+	^ Array streamContents: [ :s |
+		self rangeCoders do: [ :coder |
+			coder functionEntries do: [ :entry |
+				s nextPut: (ElixirRangeEntry entry: entry moduleCoder: coder) ] ] ]
+]
+
+{ #category : 'range' }
+ElixirFunctionStreamingModel >> announceRange: anArray [
+	lastRange = anArray ifTrue: [ ^ self ].
+	lastRange := anArray.
+	moduleCoder announce: (ElixirFunctionRangeChanged modules: anArray)
+]
+
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newCoderCacheKeyFor: anEntry [
-	"I cache by function name + arity."
-	^ (anEntry attributeAt: #name) asString, '/', (anEntry attributeAt: #arity) asString
+	"Module-qualified: the same name/arity can live in two modules of a range."
+	^ (anEntry attributeAt: #module) asString, '.',
+		(anEntry attributeAt: #name) asString, '/', (anEntry attributeAt: #arity) asString
 ]
 
 { #category : 'streaming' }
 ElixirFunctionStreamingModel >> newCoderFor: anEntry [
-	"I create an ElixirFunctionCoder for a function entry, 
-	 propagating selfObject so single-arity functions can Run with it."
-	| coder |
-	coder := ElixirFunctionCoder forEntry: anEntry moduleCoder: moduleCoder.
+	"A foreign entry's coder belongs to its own module coder, shows the
+	 crumb, and gets no list: Move only makes sense within one module."
+	| coder foreign |
+	foreign := anEntry isForeignTo: moduleCoder.
+	coder := ElixirFunctionCoder forEntry: anEntry moduleCoder: anEntry moduleCoder.
 	coder selfObject: moduleCoder selfObject.
-	coder list: self.
+	coder showsModuleInHeader: foreign.
+	foreign ifFalse: [ coder list: self ].
 	^ coder
 ]
 
@@ -63,7 +103,7 @@ ElixirFunctionStreamingModel >> newCoderFor: anEntry [
 ElixirFunctionStreamingModel >> newItemsStream [
 	"additionalFilters (not compositeFilter): the null main filter isn't a
 	 predicate, and entries keep all_functions/1 order via select:."
-	^ (moduleCoder functionEntries select: [ :e |
+	^ (self rangeEntries select: [ :e |
 		self additionalFilters allSatisfy: [ :f | f matches: e ] ]) asAsyncStream
 ]
 
@@ -84,12 +124,10 @@ ElixirFunctionStreamingModel >> refreshItemsStreamDueTo: aReason [
 
 { #category : 'as yet unclassified' }
 ElixirFunctionStreamingModel >> refreshStream [
-	"Drops cached entries whose key isn't in the fresh set —
-	 recovers from a transient `nil/nil` entry captured before
-	 the source cache primed."
+	"Drops cached coders whose key isn't in the fresh range."
 	| freshKeys |
 	freshKeys := Set new.
-	moduleCoder functionEntries do: [ :entry |
+	self rangeEntries do: [ :entry |
 		| key cached |
 		key := self newCoderCacheKeyFor: entry.
 		freshKeys add: key.

@@ -193,25 +193,9 @@ ElixirFunctionExpanderStyler >> initialize [
 
 { #category : 'private' }
 ElixirFunctionExpanderStyler >> learnClassificationsFor: resolvedNames on: resolution [
-	"Batch-classify any `resolvedNames` the cache hasn't seen via one
-	 bridge call; record each as resolved/unresolved so subsequent
-	 `classify:` calls answer locally."
-	| unknowns res resolved unresolved |
-	unknowns := resolvedNames select: [ :n |
-		(resolution classify: n) = #unknown ].
-	unknowns isEmpty ifTrue: [ ^ self ].
-	res := [ self application evaluateAndWait:
-		'GtBridge.Analysis.modules_loaded?(', (self listExprFor: unknowns), ')' ]
-		on: Error do: [ ^ self ].
-	res ifNil: [ ^ self ].
-	resolved := OrderedCollection new.
-	unresolved := OrderedCollection new.
-	unknowns do: [ :name |
-		| loaded |
-		loaded := [ res attributeAt: name ] on: Error do: [ nil ].
-		loaded == true ifTrue: [ resolved add: name ].
-		loaded == false ifTrue: [ unresolved add: name ] ].
-	resolution recordResolved: resolved unresolved: unresolved
+	"Batch-classify the names the cache hasn't seen, so later classify:
+	 calls answer locally."
+	resolution loadedAmong: resolvedNames using: self application
 ]
 
 { #category : 'private' }
@@ -227,17 +211,6 @@ ElixirFunctionExpanderStyler >> lineStartOffsetsFor: source [
 	source lineIndicesDo: [ :start :endWithoutDelimiters :endWithDelimiters |
 		starts add: start - 1 ].
 	^ starts asArray
-]
-
-{ #category : 'private' }
-ElixirFunctionExpanderStyler >> listExprFor: names [
-	"Render `names` as an Elixir list literal of double-quoted strings."
-	^ String streamContents: [ :s |
-		s nextPutAll: '['.
-		names asArray
-			do: [ :n | s nextPut: $"; nextPutAll: n; nextPut: $" ]
-			separatedBy: [ s nextPutAll: ', ' ].
-		s nextPutAll: ']' ]
 ]
 
 { #category : 'private' }

@@ -14,7 +14,10 @@ Class {
 		'saving',
 		'sourceCache',
 		'functionStreamingModel',
-		'interfaceFlags'
+		'interfaceFlags',
+		'relatedCoders',
+		'cachedImports',
+		'cachedImportsGeneration'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -43,6 +46,16 @@ ElixirModuleCoder class >> forModule: aModuleName application: anApp [
 		application: anApp;
 		sourcePath: ((path isKindOf: String) ifTrue: [ path ] ifFalse: [ nil ]);
 		yourself
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder class >> namespaceAncestorsOf: aString [
+	"Name prefixes of a dotted module name, nearest first."
+	| parts |
+	parts := aString substrings: '.'.
+	^ (parts size - 1 to: 1 by: -1) collect: [ :n |
+		(parts first: n) inject: '' into: [ :acc :each |
+			acc isEmpty ifTrue: [ each ] ifFalse: [ acc , '.' , each ] ] ]
 ]
 
 { #category : 'actions' }
@@ -111,7 +124,8 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 		padding: (BlInsets top: 3 left: 6 bottom: 3 right: 6);
 		addChild: (BrLabel new
 			aptitude: (BrGlamorousLabelAptitude new glamorousCodeFont; fontSize: 12);
-			text: 'New function');
+			text: 'New function in');
+		addChild: (self newTargetButtonFor: coder);
 		addChild: (BrFrame new hMatchParent vFitContent);
 		addChild: (BrButton new
 			aptitude: BrGlamorousButtonWithIconAptitude;
@@ -120,7 +134,7 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 			label: 'Cancel';
 			action: [ :btn |
 				draftPane removeFromParent.
-				self announcer unsubscribe: draftPane ]);
+				self writableRangeCoders do: [ :each | each announcer unsubscribe: draftPane ] ]);
 		yourself.
 	draftPane := BlElement new
 		layout: BlLinearLayout vertical;
@@ -132,13 +146,44 @@ ElixirModuleCoder >> buildAddFunctionDraftPaneIn: container afterRow: addRow [
 		addChild: header;
 		addChild: editor;
 		yourself.
-	self announcer
-		when: GtCoderSourceCodeChanged
-		do: [ :ann |
-			draftPane removeFromParent.
-			self announcer unsubscribe: draftPane ]
-		for: draftPane.
+	"Whichever range module the draft is saved into recompiles; any of them
+	 closing the pane is right, since the draft was appended somewhere."
+	self writableRangeCoders do: [ :target |
+		target announcer
+			when: GtCoderSourceCodeChanged
+			do: [ :ann |
+				draftPane removeFromParent.
+				self writableRangeCoders do: [ :each | each announcer unsubscribe: draftPane ] ]
+			for: draftPane ].
 	container addChild: draftPane at: 2
+]
+
+{ #category : 'private' }
+ElixirModuleCoder >> newTargetButtonFor: aDraftCoder [
+	"Dropdown over the writable range; picking retargets the draft."
+	| button |
+	button := BrButton new
+		aptitude: BrGlamorousButtonWithLabelAptitude;
+		beSmallSize;
+		label: aDraftCoder moduleCoder moduleName.
+	button addAptitude: (BrGlamorousWithDropdownAptitude
+		handle: [ BrButton new
+			aptitude: BrGlamorousButtonWithLabelAptitude;
+			beSmallSize;
+			label: aDraftCoder moduleCoder moduleName ]
+		content: [ BrVerticalPane new
+			fitContent;
+			margin: (BlInsets all: 5);
+			addChildren: (self writableRangeCoders collect: [ :target |
+				BrButton new
+					aptitude: BrGlamorousButtonWithLabelAptitude;
+					beSmallSize;
+					label: target moduleName;
+					action: [ :b |
+						aDraftCoder moduleCoder: target.
+						button label: target moduleName.
+						b fireEvent: BrDropdownHideWish new ] ]) ]).
+	^ button
 ]
 
 { #category : 'private' }
@@ -603,6 +648,80 @@ ElixirModuleCoder >> moduleName: aString [
 	 BeamModuleEntriesUpdated chain on the floor."
 	sourceCache := BeamModuleSourceCache for: moduleName.
 	self subscribeToEntries
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> existingNamespaceAncestors [
+	"The ancestors that are loaded modules, nearest first."
+	| ancestors loaded |
+	ancestors := self class namespaceAncestorsOf: moduleName.
+	loaded := BeamModuleResolution default loadedAmong: ancestors using: application.
+	^ ancestors select: [ :each | loaded includes: each ]
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> importedModuleNames [
+	"Names this module explicitly imports, cached until the next recompile."
+	| generation |
+	generation := BeamModuleResolution default generation.
+	(cachedImports notNil and: [ cachedImportsGeneration = generation ])
+		ifTrue: [ ^ cachedImports ].
+	cachedImportsGeneration := generation.
+	cachedImports := [
+		(application evaluateAndWait: 'GtBridge.Analysis.module_imports(', moduleName, ')')
+			asList collect: [ :each | each asString ] ]
+		on: Error do: [ #() ].
+	^ cachedImports
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> cachedImports: anArray [
+	"Seed the import cache; examples use me to avoid the bridge."
+	cachedImports := anArray.
+	cachedImportsGeneration := BeamModuleResolution default generation
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> relatedCoderFor: aModuleName [
+	"One coder per related module, kept so its source cache stays alive."
+	relatedCoders ifNil: [ relatedCoders := Dictionary new ].
+	^ relatedCoders
+		at: aModuleName
+		ifAbsentPut: [ self class forModule: aModuleName application: application ]
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> coderRangeUpTo: aModuleName [
+	"Me, then each ancestor up to aModuleName, each followed by its imports.
+	 The bare default — aModuleName is me — stays just me: imports join
+	 only when the view widens. First occurrence of a module wins."
+	| range seen add chain |
+	aModuleName = moduleName ifTrue: [ ^ OrderedCollection with: self ].
+	range := OrderedCollection new.
+	seen := Set new.
+	add := [ :coder |
+		(seen includes: coder moduleName) ifFalse: [
+			seen add: coder moduleName.
+			range add: coder ] ].
+	chain := OrderedCollection with: self.
+	self existingNamespaceAncestors
+		detect: [ :each | chain add: (self relatedCoderFor: each). each = aModuleName ]
+		ifNone: [  ].
+	chain do: [ :coder |
+		add value: coder.
+		coder importedModuleNames do: [ :each | add value: (self relatedCoderFor: each) ] ].
+	^ range
+]
+
+{ #category : 'namespace' }
+ElixirModuleCoder >> writableRangeCoders [
+	"Range coders a new function can be appended to: those with a local
+	 source file, me first."
+	| range |
+	range := functionStreamingModel
+		ifNil: [ OrderedCollection with: self ]
+		ifNotNil: [ :model | model rangeCoders ].
+	^ range select: [ :each | each hasLocalSource ]
 ]
 
 { #category : 'subscriptions' }
