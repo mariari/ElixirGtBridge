@@ -710,6 +710,25 @@ defmodule Examples.EAnalysis do
     sites
   end
 
+  # A trailing `defimpl` used to hide every def in the file.
+  @spec call_sites_local_beside_a_defimpl() :: [map()]
+  example call_sites_local_beside_a_defimpl do
+    source = ~s'''
+    defmodule Example do
+      def run(a), do: store(a)
+      defp store(a), do: a
+    end
+
+    defimpl Inspect, for: Example do
+      def inspect(_, _), do: "#Example<>"
+    end
+    '''
+
+    sites = Analysis.call_sites(source)
+    assert Enum.any?(sites, &(&1.function == "store" and &1.line == 2))
+    sites
+  end
+
   # Siblings parse independently: a snippet with a syntax error loses
   # only its own aliases instead of blanking the page's |> expanders.
   @spec call_sites_survive_broken_sibling() :: [map()]

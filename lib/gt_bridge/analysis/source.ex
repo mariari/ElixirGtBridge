@@ -516,6 +516,8 @@ defmodule GtBridge.Analysis.Source do
   end
 
   # The outer module's direct statements; anything else has none.
+  # A file with a second top-level form parses as a block.
+  defp outer_statements({:__block__, _, stmts}), do: Enum.flat_map(stmts, &outer_statements/1)
   defp outer_statements({:defmodule, _, [_, [do: body]]}), do: body_statements(body)
   defp outer_statements(_), do: []
 
