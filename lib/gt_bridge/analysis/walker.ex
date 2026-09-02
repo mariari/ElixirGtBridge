@@ -198,7 +198,8 @@ defmodule GtBridge.Analysis.Walker do
     [remote_entry(parts, fun, arity, meta) | acc]
   end
 
-  defp walk_calls({:/, _, [{fun, meta, []}, arity]}, acc, ctx)
+  # Only the enclosing `&` separates a local capture from a division.
+  defp walk_calls({:&, _, [{:/, _, [{fun, meta, nil}, arity]}]}, acc, ctx)
        when is_atom(fun) and is_integer(arity) and is_binary(ctx) do
     [local_entry(ctx, fun, arity, meta) | acc]
   end
@@ -247,6 +248,12 @@ defmodule GtBridge.Analysis.Walker do
        when is_atom(fun) and is_list(args) and is_binary(ctx) do
     acc = [local_entry(ctx, fun, length(args) + 1, meta) | acc]
     Enum.reduce(args, acc, fn n, a -> walk_calls(n, a, ctx) end)
+  end
+
+  # A pipe's right side is a call even when written without parens.
+  defp walk_pipe_target({fun, meta, nil}, acc, ctx)
+       when is_atom(fun) and is_binary(ctx) do
+    [local_entry(ctx, fun, 1, meta) | acc]
   end
 
   defp walk_pipe_target(node, acc, ctx), do: walk_calls(node, acc, ctx)
