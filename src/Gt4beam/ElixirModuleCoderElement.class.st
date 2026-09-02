@@ -4,7 +4,9 @@ Class {
 	#traits : 'TBrLayoutResizable',
 	#classTraits : 'TBrLayoutResizable classTrait',
 	#instVars : [
-		'coderViewModel'
+		'coderViewModel',
+		'coderPane',
+		'browserPane'
 	],
 	#category : 'Gt4beam-Coder',
 	#package : 'Gt4beam',
@@ -110,9 +112,124 @@ ElixirModuleCoderElement >> buildRemoveModuleButton [
 ]
 
 { #category : 'building' }
+ElixirModuleCoderElement >> beDetailedLevel [
+	self beLevelState: GtPhlowToolDetailState detailed
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> beLevelState: aGtPhlowToolDetailState [
+	self states addState: aGtPhlowToolDetailState.
+	self updateForLevel
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> beNormalLevel [
+	self beLevelState: GtPhlowToolDetailState normal
+]
+
+{ #category : 'building' }
 ElixirModuleCoderElement >> buildUI [
 	self removeChildren.
-	self addChild: self buildContentPane
+	browserPane := nil.
+	coderPane := self buildContentPane.
+	self addChild: coderPane
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> effectiveDetailLevel [
+	"My own level state wins; otherwise the nearest ancestor's, the way
+	 the maximizer marks the tool root rather than every descendant."
+	| el |
+	el := self.
+	[ el isNotNil ] whileTrue: [
+		el states
+			stateLike: GtPhlowToolDetailState normal
+			ifFound: [ :aState | ^ aState ]
+			ifNone: [  ].
+		el := el parent ].
+	^ GtPhlowToolDetailState normal
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> hasParent: aClass [
+	| el |
+	el := self parent.
+	[ el isNotNil ] whileTrue: [
+		(el isKindOf: aClass) ifTrue: [ ^ true ].
+		el := el parent ].
+	^ false
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> isDetailedLevel [
+	^ self effectiveDetailLevel = GtPhlowToolDetailState detailed
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> onAddedToSceneGraph [
+	"Maximize and restore both re-parent the tool subtree, so attach is
+	 the moment to re-read the effective level."
+	super onAddedToSceneGraph.
+	self updateForLevel
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> newBrowserPane [
+	"Scope the browser to my module's application when the BEAM can name
+	 it; fall back to the unscoped browser. Content is my own pane, so
+	 only the sidebar needs focusing."
+	| appName browser |
+	appName := [ (self coder application evaluateAndWait:
+		'Application.get_application(', self coder moduleName, ') |> Kernel.to_string()') asString ]
+		on: Error do: [ '' ].
+	browser := appName isEmpty
+		ifTrue: [ ElixirCoderBrowser forApplication: self coder application ]
+		ifFalse: [ ElixirCoderBrowser forApplication: self coder application scopedTo: appName ].
+	browser focusSidebarOn: self coder moduleName.
+	^ browser
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> showBrowserPane [
+	"The detailed level is the module browser hosting my live coder
+	 pane, so expanded rows and edits survive the flip.  Inside a
+	 browser I stay a plain coder: the browser embeds inspectors whose
+	 coders would otherwise recurse without end."
+	coderViewModel ifNil: [ ^ self ].
+	(self hasParent: ElixirCoderBrowser) ifTrue: [ ^ self showCoderPane ].
+	browserPane ifNil: [ browserPane := self newBrowserPane ].
+	browserPane showContentElement: coderPane.
+	browserPane parent ifNil: [ self addChild: browserPane ]
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> retargetTo: aModuleName [
+	"Follow the module chosen in the browser."
+	| app |
+	app := self coder application.
+	self coderViewModel: (ElixirModuleCoder forModule: aModuleName application: app) asCoderViewModel
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> showCoderPane [
+	"The normal level is the plain module coder, reclaimed from the
+	 browser — or rebuilt for the module chosen there."
+	browserPane ifNotNil: [ :pane |
+		pane removeFromParent.
+		(pane focusedModuleName isNotNil
+			and: [ pane focusedModuleName ~= self coder moduleName ])
+			ifTrue: [ ^ self retargetTo: pane focusedModuleName ] ].
+	coderPane ifNotNil: [ :pane |
+		pane parent == self ifFalse: [
+			pane removeFromParent.
+			self addChild: pane ] ]
+]
+
+{ #category : 'level' }
+ElixirModuleCoderElement >> updateForLevel [
+	self isDetailedLevel
+		ifTrue: [ self showBrowserPane ]
+		ifFalse: [ self showCoderPane ]
 ]
 
 { #category : 'accessing' }
