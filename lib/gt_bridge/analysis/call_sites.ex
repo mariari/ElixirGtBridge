@@ -12,31 +12,55 @@ defmodule GtBridge.Analysis.CallSites do
   Each result has `:target_module`, `:function`, `:arity`, `:line`,
   and `:column`. Only fully qualified and alias-resolved remote calls
   are returned.
+
+  Sibling sources (other snippets on the same Lepiter page) contribute
+  their `alias`/`import` directives and their function definitions,
+  each parsed on its own, so a snippet that does not parse costs only
+  its own contribution.
   """
-  @spec call_sites(String.t(), module() | nil) :: [map()]
-  def call_sites(source, context_module \\ nil) do
-    # Smalltalk text uses CR (\r, 0x0D) as line separator while
-    # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
-    # leaves the whole source on a single line as far as the
-    # tokenizer is concerned, so multi-line snippets returned []
-    # call sites and the editor showed no |> triangles.  Normalize
-    # all common variants to \n before hashing/parsing so
-    # semantically-equivalent sources cache to the same key.
-    source = source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
+  @spec call_sites(String.t(), module() | nil, [String.t()]) :: [map()]
+  def call_sites(source, context_module \\ nil, sibling_sources \\ []) do
+    source = normalize_line_endings(source)
+    siblings = Enum.map(sibling_sources, &normalize_line_endings/1)
 
     GtBridge.CacheReaper.cached(
-      {:call_sites, context_module, :erlang.phash2(source)},
-      fn -> compute_call_sites(source, context_module) end
+      {:call_sites, context_module, :erlang.phash2({source, siblings})},
+      fn -> compute_call_sites(source, context_module, siblings) end
     )
   end
 
-  defp compute_call_sites(source, context_module) do
+  # Smalltalk text uses CR (\r, 0x0D) as line separator while
+  # Code.string_to_quoted only recognizes \n (and \r\n) — lone \r
+  # leaves the whole source on a single line as far as the
+  # tokenizer is concerned, so multi-line snippets returned []
+  # call sites and the editor showed no |> triangles.  Normalize
+  # all common variants to \n before hashing/parsing so
+  # semantically-equivalent sources cache to the same key.
+  defp normalize_line_endings(source) do
+    source |> String.replace("\r\n", "\n") |> String.replace("\r", "\n")
+  end
+
+  defp compute_call_sites(source, context_module, siblings) do
     with {:ok, ast} <- GtBridge.Analysis.Source.quoted(source) do
       directives = GtBridge.Analysis.Source.directives(ast)
       env = if context_module, do: module_env(context_module), else: empty_env()
+      sibling_asts = Enum.flat_map(siblings, &parseable_ast/1)
 
-      aliases = Map.merge(env.aliases, GtBridge.Analysis.Walker.alias_map(directives))
-      imports = Map.merge(env.imports, GtBridge.Analysis.Walker.import_map(directives))
+      sibling_directives =
+        Enum.flat_map(sibling_asts, fn {_src, sibling_ast} ->
+          GtBridge.Analysis.Source.directives(sibling_ast)
+        end)
+
+      # Closest declaration wins: source > siblings > context module.
+      aliases =
+        env.aliases
+        |> Map.merge(GtBridge.Analysis.Walker.alias_map(sibling_directives))
+        |> Map.merge(GtBridge.Analysis.Walker.alias_map(directives))
+
+      imports =
+        env.imports
+        |> Map.merge(GtBridge.Analysis.Walker.import_map(sibling_directives))
+        |> Map.merge(GtBridge.Analysis.Walker.import_map(directives))
 
       calls =
         ast
@@ -56,9 +80,15 @@ defmodule GtBridge.Analysis.CallSites do
       # local set is keyed under whichever it used.
       local_key = context_str || ""
 
+      sibling_names =
+        Enum.reduce(sibling_asts, MapSet.new(), fn {src, sibling_ast}, acc ->
+          MapSet.union(acc, GtBridge.Analysis.Source.source_function_names(src, sibling_ast))
+        end)
+
       local_names =
-        MapSet.union(
-          GtBridge.Analysis.Source.source_function_names(source, ast),
+        GtBridge.Analysis.Source.source_function_names(source, ast)
+        |> MapSet.union(sibling_names)
+        |> MapSet.union(
           if(context_module,
             do: MapSet.union(exported_names(context_str), env.locals),
             else: MapSet.new()
@@ -76,6 +106,13 @@ defmodule GtBridge.Analysis.CallSites do
         MapSet.member?(names, site.function)
       end)
     else
+      _ -> []
+    end
+  end
+
+  defp parseable_ast(src) do
+    case GtBridge.Analysis.Source.quoted(src) do
+      {:ok, ast} -> [{src, ast}]
       _ -> []
     end
   end

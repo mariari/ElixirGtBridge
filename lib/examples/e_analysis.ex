@@ -666,4 +666,18 @@ defmodule Examples.EAnalysis do
       File.write!(src_path, original)
     end
   end
+
+  # Siblings parse independently: a snippet with a syntax error loses
+  # only its own aliases instead of blanking the page's |> expanders.
+  @spec call_sites_survive_broken_sibling() :: [map()]
+  example call_sites_survive_broken_sibling do
+    siblings = [
+      "alias GtBridge.Analysis",
+      "defmodule Broken do\n  maplist(split(n, band),\nend"
+    ]
+
+    sites = Analysis.call_sites("Analysis.module_graph(:gt_bridge)", nil, siblings)
+    assert Enum.any?(sites, &(&1.target_module == "GtBridge.Analysis"))
+    sites
+  end
 end
