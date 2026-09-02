@@ -91,6 +91,35 @@ BeamModuleResolution class >> reset [
 ]
 
 { #category : 'querying' }
+BeamModuleResolution >> loadedAmong: aCollection using: anApplication [
+	"The names that are loaded modules. Unknowns cost one batched bridge
+	 call, whose answer I record."
+	| names unknowns reply |
+	names := aCollection collect: [ :each | each asString ].
+	unknowns := names select: [ :each | (self classify: each) = #unknown ].
+	unknowns isEmpty ifFalse: [
+		reply := [ anApplication evaluateAndWait:
+			'GtBridge.Analysis.modules_loaded?(', (self listExprFor: unknowns), ')' ]
+			on: Error do: [ nil ].
+		reply ifNotNil: [
+			self
+				recordResolved: (unknowns select: [ :n | ([ reply attributeAt: n ] on: Error do: [ nil ]) == true ])
+				unresolved: (unknowns select: [ :n | ([ reply attributeAt: n ] on: Error do: [ nil ]) == false ]) ] ].
+	^ names select: [ :each | (self classify: each) = #resolved ]
+]
+
+{ #category : 'private' }
+BeamModuleResolution >> listExprFor: names [
+	"Render names as an Elixir list literal of double-quoted strings."
+	^ String streamContents: [ :s |
+		s nextPutAll: '['.
+		names asArray
+			do: [ :n | s nextPut: $"; nextPutAll: n; nextPut: $" ]
+			separatedBy: [ s nextPutAll: ', ' ].
+		s nextPutAll: ']' ]
+]
+
+{ #category : 'querying' }
 BeamModuleResolution >> classify: aModuleName [
 	"I return one of `#resolved`, `#unresolved`, or `#unknown` for
 	 `aModuleName` (a Smalltalk string of the dotted Elixir name).
