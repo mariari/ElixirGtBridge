@@ -1,4 +1,26 @@
 * Changelog
+** v0.20.0
+
+*** Bug Fixes
+- Expanders are no longer tired to the entire page parsing :: Before
+  ~|>~ expanders would not show up if there is a syntax error on a
+  previous snippit, it's now isolated.
+
+*** Additions
+
+- Variable occurrence highlighting :: an Elixir coder highlights the
+  other occurrences of the variable under the cursor.
+- Functions up to :: the Functions tab offers a dropdown over the
+  module's namespace ancestors, like Smalltalk's Methods up to.
+- Visibility filter :: the Functions tab filters for exported or
+  private functions.
+- Maximizing a module coder opens the module browser :: full screen
+  shows the ~ElixirCoderBrowser~ with the sidebar centered and
+  highlighted on the current module; restoring returns to the plain
+  coder, following the module swapped to in the browser.
+- ~GtBridge.Analysis.module_imports/1~ :: a module's explicit
+  imports, backing the Functions-up-to range.
+
 ** v0.19.4
 
 *** Bug Fixes
