@@ -1,4 +1,26 @@
 * Changelog
+** v0.20.1
+
+*** Bug Fixes
+
+- A file's defs survive a second top-level form :: a trailing
+  ~defimpl~ makes the file parse as a block, and the source reader
+  looked only inside a bare ~defmodule~ root, so every def in such a
+  file went unseen and its local calls lost their ~|>~ expanders.
+- Private locals resolve without readable source :: a module's own
+  names came from parsing its saved source, which a module compiled
+  on another machine has none of, so ~defp~ calls lost their
+  triangles while public calls beside them kept theirs.  They now
+  come from the beam's debug info.
+- Parenless local calls earn their expander :: ~x |> foo~ and
+  ~&foo/2~ produced no call site, though the remote ~x |> Enum.count~
+  and ~&Enum.count/1~ always did.
+
+*** Additions
+
+- ~GtBridge.Beam.defined_names/1~ :: every function a module defines,
+  private ones included.
+
 ** v0.20.0
 
 *** Bug Fixes
