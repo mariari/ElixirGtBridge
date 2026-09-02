@@ -9,6 +9,7 @@ defmodule GtBridge.Beam do
 
   ### Public API
 
+  - `defined_names/1`
   - `docs/1`
   - `info/2`
   - `runtime_stub/3`
@@ -59,6 +60,19 @@ defmodule GtBridge.Beam do
 
       _ ->
         %{}
+    end
+  end
+
+  @doc "I return every function `module` defines, private ones included."
+  @spec defined_names(module()) :: [String.t()]
+  def defined_names(module) do
+    with path when is_list(path) <- :code.which(module),
+         {:ok, {_, [abstract_code: {_, forms}]}} <-
+           :beam_lib.chunks(path, [:abstract_code]) do
+      for {:function, _, name, _arity, _} <- forms,
+          do: name |> Atom.to_string() |> String.replace_prefix("MACRO-", "")
+    else
+      _ -> []
     end
   end
 

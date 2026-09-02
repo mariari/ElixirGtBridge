@@ -677,6 +677,20 @@ defmodule Examples.EAnalysis do
     end
   end
 
+  # Private names come from the beam, so a `defp` resolves with no source.
+  @spec call_sites_private_local_from_beam() :: [map()]
+  example call_sites_private_local_from_beam do
+    exports = Enum.map(Enum.__info__(:functions), &(&1 |> elem(0) |> Atom.to_string()))
+
+    [private | _] =
+      (GtBridge.Beam.defined_names(Enum) -- exports)
+      |> Enum.reject(&String.starts_with?(&1, "__"))
+
+    sites = Analysis.call_sites("def f(a, b, c), do: #{private}(a, b, c)", Enum)
+    assert Enum.any?(sites, &(&1.function == private))
+    sites
+  end
+
   # Siblings parse independently: a snippet with a syntax error loses
   # only its own aliases instead of blanking the page's |> expanders.
   @spec call_sites_survive_broken_sibling() :: [map()]
