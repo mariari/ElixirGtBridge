@@ -195,12 +195,14 @@ defmodule GtBridge.Analysis.CallSites do
     GtBridge.Analysis.all_functions(mod) |> Enum.any?(&(&1.name == name))
   end
 
-  # One md5-cached parse of the module's saved source answers the trio
-  # every resolution needs: its alias map, import map, and own def/type
-  # names (parsing is ~3ms; the key self-invalidates on recompile).
+  # One md5-cached read answers the trio every resolution needs: the
+  # module's alias map, import map, and own def names.  The names come
+  # from the beam, so a module with no readable source still resolves.
   defp module_env(mod) do
     cached_by_md5(:module_env, mod, fn ->
-      GtBridge.Resolve.with_source(mod, empty_env(), fn src ->
+      base = %{empty_env() | locals: MapSet.new(GtBridge.Beam.defined_names(mod))}
+
+      GtBridge.Resolve.with_source(mod, base, fn src ->
         case GtBridge.Analysis.Source.quoted(src) do
           {:ok, ast} ->
             directives = GtBridge.Analysis.Source.directives(ast, inspect(mod))
@@ -208,11 +210,15 @@ defmodule GtBridge.Analysis.CallSites do
             %{
               aliases: GtBridge.Analysis.Walker.alias_map(directives),
               imports: GtBridge.Analysis.Walker.import_map(directives),
-              locals: GtBridge.Analysis.Source.source_function_names(src, ast)
+              locals:
+                MapSet.union(
+                  base.locals,
+                  GtBridge.Analysis.Source.source_function_names(src, ast)
+                )
             }
 
           _ ->
-            empty_env()
+            base
         end
       end)
     end)
