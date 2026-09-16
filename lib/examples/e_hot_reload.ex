@@ -257,8 +257,10 @@ defmodule Examples.EHotReload do
                      },
                      15_000
 
-      :sys.get_state(GtBridge.Analysis.LoadedModules)
-      refute GtBridge.Analysis.LoadedModules.loaded?("HotReloadTest.Doomed")
+      assert wait_until(fn ->
+               not GtBridge.Analysis.LoadedModules.loaded?("HotReloadTest.Doomed")
+             end)
+
       refute :code.is_loaded(HotReloadTest.Doomed)
 
       GtBridge.Analysis.LoadedModules.all_names()
@@ -304,6 +306,61 @@ defmodule Examples.EHotReload do
       observe.()
     after
       GtBridge.HotReload.reload(path, original)
+    end
+  end
+
+  @doc """
+  I prove a module whose source vanished outside the bridge is retracted
+  on the next recompile instead of lingering as a ghost.
+  """
+  @spec external_delete_announced_on_recompile() :: String.t()
+  example external_delete_announced_on_recompile do
+    {path, original} = source_for(HotReloadTest)
+    fresh_path = "lib/examples/hot_reload_external_delete.ex"
+    EventBroker.subscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+
+    try do
+      File.write!(fresh_path, "defmodule HotReloadExternalDelete do\n  def here, do: :yes\nend\n")
+      GtBridge.HotReload.reload(path, original)
+      GtBridge.Analysis.LoadedModules.sync()
+      assert GtBridge.Analysis.LoadedModules.loaded?("HotReloadExternalDelete")
+
+      File.rm!(fresh_path)
+      GtBridge.HotReload.reload(path, original)
+
+      assert_receive %EventBroker.Event{
+                       body: %GtBridge.Events.ModuleEvent{
+                         kind: :source_removed,
+                         mod: HotReloadExternalDelete
+                       }
+                     },
+                     15_000
+
+      assert wait_until(fn ->
+               not GtBridge.Analysis.LoadedModules.loaded?("HotReloadExternalDelete")
+             end)
+
+      "HotReloadExternalDelete"
+    after
+      EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
+      File.rm(fresh_path)
+      GtBridge.HotReload.purge_module(HotReloadExternalDelete)
+      GtBridge.HotReload.reload(path, original)
+    end
+  end
+
+  # EventBroker fans out in no fixed order; my copy can beat the projection's.
+  defp wait_until(check, tries \\ 200) do
+    cond do
+      check.() ->
+        true
+
+      tries == 0 ->
+        false
+
+      true ->
+        Process.sleep(10)
+        wait_until(check, tries - 1)
     end
   end
 

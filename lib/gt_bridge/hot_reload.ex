@@ -206,16 +206,20 @@ defmodule GtBridge.HotReload do
 
   # Mix's failed retry purges the module being compiled and may delete
   # its .beam.  Snapshot bytecode in memory before, restore via
-  # load_binary after.
+  # load_binary on failure only: a successful compile that dropped a
+  # module did so because its source is gone.
   defp recompile_preserving_modules do
     snapshot = snapshot_project_modules()
 
     try do
       recompile_or_throw()
-    after
-      for {m, file, beam} <- snapshot, :code.is_loaded(m) == false do
-        :code.load_binary(m, file, beam)
-      end
+    catch
+      kind, reason ->
+        for {m, file, beam} <- snapshot, :code.is_loaded(m) == false do
+          :code.load_binary(m, file, beam)
+        end
+
+        :erlang.raise(kind, reason, __STACKTRACE__)
     end
   end
 
@@ -476,12 +480,6 @@ defmodule GtBridge.HotReload do
 
     :code.purge(mod)
     :code.delete(mod)
-
-    GtBridge.Events.broadcast(%GtBridge.Events.ModuleEvent{
-      kind: :source_removed,
-      mod: mod
-    })
-
     :ok
   end
 
