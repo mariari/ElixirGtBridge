@@ -100,14 +100,37 @@ BeamLinkTcpMessageBroker >> sendSyncMessage: msg [
 ]
 
 { #category : 'reading' }
+BeamLinkTcpMessageBroker >> readBufferSize [
+	^ 64 * 1024
+]
+
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> drainStream: aStream [
+	"Dispatch what is complete, carry the remainder into a fresh stream."
+	| rest new |
+	rest := self drainFrames: aStream contents.
+	new := WriteStream on: (ByteArray new: (rest size max: self readBufferSize)).
+	new nextPutAll: rest.
+	^ new
+]
+
+{ #category : 'reading' }
+BeamLinkTcpMessageBroker >> hasWholeFrameIn: aStream [
+	"Is a whole frame buffered? Peeking avoids copying the accumulation."
+	aStream position < 4 ifTrue: [ ^ false ].
+	^ aStream position >= (4 + (self frameLenOf: aStream originalContents))
+]
+
+{ #category : 'reading' }
 BeamLinkTcpMessageBroker >> readLoop [
 	"Accumulate bytes and pull whole frames out, matching the read pattern
 	 the SSE reader proved reliable in this image.  A frame is a 4-byte
 	 big-endian length followed by that many JSON bytes.  Requests and
 	 events share this stream: a frame with a `type` is a reply that
-	 resolves its promise, one with a `kind` is a module event."
-	| buffer |
-	buffer := ByteArray new.
+	 resolves its promise, one with a `kind` is a module event.
+	 Bytes accumulate in a WriteStream; concatenating per read is O(n^2)."
+	| acc |
+	acc := WriteStream on: (ByteArray new: self readBufferSize).
 	[ running ] whileTrue: [
 		[ | data |
 		  data := [ (socket notNil and: [ socket isConnected ])
@@ -117,7 +140,9 @@ BeamLinkTcpMessageBroker >> readLoop [
 				do: [ :e | e class = ConnectionClosed ifTrue: [ running := false ]. '' ].
 		  data isEmpty
 			ifTrue: [ (Delay forMilliseconds: 50) wait ]
-			ifFalse: [ buffer := self drainFrames: buffer , data asByteArray ] ]
+			ifFalse: [
+				acc nextPutAll: data asByteArray.
+				(self hasWholeFrameIn: acc) ifTrue: [ acc := self drainStream: acc ] ] ]
 			on: Error do: [ :e | self debugMode ifTrue: [ e pass ] ] ]
 ]
 
