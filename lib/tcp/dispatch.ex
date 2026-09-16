@@ -53,9 +53,11 @@ defmodule Tcp.Dispatch do
   #                   Private Implementation                 #
   ############################################################
 
-  defp answer(request, value_json) do
-    %{type: "EVAL", id: request["commandId"], value: value_json}
+  defp answer(%{"commandId" => id}, value_json) when not is_nil(id) do
+    %{type: "EVAL", id: id, value: value_json}
   end
+
+  defp answer(_request, _value_json), do: :no_reply
 
   defp resolve_eval(request) do
     EvalRegistry.get_or_create(request["sessionId"] || "default", port: nil)
