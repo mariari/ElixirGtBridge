@@ -199,10 +199,14 @@ BeamProxyObject >> gtViewsForRemoteSideInContext: aContext [
 	"I collect views for the Remote tab: local views tagged
 	 <gtBeamView> (BEAM data views only, no generic GT views
 	 like Raw/Print/Meta), plus any server-side view declarations
-	 registered via GtBridge.GtViewedObject on the remote object."
+	 registered via GtBridge.GtViewedObject on the remote object.
+	 Collecting by pragma avoids building views that would be discarded."
 	| localBeamViews collectedViews |
-	localBeamViews := (super gtViewsInContext: aContext) select: [ :each |
-		each definingMethod compiledMethod hasPragmaNamed: #gtBeamView ].
+	localBeamViews := GtPhlowViewsCollector new
+		fromObject: self;
+		context: aContext;
+		pragmaName: #gtBeamView;
+		collect.
 	collectedViews := OrderedCollection new
 		addAll: localBeamViews;
 		addAll: (self remoteViewsInContext: aContext);
