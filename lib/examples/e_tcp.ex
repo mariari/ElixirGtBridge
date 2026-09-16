@@ -103,4 +103,38 @@ defmodule Examples.ETcp do
     assert bytes == 400_002
     bytes
   end
+
+  @doc """
+  I prove a request without a `commandId` draws no reply frame.  GT
+  matches a reply to a pending promise by id, so a null id can never be
+  matched and would sit at the head of its reader forever.
+  """
+  @spec no_command_id_gets_no_reply() :: [map()]
+  example no_command_id_gets_no_reply do
+    %{socket: socket} = connect()
+
+    :gen_tcp.send(socket, Jason.encode!(%{type: "IS_ALIVE"}))
+
+    :gen_tcp.send(
+      socket,
+      Jason.encode!(%{type: "ENQUEUE", commandId: "after", statements: "1 + 1", bindings: %{}})
+    )
+
+    collect = fn collect, acc ->
+      {:ok, raw} = :gen_tcp.recv(socket, 0, 15_000)
+      frame = Jason.decode!(raw)
+
+      if frame["id"] == "after",
+        do: Enum.reverse([frame | acc]),
+        else: collect.(collect, [frame | acc])
+    end
+
+    frames = collect.(collect, [])
+
+    # Event frames share this socket; only replies carry `type`.
+    refute Enum.any?(frames, &(Map.has_key?(&1, "type") and &1["id"] == nil))
+    assert List.last(frames)["value"] == "2"
+
+    frames
+  end
 end
