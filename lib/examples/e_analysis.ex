@@ -489,4 +489,25 @@ defmodule Examples.EAnalysis do
 
     by_kind
   end
+
+  @doc """
+  I prove a burst of `sync_async/0` casts costs one scan, not one per
+  cast: a full `do_sync` per eval is what backed the node up.
+  """
+  @spec sync_casts_coalesce() :: non_neg_integer()
+  example sync_casts_coalesce do
+    mfa = {GtBridge.Analysis.LoadedModules, :do_sync, 0}
+    :erlang.trace_pattern(mfa, true, [:local, :call_count])
+
+    for _ <- 1..50, do: GtBridge.Analysis.LoadedModules.sync_async()
+    GtBridge.Analysis.LoadedModules.sync()
+
+    {:call_count, scans} = :erlang.trace_info(mfa, :call_count)
+    :erlang.trace_pattern(mfa, false, [:local, :call_count])
+
+    # The first cast can be taken before the rest of the burst lands, so
+    # a burst costs at most two scans, plus one for the closing call.
+    assert scans <= 3
+    scans
+  end
 end
