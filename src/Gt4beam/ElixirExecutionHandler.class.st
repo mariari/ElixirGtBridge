@@ -66,7 +66,7 @@ ElixirExecutionHandler >> registerObject: aProxyObject [
 	"Don't register the object. Gets a new proxy every time"
 	weakRegistry 
 		registerObject: aProxyObject 
-		finalizer: (LanguageLinkRegistryFinalizer 
+		finalizer: (BeamProxyRegistryFinalizer 
 							variable: aProxyObject elixirVar
 							executionHandler: self)
 ]
@@ -74,6 +74,16 @@ ElixirExecutionHandler >> registerObject: aProxyObject [
 { #category : 'as yet unclassified' }
 ElixirExecutionHandler >> removeId: aRemoteProxyId [
 	^ 'GtBridge.Eval.remove(' , aRemoteProxyId asString , ')'
+]
+
+{ #category : 'as yet unclassified' }
+ElixirExecutionHandler >> removeIds: aCollection [
+	^ String streamContents: [ :s |
+		s nextPutAll: 'GtBridge.ObjectRegistry.remove_all(['.
+		aCollection
+			do: [ :each | s nextPutAll: each asString ]
+			separatedBy: [ s nextPutAll: ', ' ].
+		s nextPutAll: '])' ]
 ]
 
 { #category : 'requesting' }
