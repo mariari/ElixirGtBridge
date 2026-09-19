@@ -137,6 +137,7 @@ defmodule GtBridge.Analysis.LoadedModules do
 
   @impl true
   def handle_cast(:sync, state) do
+    drain_queued_syncs()
     do_sync()
     {:noreply, state}
   end
@@ -192,6 +193,16 @@ defmodule GtBridge.Analysis.LoadedModules do
         {:ok, mods} <- [:application.get_key(app, :modules)],
         mod <- mods,
         do: {inspect(mod), mod, app}
+  end
+
+  # A burst of evals casts one :sync each; the first scan sees them all.
+  @spec drain_queued_syncs() :: :ok
+  defp drain_queued_syncs do
+    receive do
+      {:"$gen_cast", :sync} -> drain_queued_syncs()
+    after
+      0 -> :ok
+    end
   end
 
   # I record the missed modules directly (so back-to-back syncs don't
