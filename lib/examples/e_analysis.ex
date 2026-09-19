@@ -322,10 +322,8 @@ defmodule Examples.EAnalysis do
 
   @doc """
   I delete a module out-of-band (bare `:code.delete`, not the bridge's
-  purge) and verify full reconciliation retracts it as a
-  `:source_removed` fact. Not loaded alone is not enough (the BEAM
-  loads lazily); gone means not vouched for by any app spec and not
-  loadable either. Returns the reconciliation diff.
+  purge) and verify it is retracted as a `:source_removed` fact as it
+  happens, leaving full reconciliation nothing to do.
   """
   @spec out_of_band_removal_retracted() :: %{added: [String.t()], removed: [String.t()]}
   example out_of_band_removal_retracted do
@@ -338,17 +336,16 @@ defmodule Examples.EAnalysis do
     try do
       :code.purge(mod)
       :code.delete(mod)
-      assert Analysis.LoadedModules.loaded?("OutOfBandProbe")
-
-      diff = Analysis.LoadedModules.full_sync()
-      assert "OutOfBandProbe" in diff.removed
 
       assert_receive %EventBroker.Event{
                        body: %GtBridge.Events.ModuleEvent{kind: :source_removed, mod: ^mod}
                      },
                      5_000
 
-      refute Analysis.LoadedModules.loaded?("OutOfBandProbe")
+      assert wait_until(fn -> not Analysis.LoadedModules.loaded?("OutOfBandProbe") end)
+
+      diff = Analysis.LoadedModules.full_sync()
+      assert diff.removed == []
       diff
     after
       EventBroker.unsubscribe_me([%GtBridge.Events.AnyModuleEvent{}])
@@ -643,6 +640,21 @@ defmodule Examples.EAnalysis do
     assert {p.module, p.arity, p.kind} == {"Examples.EAnalysis", 2, "defp"}
 
     entry
+  end
+
+  # EventBroker fans out in no fixed order; my copy can beat the projection's.
+  defp wait_until(check, tries \\ 200) do
+    cond do
+      check.() ->
+        true
+
+      tries == 0 ->
+        false
+
+      true ->
+        Process.sleep(10)
+        wait_until(check, tries - 1)
+    end
   end
 
   defp priv_default(a, b \\ :x), do: {a, b}

@@ -34,6 +34,8 @@ defmodule GtBridge.Eval do
     )
   end
 
+  @typep imports() :: [{module(), [Macro.Env.name_arity()]}]
+
   def start_link(init_args) do
     name = Keyword.get(init_args, :name, nil)
     GenServer.start_link(__MODULE__, init_args, name: name)
@@ -380,7 +382,7 @@ defmodule GtBridge.Eval do
 
   # Bindings merge, so the env has to as well: two evals in flight both
   # start from my env and each answers with its own, and assigning the
-  # last one to arrive drops the other's aliases.  Only these three
+  # last one to arrive drops the other's aliases.  Only these four
   # fields can differ between envs grown from the same one.
   @spec merge_env(Macro.Env.t(), Macro.Env.t()) :: Macro.Env.t()
   defp merge_env(old, new) do
@@ -388,9 +390,14 @@ defmodule GtBridge.Eval do
       old
       | aliases: Keyword.merge(old.aliases, new.aliases),
         requires: Enum.uniq(old.requires ++ new.requires),
-        functions:
-          Keyword.merge(old.functions, new.functions, fn _m, a, b -> Enum.uniq(a ++ b) end)
+        functions: merge_imports(old.functions, new.functions),
+        macros: merge_imports(old.macros, new.macros)
     }
+  end
+
+  @spec merge_imports(imports(), imports()) :: imports()
+  defp merge_imports(old, new) do
+    Keyword.merge(old, new, fn _m, a, b -> Enum.uniq(a ++ b) end)
   end
 
   @spec track([non_neg_integer()], t()) :: t()

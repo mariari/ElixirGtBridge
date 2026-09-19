@@ -215,4 +215,19 @@ defmodule Examples.EEval do
 
     :ok
   end
+
+  @doc """
+  I prove `use Foo` at the top of a page carries down the rest of it:
+  an import survives the snippet, macros as well as functions.
+  """
+  @spec imports_outlive_their_snippet() :: pid()
+  example imports_outlive_their_snippet do
+    pid = new_eval()
+    Eval.eval(pid, "import Integer", nil)
+
+    assert Eval.eval(pid, "gcd(12, 8)", nil) == 4
+    assert Eval.eval(pid, "is_even(2)", nil) == true
+
+    pid
+  end
 end
