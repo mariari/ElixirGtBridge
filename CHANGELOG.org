@@ -1,4 +1,17 @@
 * Changelog
+** v0.20.2
+
+*** Bug Fixes
+
+- ~use~ carries down the page :: macros it imports work in later snippets.
+- Completion stops popping up on newlines, spaces and brackets.
+- Evals no longer freeze after reconnecting or cancelling.
+- Large results arrive without stalling the image.
+- Big views no longer slow down whatever you do next.
+- Remote views open faster.
+- The node stays responsive after a large view.
+- Modules deleted outside GT disappear from the module list.
+
 ** v0.20.1
 
 *** Bug Fixes
