@@ -49,13 +49,22 @@ BeamLinkTcpMessageBroker >> dispatchFrame: dict [
 ]
 
 { #category : 'reading' }
+BeamLinkTcpMessageBroker >> dispatchFrameBytes: aByteArray [
+	"A reply with no pending command is normal: a handshake, a cancelled
+	 eval, a late answer.  Consuming it keeps it from blocking the frames
+	 behind it forever."
+	[ self dispatchFrame: (self serializer deserialize: aByteArray utf8Decoded) ]
+		on: KeyNotFound do: [ :e | nil ]
+]
+
+{ #category : 'reading' }
 BeamLinkTcpMessageBroker >> drainFrames: aBuffer [
 	"Dispatch every complete frame in aBuffer, return the remainder."
 	| buf len |
 	buf := aBuffer.
 	[ buf size >= 4 and: [ buf size >= (4 + (self frameLenOf: buf)) ] ] whileTrue: [
 		len := self frameLenOf: buf.
-		self dispatchFrame: (self serializer deserialize: (buf copyFrom: 5 to: 4 + len) utf8Decoded).
+		self dispatchFrameBytes: (buf copyFrom: 5 to: 4 + len).
 		buf := buf copyFrom: 5 + len to: buf size ].
 	^ buf
 ]
