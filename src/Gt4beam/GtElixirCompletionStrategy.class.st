@@ -113,13 +113,18 @@ GtElixirCompletionStrategy >> fetchCompletionsFor: aString [
 ]
 
 { #category : 'testing' }
-GtElixirCompletionStrategy >> hasCompletionEntryFor: aString [
-	^ aString size >= 2
+GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
+	| char |
+	(anInteger < 1 or: [ anInteger > aText size ]) ifTrue: [ ^ false ].
+	char := aText at: anInteger.
+	^ (self isCompletionCharacter: char)
+		or: [ char = ${ and: [ self opensStructAt: anInteger in: aText ] ]
 ]
 
 { #category : 'testing' }
-GtElixirCompletionStrategy >> hasCompletionsAt: anInteger in: aText [
-	^ true
+GtElixirCompletionStrategy >> isCompletionCharacter: aCharacter [
+	^ aCharacter isLetter
+		or: [ aCharacter isDigit or: [ aCharacter = $_ or: [ aCharacter = $. ] ] ]
 ]
 
 { #category : 'testing' }
@@ -138,6 +143,15 @@ GtElixirCompletionStrategy >> labelFor: aString withSearch: searchString [
 			thickness: 3;
 			underline }.
 	^ text
+]
+
+{ #category : 'testing' }
+GtElixirCompletionStrategy >> opensStructAt: anInteger in: aText [
+	| index |
+	index := anInteger - 1.
+	[ index >= 1 and: [ self isCompletionCharacter: (aText at: index) ] ]
+		whileTrue: [ index := index - 1 ].
+	^ index >= 1 and: [ (aText at: index) = $% ]
 ]
 
 { #category : 'accessing' }
